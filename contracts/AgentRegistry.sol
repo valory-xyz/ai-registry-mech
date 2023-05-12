@@ -7,23 +7,23 @@ import {ERC721} from "../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
 /// @param owner Required sender address as an owner.
-/// @param unitId Unit Id.
-error OperatorOnly(address sender, address owner, uint256 unitId);
+/// @param agentId Agent Id.
+error OperatorOnly(address sender, address owner, uint256 agentId);
 
-/// @dev Unit does not exist.
-/// @param unitId Unit Id.
-error UnitNotFound(uint256 unitId);
+/// @dev Agent does not exist.
+/// @param agentId Agent Id.
+error AgentNotFound(uint256 agentId);
 
 /// @title Agent Registry - Smart contract for registering agents
 contract AgentRegistry is GenericRegistry {
-    event CreateUnit(uint256 indexed unitId, bytes32 unitHash);
-    event UpdateUnitHash(uint256 indexed unitId, bytes32 unitHash);
+    event CreateAgent(uint256 indexed agentId, bytes32 agentHash);
+    event UpdateAgentHash(uint256 indexed agentId, bytes32 agentHash);
 
     // Agent registry version number
     string public constant VERSION = "1.0.0";
 
-    // Map of unit Id => set of updated IPFS hashes
-    mapping(uint256 => bytes32[]) public mapUnitIdHashes;
+    // Map of agent Id => set of updated IPFS hashes
+    mapping(uint256 => bytes32[]) public mapAgentIdHashes;
 
     /// @dev Agent registry constructor.
     /// @param _name Agent registry contract name.
@@ -36,94 +36,94 @@ contract AgentRegistry is GenericRegistry {
         owner = msg.sender;
     }
 
-    /// @dev Creates a unit.
-    /// @param unitOwner Owner of the unit.
-    /// @param unitHash IPFS CID hash of the unit metadata.
-    /// @return unitId The id of a minted unit.
-    function create(address unitOwner, bytes32 unitHash) external returns (uint256 unitId) {
+    /// @dev Creates a agent.
+    /// @param agentOwner Owner of the agent.
+    /// @param agentHash IPFS CID hash of the agent metadata.
+    /// @return agentId The id of a minted agent.
+    function create(address agentOwner, bytes32 agentHash) external returns (uint256 agentId) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        // Check for the manager privilege for a unit creation
+        // Check for the manager privilege for a agent creation
         if (manager != msg.sender) {
             revert ManagerOnly(msg.sender, manager);
         }
 
         // Checks for a non-zero owner address
-        if(unitOwner == address(0)) {
+        if(agentOwner == address(0)) {
             revert ZeroAddress();
         }
 
         // Check for the non-zero hash value
-        if (unitHash == 0) {
+        if (agentHash == 0) {
             revert ZeroValue();
         }
 
-        // Unit Id is derived from the totalSupply value
-        unitId = totalSupply;
-        // Unit with Id = 0 is left empty not to do additional checks for the index zero
-        unitId++;
+        // Agent Id is derived from the totalSupply value
+        agentId = totalSupply;
+        // Agent with Id = 0 is left empty not to do additional checks for the index zero
+        agentId++;
 
-        // Initialize the unit and mint its token
-        mapUnitIdHashes[unitId].push(unitHash);
+        // Initialize the agent and mint its token
+        mapAgentIdHashes[agentId].push(agentHash);
 
-        // Set total supply to the unit Id number
-        totalSupply = unitId;
-        // Safe mint is needed since contracts can create units as well
-        _safeMint(unitOwner, unitId);
+        // Set total supply to the agent Id number
+        totalSupply = agentId;
+        // Safe mint is needed since contracts can create agents as well
+        _safeMint(agentOwner, agentId);
 
-        emit CreateUnit(unitId, unitHash);
+        emit CreateAgent(agentId, agentHash);
         _locked = 1;
     }
 
-    /// @dev Updates the unit hash.
-    /// @param unitId Unit Id.
-    /// @param unitHash Updated IPFS CID hash of the unit metadata.
+    /// @dev Updates the agent hash.
+    /// @param agentId Agent Id.
+    /// @param agentHash Updated IPFS CID hash of the agent metadata.
     /// @return success True, if function executed successfully.
-    function updateHash(uint256 unitId, bytes32 unitHash) external returns (bool success) {
-        // Checking the unit ownership
-        address operator = ownerOf(unitId);
+    function updateHash(uint256 agentId, bytes32 agentHash) external returns (bool success) {
+        // Checking the agent ownership
+        address operator = ownerOf(agentId);
         if (operator != msg.sender) {
-            revert OperatorOnly(operator, msg.sender, unitId);
+            revert OperatorOnly(operator, msg.sender, agentId);
         }
 
         // Check for the hash value
-        if (unitHash == 0) {
+        if (agentHash == 0) {
             revert ZeroValue();
         }
 
-        mapUnitIdHashes[unitId].push(unitHash);
+        mapAgentIdHashes[agentId].push(agentHash);
         success = true;
 
-        emit UpdateUnitHash(unitId, unitHash);
+        emit UpdateAgentHash(agentId, agentHash);
     }
 
-    /// @dev Gets unit hashes.
-    /// @param unitId Unit Id.
+    /// @dev Gets agent hashes.
+    /// @param agentId Agent Id.
     /// @return numHashes Number of hashes.
-    /// @return unitHashes The list of unit hashes.
-    function getHashes(uint256 unitId) external view returns (uint256 numHashes, bytes32[] memory unitHashes) {
-        if (unitId > 0 && unitId <= totalSupply) {
-            unitHashes = mapUnitIdHashes[unitId];
+    /// @return agentHashes The list of agent hashes.
+    function getHashes(uint256 agentId) external view returns (uint256 numHashes, bytes32[] memory agentHashes) {
+        if (agentId > 0 && agentId <= totalSupply) {
+            agentHashes = mapAgentIdHashes[agentId];
         } else {
-            revert UnitNotFound(unitId);
+            revert AgentNotFound(agentId);
         }
 
-        return (unitHashes.length, unitHashes);
+        return (agentHashes.length, agentHashes);
     }
 
-    /// @dev Gets the latest unit hash for the unit Id.
+    /// @dev Gets the latest agent hash for the agent Id.
     /// @notice The latest hash is going to be used by the tokenURI() function.
-    /// @param unitId Unit Id.
-    function _getUnitHash(uint256 unitId) internal view override returns (bytes32) {
-        if (unitId > 0 && unitId <= totalSupply) {
-            uint256 lastHashIdx = mapUnitIdHashes[unitId].length - 1;
-            return mapUnitIdHashes[unitId][lastHashIdx];
+    /// @param agentId Agent Id.
+    function _getUnitHash(uint256 agentId) internal view override returns (bytes32) {
+        if (agentId > 0 && agentId <= totalSupply) {
+            uint256 lastHashIdx = mapAgentIdHashes[agentId].length - 1;
+            return mapAgentIdHashes[agentId][lastHashIdx];
         } else {
-            revert UnitNotFound(unitId);
+            revert AgentNotFound(agentId);
         }
     }
 }
