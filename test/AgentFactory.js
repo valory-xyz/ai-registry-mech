@@ -50,8 +50,7 @@ describe("AgentFactory", function () {
             // Unpause the contract
             await agentFactory.unpause();
 
-            // Mint agents
-            await agentRegistry.changeManager(agentFactory.address);
+            // Mint an agent
             await agentRegistry.changeManager(agentFactory.address);
             await agentFactory.create(user.address, agentHash, price);
         });
