@@ -111,7 +111,7 @@ contract AgentRegistry is GenericRegistry {
     /// @param unitId Unit Id.
     /// @return numHashes Number of hashes.
     /// @return unitHashes The list of unit hashes.
-    function getUpdatedHashes(uint256 unitId) external view returns (uint256 numHashes, bytes32[] memory unitHashes) {
+    function getHashes(uint256 unitId) external view returns (uint256 numHashes, bytes32[] memory unitHashes) {
         if (unitId > 0 && unitId <= totalSupply) {
             unitHashes = mapUnitIdHashes[unitId];
         } else {
