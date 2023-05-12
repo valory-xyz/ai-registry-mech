@@ -114,12 +114,12 @@ describe("AgentRegistry", function () {
             await agentRegistry.connect(agentFactory).create(user2.address,
                 agentHash1);
             await expect(
-                agentRegistry.updateHash(user2.address, 1, agentHash2)
+                agentRegistry.updateHash(1, agentHash2)
             ).to.be.revertedWithCustomError(agentRegistry, "OperatorOnly");
             await expect(
-                agentRegistry.updateHash(user.address, 2, agentHash2)
+                agentRegistry.updateHash(2, agentHash2)
             ).to.be.revertedWithCustomError(agentRegistry, "OperatorOnly");
-            await agentRegistry.connect(agentFactory).updateHash(user.address, 1, agentHash2);
+            await agentRegistry.connect(user).updateHash(1, agentHash2);
         });
 
         it("Should return zeros when getting hashes of non-existent agent", async function () {
@@ -142,12 +142,12 @@ describe("AgentRegistry", function () {
 
             // Try to update with a zero hash
             await expect(
-                agentRegistry.updateHash(user.address, 1, ZeroBytes32)
+                agentRegistry.connect(user).updateHash(1, ZeroBytes32)
             ).to.be.revertedWithCustomError(agentRegistry, "ZeroValue");
 
             // Update hashes
-            await agentRegistry.connect(agentFactory).updateHash(user.address, 1, agentHash1);
-            await agentRegistry.connect(agentFactory).updateHash(user.address, 1, agentHash2);
+            await agentRegistry.connect(user).updateHash(1, agentHash1);
+            await agentRegistry.connect(user).updateHash(1, agentHash2);
 
             // Get unit hashes and compare
             const hashes = await agentRegistry.getHashes(1);
