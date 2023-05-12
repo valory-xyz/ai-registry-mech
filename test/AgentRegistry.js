@@ -4,17 +4,23 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("AgentRegistry", function () {
-    let componentRegistry;
     let agentRegistry;
+    let reentrancyAttacker;
     let signers;
     const agentHash = "0x" + "9".repeat(64);
     const agentHash1 = "0x" + "1".repeat(64);
     const agentHash2 = "0x" + "2".repeat(64);
     const AddressZero = "0x" + "0".repeat(40);
+    const ZeroBytes32 = "0x" + "0".repeat(64);
     beforeEach(async function () {
         const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
         agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/");
         await agentRegistry.deployed();
+
+        const ReentrancyAttacker = await ethers.getContractFactory("ReentrancyAttacker");
+        reentrancyAttacker = await ReentrancyAttacker.deploy(agentRegistry.address);
+        await reentrancyAttacker.deployed();
+
         signers = await ethers.getSigners();
     });
 
@@ -58,15 +64,33 @@ describe("AgentRegistry", function () {
             ).to.be.revertedWithCustomError(agentRegistry, "ZeroAddress");
         });
 
+        it("Should fail when creating an agent with a zero owner address", async function () {
+            const agentFactory = signers[1];
+            const user = signers[2];
+            await agentRegistry.changeManager(agentFactory.address);
+            await expect(
+                agentRegistry.connect(agentFactory).create(user.address, ZeroBytes32)
+            ).to.be.revertedWithCustomError(agentRegistry, "ZeroValue");
+        });
+
         it("Token Id=1 after first successful agent creation must exist ", async function () {
             const agentFactory = signers[1];
             const user = signers[2];
             const tokenId = 1;
             await agentRegistry.changeManager(agentFactory.address);
-            await agentRegistry.connect(agentFactory).create(user.address,
-                agentHash);
+            await agentRegistry.connect(agentFactory).create(user.address, agentHash);
             expect(await agentRegistry.balanceOf(user.address)).to.equal(1);
             expect(await agentRegistry.exists(tokenId)).to.equal(true);
+
+            // Check the token URI
+            const baseURI = "https://localhost/agent/";
+            const cidPrefix = "f01701220";
+            expect(await agentRegistry.tokenURI(1)).to.equal(baseURI + cidPrefix + "9".repeat(64));
+
+            // Try to return a token URI of a non-existent unit Id
+            await expect(
+                agentRegistry.tokenURI(2)
+            ).to.be.revertedWithCustomError(agentRegistry, "UnitNotFound");
         });
 
         it("Catching \"Transfer\" event log after successful creation of an agent", async function () {
@@ -115,14 +139,34 @@ describe("AgentRegistry", function () {
             await agentRegistry.changeManager(agentFactory.address);
             await agentRegistry.connect(agentFactory).create(user.address,
                 agentHash);
+
+            // Try to update with a zero hash
+            await expect(
+                agentRegistry.updateHash(user.address, 1, ZeroBytes32)
+            ).to.be.revertedWithCustomError(agentRegistry, "ZeroValue");
+
+            // Update hashes
             await agentRegistry.connect(agentFactory).updateHash(user.address, 1, agentHash1);
             await agentRegistry.connect(agentFactory).updateHash(user.address, 1, agentHash2);
 
+            // Get unit hashes and compare
             const hashes = await agentRegistry.getHashes(1);
             expect(hashes.numHashes).to.equal(3);
             expect(hashes.unitHashes[0]).to.equal(agentHash);
             expect(hashes.unitHashes[1]).to.equal(agentHash1);
             expect(hashes.unitHashes[2]).to.equal(agentHash2);
+        });
+    });
+
+    context("Reentrancy attack", async function () {
+        it("Reentrancy attack by the manager during the service creation", async function () {
+            // Change the manager to the attacker contract address
+            await agentRegistry.changeManager(reentrancyAttacker.address);
+
+            // Simulate the reentrancy attack
+            await expect(
+                reentrancyAttacker.createBadAgent(reentrancyAttacker.address, agentHash)
+            ).to.be.revertedWithCustomError(agentRegistry, "ReentrancyGuard");
         });
     });
 });
