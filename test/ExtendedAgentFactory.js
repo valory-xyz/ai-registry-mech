@@ -69,7 +69,7 @@ describe("ExtendedAgentFactory", function () {
             // Try to create a mech on a non-existent agent
             await expect(
                 agentFactory.connect(account).addMech(agentRegistry.address, 2, price)
-            ).to.be.revertedWithCustomError(agentFactory, "UnitNotFound");
+            ).to.be.revertedWithCustomError(agentFactory, "AgentNotFound");
 
             // Create another mech
             await agentFactory.connect(account).addMech(agentRegistry.address, 1, price);

@@ -90,7 +90,7 @@ describe("AgentRegistry", function () {
             // Try to return a token URI of a non-existent unit Id
             await expect(
                 agentRegistry.tokenURI(2)
-            ).to.be.revertedWithCustomError(agentRegistry, "UnitNotFound");
+            ).to.be.revertedWithCustomError(agentRegistry, "AgentNotFound");
         });
 
         it("Catching \"Transfer\" event log after successful creation of an agent", async function () {
@@ -130,7 +130,7 @@ describe("AgentRegistry", function () {
 
             await expect(
                 agentRegistry.getHashes(2)
-            ).to.be.revertedWithCustomError(agentRegistry, "UnitNotFound");
+            ).to.be.revertedWithCustomError(agentRegistry, "AgentNotFound");
         });
 
         it("Update hash, get component hashes", async function () {
@@ -152,9 +152,9 @@ describe("AgentRegistry", function () {
             // Get unit hashes and compare
             const hashes = await agentRegistry.getHashes(1);
             expect(hashes.numHashes).to.equal(3);
-            expect(hashes.unitHashes[0]).to.equal(agentHash);
-            expect(hashes.unitHashes[1]).to.equal(agentHash1);
-            expect(hashes.unitHashes[2]).to.equal(agentHash2);
+            expect(hashes.agentHashes[0]).to.equal(agentHash);
+            expect(hashes.agentHashes[1]).to.equal(agentHash1);
+            expect(hashes.agentHashes[2]).to.equal(agentHash2);
         });
     });
 

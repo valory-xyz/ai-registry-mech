@@ -13,9 +13,9 @@ interface IToken {
 /// @dev Provided zero address.
 error ZeroAddress();
 
-/// @dev Unit does not exist.
-/// @param unitId Unit Id.
-    error UnitNotFound(uint256 unitId);
+/// @dev Agent does not exist.
+/// @param agentId Agent Id.
+error AgentNotFound(uint256 agentId);
 
 /// @dev Not enough value paid.
 /// @param provided Provided amount.
@@ -46,7 +46,7 @@ contract AgentMech is ERC721Mech {
         // Check for the token to have the owner
         address tokenOwner = IToken(_token).ownerOf(_tokenId);
         if (tokenOwner == address(0)) {
-            revert UnitNotFound(_tokenId);
+            revert AgentNotFound(_tokenId);
         }
 
         price = _price;
