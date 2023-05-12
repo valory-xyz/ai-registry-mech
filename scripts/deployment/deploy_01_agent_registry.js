@@ -11,12 +11,27 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
+    const gasPriceInGwei = parsedData.gasPriceInGwei;
     const agentRegistryName = parsedData.agentRegistryName;
     const agentRegistrySymbol = parsedData.agentRegistrySymbol;
     const baseURI = parsedData.baseURI;
     let EOA;
 
-    const provider = await ethers.providers.getDefaultProvider(providerName);
+    let networkURL;
+    if (providerName === "gnosis") {
+        if (!process.env.GNOSIS_CHAIN_API_KEY) {
+            console.log("set GNOSIS_CHAIN_API_KEY env variable");
+            return;
+        }
+        networkURL = "https://rpc.gnosischain.com";
+    } else if (providerName === "chiado") {
+        networkURL = "https://rpc.chiadochain.net";
+    } else {
+        console.log("Unknown network provider", providerName);
+        return;
+    }
+
+    const provider = new ethers.providers.JsonRpcProvider(networkURL);
     const signers = await ethers.getSigners();
 
     if (useLedger) {
@@ -32,13 +47,19 @@ async function main() {
     console.log("1. EOA to deploy AgentRegistry");
     const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
     console.log("You are signing the following transaction: AgentRegistry.connect(EOA).deploy()");
-    const agentRegistry = await AgentRegistry.connect(EOA).deploy(agentRegistryName, agentRegistrySymbol, baseURI);
+    const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
+    const agentRegistry = await AgentRegistry.connect(EOA).deploy(agentRegistryName, agentRegistrySymbol, baseURI, { gasPrice });
     const result = await agentRegistry.deployed();
 
     // Transaction details
     console.log("Contract deployment: AgentRegistry");
     console.log("Contract address:", agentRegistry.address);
     console.log("Transaction:", result.deployTransaction.hash);
+
+    // Wait for half a minute
+    if (providerName === "goerli") {
+        await new Promise(r => setTimeout(r, 30000));
+    }
 
     // Writing updated parameters back to the JSON file
     parsedData.agentRegistryAddress = agentRegistry.address;

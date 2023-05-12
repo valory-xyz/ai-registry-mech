@@ -11,10 +11,25 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
+    const gasPriceInGwei = parsedData.gasPriceInGwei;
     const agentRegistryAddress = parsedData.agentRegistryAddress;
     let EOA;
 
-    const provider = await ethers.providers.getDefaultProvider(providerName);
+    let networkURL;
+    if (providerName === "gnosis") {
+        if (!process.env.GNOSIS_CHAIN_API_KEY) {
+            console.log("set GNOSIS_CHAIN_API_KEY env variable");
+            return;
+        }
+        networkURL = "https://rpc.gnosischain.com";
+    } else if (providerName === "chiado") {
+        networkURL = "https://rpc.chiadochain.net";
+    } else {
+        console.log("Unknown network provider", providerName);
+        return;
+    }
+
+    const provider = new ethers.providers.JsonRpcProvider(networkURL);
     const signers = await ethers.getSigners();
 
     if (useLedger) {
@@ -27,16 +42,22 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("3. EOA to deploy AgentFactory pointed to AgentRegistry");
+    console.log("2. EOA to deploy AgentFactory pointed to AgentRegistry");
     const AgentFactory = await ethers.getContractFactory("AgentFactory");
     console.log("You are signing the following transaction: AgentFactory.connect(EOA).deploy()");
-    const agentFactory = await AgentFactory.connect(EOA).deploy(agentRegistryAddress);
+    const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
+    const agentFactory = await AgentFactory.connect(EOA).deploy(agentRegistryAddress, { gasPrice });
     const result = await agentFactory.deployed();
 
     // Transaction details
     console.log("Contract deployment: AgentFactory");
     console.log("Contract address:", agentFactory.address);
     console.log("Transaction:", result.deployTransaction.hash);
+
+    // Wait for half a minute
+    if (providerName === "goerli") {
+        await new Promise(r => setTimeout(r, 30000));
+    }
 
     // Writing updated parameters back to the JSON file
     parsedData.agentFactoryAddress = agentFactory.address;
