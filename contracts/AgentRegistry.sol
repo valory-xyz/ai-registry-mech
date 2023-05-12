@@ -85,11 +85,6 @@ contract AgentRegistry is GenericRegistry {
     /// @param unitHash Updated IPFS hash of the unit.
     /// @return success True, if function executed successfully.
     function updateHash(address unitOwner, uint256 unitId, bytes32 unitHash) external returns (bool success) {
-        // Check the manager privilege for a unit modification
-        if (manager != msg.sender) {
-            revert ManagerOnly(msg.sender, manager);
-        }
-
         // Checking the unit ownership
         address operator = ownerOf(unitId);
         if (operator != unitOwner) {

@@ -8,9 +8,6 @@ import {ERC721Mech} from "../lib/mech/contracts/ERC721Mech.sol";
 /// @param expected Expected amount.
 error NotEnoughPaid(uint256 provided, uint256 expected);
 
-/// @dev Zero value when it has to be different from zero.
-error ZeroValue();
-
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
@@ -51,10 +48,6 @@ contract AgentMech is ERC721Mech {
     /// @dev Sets the new price.
     /// @param newPrice New mimimum required price.
     function setPrice(uint256 newPrice) external onlyOperator {
-        if (newPrice == 0) {
-            revert ZeroValue();
-        }
-
         price = newPrice;
         emit PriceUpdated(newPrice);
     }
@@ -66,6 +59,4 @@ contract AgentMech is ERC721Mech {
     function getRequestId(address account, bytes memory data) public pure returns (uint256 requestId) {
         requestId = uint256(keccak256(abi.encode(account, data)));
     }
-
-// we could add a wrapper method of `exec` which does callback to the original caller (msg.sender) of perform for the specific task
 }
