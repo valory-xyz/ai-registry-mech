@@ -10,13 +10,6 @@ interface IAgentRegistry {
     /// @param unitHash IPFS CID hash of the unit.
     /// @return unitId The id of a minted unit.
     function create(address unitOwner, bytes32 unitHash) external returns (uint256 unitId);
-
-    /// @dev Updates the unit hash.
-    /// @param unitOwner Owner of the unit.
-    /// @param unitId Unit Id.
-    /// @param unitHash Updated IPFS hash of the unit.
-    /// @return success True, if function executed successfully.
-    function updateHash(address unitOwner, uint256 unitId, bytes32 unitHash) external returns (bool success);
 }
 
 /// @title Agent Factory - Periphery smart contract for managing agent and mech creation
