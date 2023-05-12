@@ -27,7 +27,7 @@ Parameters of the `globals.json` file:
 - `providerName`: a network type (see `hardhat.config.js` for the network configurations);
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
-- `deploy_01_component_registry.js` will complete step 1 from [deployment.md](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/deployment.md);
+- `deploy_01_agent_registry.js` will complete step 1.
 
 NOTE: All the scripts MUST be strictly run in the sequential order from smallest to biggest numbers.
 

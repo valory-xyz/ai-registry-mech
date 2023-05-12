@@ -32,8 +32,7 @@ async function main() {
     console.log("1. EOA to deploy AgentRegistry");
     const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
     console.log("You are signing the following transaction: AgentRegistry.connect(EOA).deploy()");
-    const agentRegistry = await AgentRegistry.connect(EOA).deploy(agentRegistryName, agentRegistrySymbol,
-        baseURI);
+    const agentRegistry = await AgentRegistry.connect(EOA).deploy(agentRegistryName, agentRegistrySymbol, baseURI);
     const result = await agentRegistry.deployed();
 
     // Transaction details
@@ -41,15 +40,15 @@ async function main() {
     console.log("Contract address:", agentRegistry.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
+    // Writing updated parameters back to the JSON file
+    parsedData.agentRegistryAddress = agentRegistry.address;
+    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
+
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
         execSync("npx hardhat verify --constructor-args scripts/deployment/verify_01_agent_registry.js --network " + providerName + " " + agentRegistry.address, { encoding: "utf-8" });
     }
-
-    // Writing updated parameters back to the JSON file
-    parsedData.agentRegistryAddress = agentRegistry.address;
-    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 }
 
 main()
