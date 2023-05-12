@@ -126,7 +126,8 @@ contract AgentRegistry is GenericRegistry {
     /// @param unitId Unit Id.
     function _getUnitHash(uint256 unitId) internal view override returns (bytes32) {
         if (unitId > 0 && unitId <= totalSupply) {
-            return mapUnitIdHashes[unitId][0];
+            uint256 lastHashIdx = mapUnitIdHashes[unitId].length - 1;
+            return mapUnitIdHashes[unitId][lastHashIdx];
         } else {
             revert UnitNotFound(unitId);
         }
