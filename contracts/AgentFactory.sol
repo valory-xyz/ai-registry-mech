@@ -7,7 +7,7 @@ import {GenericManager} from "../lib/autonolas-registries/contracts/GenericManag
 interface IAgentRegistry {
     /// @dev Creates a unit.
     /// @param unitOwner Owner of the unit.
-    /// @param unitHash IPFS CID hash of the unit.
+    /// @param unitHash IPFS CID hash of the unit metadata.
     /// @return unitId The id of a minted unit.
     function create(address unitOwner, bytes32 unitHash) external returns (uint256 unitId);
 }
@@ -29,7 +29,7 @@ contract AgentFactory is GenericManager {
 
     /// @dev Creates agent.
     /// @param unitOwner Owner of the agent.
-    /// @param unitHash IPFS hash of the agent.
+    /// @param unitHash IPFS CID hash of the agent metadata.
     /// @param price Minimum required payment the agent accepts.
     /// @return unitId The id of a created agent.
     /// @return mech The created mech instance address.

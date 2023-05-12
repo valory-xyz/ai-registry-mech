@@ -38,7 +38,7 @@ contract AgentRegistry is GenericRegistry {
 
     /// @dev Creates a unit.
     /// @param unitOwner Owner of the unit.
-    /// @param unitHash IPFS CID hash of the unit.
+    /// @param unitHash IPFS CID hash of the unit metadata.
     /// @return unitId The id of a minted unit.
     function create(address unitOwner, bytes32 unitHash) external returns (uint256 unitId) {
         // Reentrancy guard
@@ -81,7 +81,7 @@ contract AgentRegistry is GenericRegistry {
 
     /// @dev Updates the unit hash.
     /// @param unitId Unit Id.
-    /// @param unitHash Updated IPFS hash of the unit.
+    /// @param unitHash Updated IPFS CID hash of the unit metadata.
     /// @return success True, if function executed successfully.
     function updateHash(uint256 unitId, bytes32 unitHash) external returns (bool success) {
         // Checking the unit ownership
