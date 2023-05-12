@@ -115,8 +115,8 @@ contract AgentRegistry is GenericRegistry {
         return (unitHashes.length, unitHashes);
     }
 
-    /// @dev Gets the original unit hash for the unit Id.
-    /// @notice The original hash is going to be used by the tokenURI() function.
+    /// @dev Gets the latest unit hash for the unit Id.
+    /// @notice The latest hash is going to be used by the tokenURI() function.
     /// @param unitId Unit Id.
     function _getUnitHash(uint256 unitId) internal view override returns (bytes32) {
         if (unitId > 0 && unitId <= totalSupply) {

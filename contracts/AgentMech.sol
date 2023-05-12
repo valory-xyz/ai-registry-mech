@@ -3,6 +3,20 @@ pragma solidity ^0.8.19;
 
 import {ERC721Mech} from "../lib/mech/contracts/ERC721Mech.sol";
 
+interface IToken {
+    /// @dev Gets the owner of the `tokenId` token.
+    /// @param tokenId Token Id that must exist.
+    /// @return tokenOwner Token owner.
+    function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
+}
+
+/// @dev Provided zero address.
+error ZeroAddress();
+
+/// @dev Unit does not exist.
+/// @param unitId Unit Id.
+    error UnitNotFound(uint256 unitId);
+
 /// @dev Not enough value paid.
 /// @param provided Provided amount.
 /// @param expected Expected amount.
@@ -23,7 +37,18 @@ contract AgentMech is ERC721Mech {
     /// @param _token Address of the token contract.
     /// @param _tokenId The token ID.
     /// @param _price The minimum required price.
-    constructor(address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token,_tokenId) {
+    constructor(address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token, _tokenId) {
+        // Check for the token address
+        if (_token == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for the token to have the owner
+        address tokenOwner = IToken(_token).ownerOf(_tokenId);
+        if (tokenOwner == address(0)) {
+            revert UnitNotFound(_tokenId);
+        }
+
         price = _price;
     }
 
