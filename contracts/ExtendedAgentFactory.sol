@@ -29,12 +29,12 @@ contract ExtendedAgentFactory is AgentFactory {
     /// @param _agentRegistry Agent Registry address.
     constructor(address _agentRegistry) AgentFactory(_agentRegistry) {}
 
-    /// @dev Adds a mech based on the provided agent.
+    /// @dev Adds a mech based on the provided unit Id.
+    /// @param registry Unit Registry contract address.
     /// @param unitId The id of an agent.
     /// @param price Minimum required payment the agent accepts.
     /// @return mech The created mech instance address.
-    function addMech(uint256 unitId, uint256 price) external returns (address mech) {
-        address registry = agentRegistry;
+    function addMech(address registry, uint256 unitId, uint256 price) external returns (address mech) {
         // Check if the agent exists
         if (!IAgentRegistry(registry).exists(unitId)) {
             revert UnitNotFound(unitId);
@@ -47,14 +47,15 @@ contract ExtendedAgentFactory is AgentFactory {
         bytes memory byteCode = type(AgentMech).creationCode;
         byteCode = abi.encodePacked(byteCode, abi.encode(registry, unitId, price));
         bytes32 hashedAddress = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(byteCode)));
-        // Compute the address of the contract
-        address mechAddressTry = address(uint160(uint(hashedAddress)));
-        if(mechAddressTry.code.length > 0) {
-            revert MechAlreadyExist(mechAddressTry, registry, unitId, price);
+        // Compute the address of the created mech contract
+        mech = address(uint160(uint(hashedAddress)));
+        if(mech.code.length > 0) {
+            revert MechAlreadyExist(mech, registry, unitId, price);
         }
-        
+
+        // Create the mech instance
+        (new AgentMech){salt: salt}(registry, unitId, price);
         // ownerOf(uintId) is isOperator() for the mech
-        mech = address((new AgentMech){salt: salt}(registry, unitId, price));
         emit CreateMech(mech, unitId, price);
     }
 }
