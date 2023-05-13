@@ -40,3 +40,5 @@ where `script_name` is a script name, i.e. `deploy_01_agent_registry.js`, `netwo
 ## Validity checks and contract verification
 Each script controls the obtained values by checking them against the expected ones. Also, each script has a contract verification procedure.
 If a contract is deployed with arguments, these arguments are taken from the corresponding `verify_number_and_name` file, where `number_and_name` corresponds to the deployment script number and name.
+
+To verify a mech use `e_check_04_agent_mech.js` and first ensure that `globals.json` contains the mech data, e.g: `"agentMechAddress":"0x3504fb5053ec12f748017248a395b4ed31739705","agentId":1,"price":"10000000000000000"`
