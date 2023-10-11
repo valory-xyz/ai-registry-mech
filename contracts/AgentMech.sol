@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.21;
 
 import {ERC721Mech} from "../lib/mech/contracts/ERC721Mech.sol";
 
@@ -88,7 +88,7 @@ contract AgentMech is ERC721Mech {
     function getRequestId(address account, bytes memory data) public pure returns (uint256 requestId) {
         requestId = uint256(keccak256(abi.encode(account, data)));
     }
-    
+
     /// @dev Gets the requests count for a specific account.
     /// @param account Account address.
     /// @return requestsCount Requests count.
