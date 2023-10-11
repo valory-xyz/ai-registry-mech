@@ -33,6 +33,9 @@ contract AgentMech is ERC721Mech {
     // Minimum required price
     uint256 public price;
 
+    // Map of requests counts for corresponding addresses
+    mapping (address => uint256) public mapRequestsCounts;
+
     /// @dev AgentMech constructor.
     /// @param _token Address of the token contract.
     /// @param _tokenId The token ID.
@@ -60,6 +63,7 @@ contract AgentMech is ERC721Mech {
         }
 
         requestId = getRequestId(msg.sender, data);
+        mapRequestsCounts[msg.sender]++;
         emit Request(msg.sender, requestId, data);
     }
 
@@ -83,5 +87,12 @@ contract AgentMech is ERC721Mech {
     /// @return requestId Corresponding request Id.
     function getRequestId(address account, bytes memory data) public pure returns (uint256 requestId) {
         requestId = uint256(keccak256(abi.encode(account, data)));
+    }
+    
+    /// @dev Gets the requests count for a specific account.
+    /// @param account Account address.
+    /// @return requestsCount Requests count.
+    function getRequestsCount(address account) external view returns (uint256 requestsCount) {
+        requestsCount = mapRequestsCounts[account];
     }
 }
