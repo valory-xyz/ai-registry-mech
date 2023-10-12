@@ -38,6 +38,13 @@ Run the tests:
 npx hardhat test
 ```
 
+## Deployment and redeployment
+The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
+The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/ai-registry-mech/blob/main/scripts/deployment).
+
+The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/ai-registry-mech/blob/main/abis).
+Each folder there contains contracts compiled with the solidity version before their deployment.
+
 ## Acknowledgements
 The registries contracts were inspired and based on the following sources:
 - [Rari-Capital Solmate](https://github.com/Rari-Capital/solmate).
