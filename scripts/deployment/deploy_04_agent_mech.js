@@ -13,6 +13,8 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const agentRegistryAddress = parsedData.agentRegistryAddress;
+    const agentId = parsedData.agentId;
+    const price = ethers.BigNumber.from(parsedData.price);
     let EOA;
 
     let networkURL;
@@ -42,29 +44,29 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("2. EOA to deploy AgentFactory pointed to AgentRegistry");
-    const AgentFactory = await ethers.getContractFactory("AgentFactory");
-    console.log("You are signing the following transaction: AgentFactory.connect(EOA).deploy()");
+    console.log("4. EOA to deploy AgentMech pointed to AgentRegistry, agentId and price");
+    const AgentMech = await ethers.getContractFactory("AgentMech");
+    console.log("You are signing the following transaction: AgentMech.connect(EOA).deploy(agentRegistryAddress, agentId, price)");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const agentFactory = await AgentFactory.connect(EOA).deploy(agentRegistryAddress, { gasPrice });
-    const result = await agentFactory.deployed();
+    const agentMech = await AgentMech.connect(EOA).deploy(agentRegistryAddress, agentId, price, { gasPrice });
+    const result = await agentMech.deployed();
 
     // Transaction details
-    console.log("Contract deployment: AgentFactory");
-    console.log("Contract address:", agentFactory.address);
+    console.log("Contract deployment: AgentMech");
+    console.log("Contract address:", agentMech.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // Wait for half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.agentFactoryAddress = agentFactory.address;
+    parsedData.agentMechAddress = agentMech.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_02_agent_factory.js --network " + providerName + " " + agentFactory.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_04_agent_mech.js --network " + providerName + " " + agentMech.address, { encoding: "utf-8" });
     }
 }
 

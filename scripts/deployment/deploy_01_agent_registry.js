@@ -56,10 +56,8 @@ async function main() {
     console.log("Contract address:", agentRegistry.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
-    // Wait for half a minute
-    if (providerName === "goerli") {
-        await new Promise(r => setTimeout(r, 30000));
-    }
+    // Wait for half a minute for the transaction completion
+    await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
     parsedData.agentRegistryAddress = agentRegistry.address;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.21;
 
 import {GenericRegistry} from "../lib/autonolas-registries/contracts/GenericRegistry.sol";
 import {ERC721} from "../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
