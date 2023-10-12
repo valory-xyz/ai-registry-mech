@@ -30,6 +30,8 @@ The script file name identifies the number of deployment steps taken from / to t
 - `deploy_01_agent_registry.js` will complete step 1.
 
 NOTE: All the scripts MUST be strictly run in the sequential order from smallest to biggest numbers.
+NOTE: AgentMech MUST NOT be deployed by its own script, as each AgentMech is created via the AgentFactory contract.
+The `test_purposes_only_deploy_04_agent_mech.js` is provided strictly for testing purposes.
 
 Export network-related API keys defined in `hardhat.config.js` file that correspond to the required network.
 
