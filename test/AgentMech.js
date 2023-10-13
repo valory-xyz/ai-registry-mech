@@ -50,7 +50,12 @@ describe("AgentMech", function () {
                 agentMech.request(data)
             ).to.be.revertedWithCustomError(agentMech, "NotEnoughPaid");
 
+            // Create a request
             await agentMech.request(data, {value: price});
+
+            // Get the requests count
+            const requestsCount = await agentMech.getRequestsCount(deployer.address);
+            expect(requestsCount).to.equal(1);
         });
     });
 

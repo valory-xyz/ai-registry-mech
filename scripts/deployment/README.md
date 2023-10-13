@@ -30,6 +30,8 @@ The script file name identifies the number of deployment steps taken from / to t
 - `deploy_01_agent_registry.js` will complete step 1.
 
 NOTE: All the scripts MUST be strictly run in the sequential order from smallest to biggest numbers.
+NOTE: AgentMech MUST NOT be deployed by its own script, as each AgentMech is created via the AgentFactory contract.
+The `test_purposes_only_deploy_04_agent_mech.js` is provided strictly for testing purposes.
 
 Export network-related API keys defined in `hardhat.config.js` file that correspond to the required network.
 
@@ -42,3 +44,8 @@ Each script controls the obtained values by checking them against the expected o
 If a contract is deployed with arguments, these arguments are taken from the corresponding `verify_number_and_name` file, where `number_and_name` corresponds to the deployment script number and name.
 
 To verify a mech use `e_check_04_agent_mech.js` and first ensure that `globals.json` contains the mech data, e.g: `"agentMechAddress":"0x3504fb5053ec12f748017248a395b4ed31739705","agentId":1,"price":"10000000000000000"`
+
+## Redeployment in case of changing AgentMech or AgentFactory
+Each AgentMech contract is created via the AgentFactory, essentially inheriting the AgentMech contract bytecode. If AgentMech
+and / or AgentFactory is changed, the AgentFactory contract must be redeployed (`deploy_02_agent_factory.js`). Moreover,
+the manager of the AgentRegistry must be updated with a new deployed AgentFactory contract address (`deploy_03_change_manager.js`).

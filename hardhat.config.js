@@ -14,8 +14,6 @@ const ALCHEMY_API_KEY_MAINNET = process.env.ALCHEMY_API_KEY_MAINNET;
 const ALCHEMY_API_KEY_MATIC = process.env.ALCHEMY_API_KEY_MATIC;
 const ALCHEMY_API_KEY_GOERLI = process.env.ALCHEMY_API_KEY_GOERLI;
 const ALCHEMY_API_KEY_MUMBAI = process.env.ALCHEMY_API_KEY_MUMBAI;
-const GNOSIS_CHAIN_API_KEY = process.env.GNOSIS_CHAIN_API_KEY;
-const CHIADO_CHAIN_API_KEY = "10200";
 let TESTNET_MNEMONIC = process.env.TESTNET_MNEMONIC;
 
 const accounts = {
@@ -33,6 +31,8 @@ if (!TESTNET_MNEMONIC) {
 
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY;
+const GNOSISSCAN_API_KEY = process.env.GNOSISSCAN_API_KEY;
+const CHIADOSCAN_API_KEY = "10200";
 
 module.exports = {
     networks: {
@@ -41,10 +41,12 @@ module.exports = {
         },
         mainnet: {
             url: "https://eth-mainnet.g.alchemy.com/v2/" + ALCHEMY_API_KEY_MAINNET,
+            accounts: accounts,
             chainId: 1,
         },
         polygon: {
             url: "https://polygon-mainnet.g.alchemy.com/v2/" + ALCHEMY_API_KEY_MATIC,
+            accounts: accounts,
             chainId: 137,
         },
         gnosis: {
@@ -75,8 +77,8 @@ module.exports = {
                 network: "chiado",
                 chainId: 10200,
                 urls: {
-                    apiURL: "https://blockscout.com/gnosis/chiado/api",
-                    browserURL: "https://blockscout.com/gnosis/chiado",
+                    apiURL: "https://gnosis-chiado.blockscout.com/api",
+                    browserURL: "https://gnosis-chiado.blockscout.com/",
                 },
             },
             {
@@ -91,20 +93,20 @@ module.exports = {
         apiKey: {
             mainnet: ETHERSCAN_API_KEY,
             polygon: POLYGONSCAN_API_KEY,
-            gnosis: GNOSIS_CHAIN_API_KEY,
+            gnosis: GNOSISSCAN_API_KEY,
             goerli: ETHERSCAN_API_KEY,
             polygonMumbai: POLYGONSCAN_API_KEY,
-            chiado: CHIADO_CHAIN_API_KEY,
+            chiado: CHIADOSCAN_API_KEY,
         }
     },
     solidity: {
         compilers: [
             {
-                version: "0.8.19",
+                version: "0.8.21",
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 750,
+                        runs: 1000000,
                     },
                 },
             }

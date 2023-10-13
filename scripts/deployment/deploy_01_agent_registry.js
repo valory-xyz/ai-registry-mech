@@ -19,8 +19,8 @@ async function main() {
 
     let networkURL;
     if (providerName === "gnosis") {
-        if (!process.env.GNOSIS_CHAIN_API_KEY) {
-            console.log("set GNOSIS_CHAIN_API_KEY env variable");
+        if (!process.env.GNOSISSCAN_API_KEY) {
+            console.log("set GNOSISSCAN_API_KEY env variable");
             return;
         }
         networkURL = "https://rpc.gnosischain.com";
@@ -56,10 +56,8 @@ async function main() {
     console.log("Contract address:", agentRegistry.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
-    // Wait for half a minute
-    if (providerName === "goerli") {
-        await new Promise(r => setTimeout(r, 30000));
-    }
+    // Wait for half a minute for the transaction completion
+    await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
     parsedData.agentRegistryAddress = agentRegistry.address;
