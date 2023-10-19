@@ -26,7 +26,7 @@ error NotEnoughPaid(uint256 provided, uint256 expected);
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
     event Perform(address indexed sender, bytes32 taskHash);
-    event Deliver(uint256 requestId, bytes data);
+    event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
     event PriceUpdated(uint256 price);
 
@@ -71,7 +71,7 @@ contract AgentMech is ERC721Mech {
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
-        emit Deliver(requestId, data);
+        emit Deliver(msg.sender, requestId, data);
     }
 
     /// @dev Sets the new price.
