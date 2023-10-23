@@ -95,14 +95,14 @@ describe("AgentMech", function () {
             }
 
             // Check request Ids
-            let uRequestIds = await agentMech.getUndeliveredRequestIds();
+            let uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(0);
 
             // Create a first request
             await agentMech.request(datas[0], {value: price});
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(1);
             expect(uRequestIds[0]).to.equal(requestIds[0]);
 
@@ -110,7 +110,7 @@ describe("AgentMech", function () {
             await agentMech.deliver(requestIds[0], data);
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(0);
 
             // Stack all requests
@@ -119,7 +119,7 @@ describe("AgentMech", function () {
             }
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(numRequests);
             // Requests are added in the reverse order
             for (let i = 0; i < numRequests; i++) {
@@ -132,7 +132,7 @@ describe("AgentMech", function () {
             }
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(0);
 
             // Add all requests again
@@ -144,7 +144,7 @@ describe("AgentMech", function () {
             await agentMech.deliver(requestIds[0], datas[0]);
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(numRequests - 1);
             // Requests are added in the reverse order
             for (let i = 1; i < numRequests; i++) {
@@ -155,7 +155,7 @@ describe("AgentMech", function () {
             await agentMech.deliver(requestIds[numRequests - 1], datas[numRequests - 1]);
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(numRequests - 2);
             for (let i = 1; i < numRequests - 1; i++) {
                 expect(uRequestIds[numRequests - i - 2]).to.eq(requestIds[i]);
@@ -166,7 +166,7 @@ describe("AgentMech", function () {
             await agentMech.deliver(requestIds[middle], datas[middle]);
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(numRequests - 3);
             for (let i = 1; i < middle; i++) {
                 expect(uRequestIds[middle - i]).to.eq(requestIds[i]);
@@ -179,6 +179,49 @@ describe("AgentMech", function () {
         it("Getting undelivered requests info for even and odd requests", async function () {
             const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price);
 
+            const numRequests = 9;
+            const datas = new Array();
+            const requestIds = new Array();
+            for (let i = 0; i < numRequests; i++) {
+                datas[i] = data + "00".repeat(i);
+                requestIds[i] = await agentMech.getRequestId(deployer.address, datas[i]);
+            }
+
+            // Stack all requests except for the last one
+            for (let i = 0; i < numRequests; i++) {
+                await agentMech.request(datas[i], {value: price});
+            }
+
+            // Deliver even requests
+            for (let i = 0; i < numRequests; i++) {
+                if (i % 2 != 0) {
+                    await agentMech.deliver(requestIds[i], datas[i]);
+                }
+            }
+
+            // Check request Ids
+            let uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
+            const half = Math.floor(numRequests / 2) + 1;
+            expect(uRequestIds.length).to.equal(half);
+            for (let i = 0; i < half; i++) {
+                expect(uRequestIds[half - i - 1]).to.eq(requestIds[i * 2]);
+            }
+
+            // Deliver the rest of requests
+            for (let i = 0; i < numRequests; i++) {
+                if (i % 2 == 0) {
+                    await agentMech.deliver(requestIds[i], datas[i]);
+                }
+            }
+
+            // Check request Ids
+            uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
+            expect(uRequestIds.length).to.equal(0);
+        });
+
+        it("Getting undelivered requests info for a specified part of a batch", async function () {
+            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price);
+
             const numRequests = 10;
             const datas = new Array();
             const requestIds = new Array();
@@ -188,35 +231,46 @@ describe("AgentMech", function () {
             }
 
             // Stack all requests except for the last one
-            for (let i = 0; i < numRequests - 1; i++) {
+            for (let i = 0; i < numRequests; i++) {
                 await agentMech.request(datas[i], {value: price});
             }
 
-            // Deliver even requests
-            for (let i = 0; i < numRequests - 1; i++) {
-                if (i % 2 != 0) {
-                    await agentMech.deliver(requestIds[i], datas[i]);
-                }
-            }
-
-            // Check request Ids
-            let uRequestIds = await agentMech.getUndeliveredRequestIds();
+            // Check request Ids for just part of the batch
             const half = Math.floor(numRequests / 2);
+            // Try to get more elements than there are
+            await expect(
+                agentMech.getUndeliveredRequestIds(0, half)
+            ).to.be.revertedWithCustomError(agentMech, "Overflow");
+
+            // Grab the last half of requests
+            let uRequestIds = await agentMech.getUndeliveredRequestIds(half, 0);
             expect(uRequestIds.length).to.equal(half);
             for (let i = 0; i < half; i++) {
-                expect(uRequestIds[half - i - 1]).to.eq(requestIds[i * 2]);
+                expect(uRequestIds[half - i - 1]).to.eq(requestIds[half + i]);
+            }
+            // Check for the last element specifically
+            expect(uRequestIds[0]).to.eq(requestIds[numRequests - 1]);
+
+            // Grab the last half of requests and a bit more
+            uRequestIds = await agentMech.getUndeliveredRequestIds(half + 2, 0);
+            expect(uRequestIds.length).to.equal(half + 2);
+            for (let i = 0; i < half + 2; i++) {
+                expect(uRequestIds[half + 2 - i - 1]).to.eq(requestIds[half - 2 + i]);
             }
 
-            // Deliver the rest of requests
-            for (let i = 0; i < numRequests - 1; i++) {
-                if (i % 2 == 0) {
-                    await agentMech.deliver(requestIds[i], datas[i]);
-                }
+            // Grab the first half of requests
+            uRequestIds = await agentMech.getUndeliveredRequestIds(half, half);
+            expect(uRequestIds.length).to.equal(half);
+            for (let i = 0; i < half; i++) {
+                expect(uRequestIds[numRequests - half - i - 1]).to.eq(requestIds[i]);
             }
+            // Check for the first element specifically
+            expect(uRequestIds[half - 1]).to.eq(requestIds[0]);
 
-            // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
-            expect(uRequestIds.length).to.equal(0);
+            // Deliver all requests
+            for (let i = 0; i < numRequests; i++) {
+                await agentMech.deliver(requestIds[i], datas[i]);
+            }
         });
     });
 

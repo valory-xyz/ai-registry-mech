@@ -26,6 +26,11 @@ error NotEnoughPaid(uint256 provided, uint256 expected);
 /// @param requestId Request Id.
 error RequestIdNotFound(uint256 requestId);
 
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
@@ -88,7 +93,7 @@ contract AgentMech is ERC721Mech {
         requestIds[1] = requestId;
         // Previous element of the current next element will be the newly created element
         mapRequestIds[curNextRequestId][0] = requestId;
-        
+
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
 
@@ -141,17 +146,36 @@ contract AgentMech is ERC721Mech {
     }
 
     /// @dev Gets the set of undelivered request Ids.
+    /// @param size Maximum batch size of a returned requests Id set. If the size is zero, the whole set is returned.
+    /// @param offset The number of skipped requests that are not going to be part of the returned requests Id set.
     /// @return requestIds Set of undelivered request Ids.
-    function getUndeliveredRequestIds() external view returns (uint256[] memory requestIds) {
+    function getUndeliveredRequestIds(uint256 size, uint256 offset) external view returns (uint256[] memory requestIds) {
         // Get the number of undelivered requests
         uint256 numRequests = numUndeliveredRequests;
 
-        if (numRequests > 0) {
-            requestIds = new uint256[](numRequests);
+        // If size is zero, return all the requests
+        if (size == 0) {
+            size = numRequests;
+        }
+
+        // Check for the size + offset overflow
+        if (size + offset > numRequests) {
+            revert Overflow(size + offset, numRequests);
+        }
+
+        if (size > 0) {
+            requestIds = new uint256[](size);
 
             // The first request Id is the next request Id of the zero element in the request Ids map
             uint256 curRequestId = mapRequestIds[0][1];
-            for (uint256 i = 0; i < numRequests; ++i) {
+            // Traverse requests a specified offset
+            for (uint256 i = 0; i < offset; ++i) {
+                // Next request Id of the current element based on the current request Id
+                curRequestId = mapRequestIds[curRequestId][1];
+            }
+
+            // Traverse the rest of requests
+            for (uint256 i = 0; i < size; ++i) {
                 requestIds[i] = curRequestId;
                 // Next request Id of the current element based on the current request Id
                 curRequestId = mapRequestIds[curRequestId][1];
