@@ -22,10 +22,13 @@ error AgentNotFound(uint256 agentId);
 /// @param expected Expected amount.
 error NotEnoughPaid(uint256 provided, uint256 expected);
 
+/// @dev Request Id not found.
+/// @param requestId Request Id.
+error RequestIdNotFound(uint256 requestId);
+
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
-    event Perform(address indexed sender, bytes32 taskHash);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
     event PriceUpdated(uint256 price);
@@ -102,6 +105,12 @@ contract AgentMech is ERC721Mech {
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
         // Remove delivered request Id from the request Ids map
         uint256[2] memory requestIds = mapRequestIds[requestId];
+        // Check if the request Id is invalid: previous and next request Ids are zero,
+        // and the zero's element next request Id is not equal to the provided request Id
+        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][1] != requestId) {
+            revert RequestIdNotFound(requestId);
+        }
+
         // Re-link previous and next elements between themselves
         mapRequestIds[requestIds[0]][1] = requestIds[1];
         mapRequestIds[requestIds[1]][0] = requestIds[0];
@@ -138,14 +147,19 @@ contract AgentMech is ERC721Mech {
     /// @dev Gets the set of undelivered request Ids.
     /// @return requestIds Set of undelivered request Ids.
     function getUndeliveredRequestIds() external view returns (uint256[] memory requestIds) {
+        // Get the number of undelivered requests
         uint256 numRequests = numUndeliveredRequests;
-        requestIds = new uint256[](numRequests);
 
-        // The first request Id is the next request Id of the zero element in the request Ids map
-        uint256 curRequestId = mapRequestIds[0][1];
-        for (uint256 i = 0; i < numRequests; ++i) {
-            requestIds[i] = curRequestId;
-            curRequestId = mapRequestIds[curRequestId][1];
+        if (numRequests > 0) {
+            requestIds = new uint256[](numRequests);
+
+            // The first request Id is the next request Id of the zero element in the request Ids map
+            uint256 curRequestId = mapRequestIds[0][1];
+            for (uint256 i = 0; i < numRequests; ++i) {
+                requestIds[i] = curRequestId;
+                // Next request Id of the current element based on the current request Id
+                curRequestId = mapRequestIds[curRequestId][1];
+            }
         }
     }
 }
