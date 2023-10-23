@@ -1,15 +1,1 @@
-{
-  "contractVerification": true,
-  "useLedger": false,
-  "derivationPath": "m/44'/60'/2'/0/0",
-  "providerName": "chiado",
-  "gasPriceInGwei": "2",
-  "baseURI": "https://gateway.autonolas.tech/ipfs/",
-  "agentRegistryName": "AI Agent Registry",
-  "agentRegistrySymbol": "AI-AGENT-V1",
-  "agentRegistryAddress": "0x9dEc6B62c197268242A768dc3b153AE7a2701396",
-  "agentFactoryAddress": "0x060268D4fE1Eb97843B14dd98cDf9ef7fbb3c720",
-  "agentMechAddress": "0x0a3cfc6bee9658eda040e6bb366fe963ddce82c9",
-  "agentId": "1",
-  "price": "1000000000000000000"
-}
+{"contractVerification":true,"useLedger":false,"derivationPath":"m/44'/60'/2'/0/0","providerName":"chiado","gasPriceInGwei":"2","baseURI":"https://gateway.autonolas.tech/ipfs/","agentRegistryName":"AI Agent Registry","agentRegistrySymbol":"AI-AGENT-V1","agentRegistryAddress":"0x9dEc6B62c197268242A768dc3b153AE7a2701396","agentFactoryAddress":"0x1d333b46dB6e8FFd271b6C2D2B254868BD9A2dbd","agentMechAddress":"0x0a3cfc6bee9658eda040e6bb366fe963ddce82c9","agentId":"1","price":"1000000000000000000"}
