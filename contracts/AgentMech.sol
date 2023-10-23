@@ -88,11 +88,7 @@ contract AgentMech is ERC721Mech {
         requestIds[1] = requestId;
         // Previous element of the current next element will be the newly created element
         mapRequestIds[curNextRequestId][0] = requestId;
-
-        // Check for the previous element of the zero one to exist, and if there is none - assign the newly created one
-        if (requestIds[0] == 0) {
-            requestIds[0] = requestId;
-        }
+        
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
 
