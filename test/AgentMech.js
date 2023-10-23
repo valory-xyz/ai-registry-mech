@@ -200,7 +200,7 @@ describe("AgentMech", function () {
             }
 
             // Check request Ids
-            uRequestIds = await agentMech.getUndeliveredRequestIds();
+            let uRequestIds = await agentMech.getUndeliveredRequestIds();
             const half = Math.floor(numRequests / 2);
             expect(uRequestIds.length).to.equal(half);
             for (let i = 0; i < half; i++) {
