@@ -22,19 +22,31 @@ error AgentNotFound(uint256 agentId);
 /// @param expected Expected amount.
 error NotEnoughPaid(uint256 provided, uint256 expected);
 
+/// @dev Request Id not found.
+/// @param requestId Request Id.
+error RequestIdNotFound(uint256 requestId);
+
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
-    event Perform(address indexed sender, bytes32 taskHash);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
     event PriceUpdated(uint256 price);
 
     // Minimum required price
     uint256 public price;
+    // Number of undelivered requests
+    uint256 public numUndeliveredRequests;
 
     // Map of requests counts for corresponding addresses
     mapping (address => uint256) public mapRequestsCounts;
+    // Map of request Ids
+    mapping (uint256 => uint256[2]) public mapRequestIds;
 
     /// @dev AgentMech constructor.
     /// @param _token Address of the token contract.
@@ -52,6 +64,7 @@ contract AgentMech is ERC721Mech {
             revert AgentNotFound(_tokenId);
         }
 
+        // Record the price
         price = _price;
     }
 
@@ -62,8 +75,28 @@ contract AgentMech is ERC721Mech {
             revert NotEnoughPaid(msg.value, price);
         }
 
+        // Get the request Id
         requestId = getRequestId(msg.sender, data);
+        // Increase the requests count supplied by the sender
         mapRequestsCounts[msg.sender]++;
+
+        // Record the request Id in the map
+        // Get previous and next request Ids of the first element
+        uint256[2] storage requestIds = mapRequestIds[0];
+        // Create the new element
+        uint256[2] storage newRequestIds = mapRequestIds[requestId];
+
+        // Previous element will be zero, next element will be the current next element
+        uint256 curNextRequestId = requestIds[1];
+        newRequestIds[1] = curNextRequestId;
+        // Next element of the zero element will be the newly created element
+        requestIds[1] = requestId;
+        // Previous element of the current next element will be the newly created element
+        mapRequestIds[curNextRequestId][0] = requestId;
+
+        // Increase the number of undelivered requests
+        numUndeliveredRequests++;
+
         emit Request(msg.sender, requestId, data);
     }
 
@@ -71,6 +104,22 @@ contract AgentMech is ERC721Mech {
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
+        // Remove delivered request Id from the request Ids map
+        uint256[2] memory requestIds = mapRequestIds[requestId];
+        // Check if the request Id is invalid: previous and next request Ids are zero,
+        // and the zero's element next request Id is not equal to the provided request Id
+        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][1] != requestId) {
+            revert RequestIdNotFound(requestId);
+        }
+
+        // Re-link previous and next elements between themselves
+        mapRequestIds[requestIds[0]][1] = requestIds[1];
+        mapRequestIds[requestIds[1]][0] = requestIds[0];
+        // Delete the delivered element from the map
+        delete mapRequestIds[requestId];
+        // Decrease the number of undelivered requests
+        numUndeliveredRequests--;
+
         emit Deliver(msg.sender, requestId, data);
     }
 
@@ -94,5 +143,43 @@ contract AgentMech is ERC721Mech {
     /// @return requestsCount Requests count.
     function getRequestsCount(address account) external view returns (uint256 requestsCount) {
         requestsCount = mapRequestsCounts[account];
+    }
+
+    /// @dev Gets the set of undelivered request Ids.
+    /// @param size Maximum batch size of a returned requests Id set. If the size is zero, the whole set is returned.
+    /// @param offset The number of skipped requests that are not going to be part of the returned requests Id set.
+    /// @return requestIds Set of undelivered request Ids.
+    function getUndeliveredRequestIds(uint256 size, uint256 offset) external view returns (uint256[] memory requestIds) {
+        // Get the number of undelivered requests
+        uint256 numRequests = numUndeliveredRequests;
+
+        // If size is zero, return all the requests
+        if (size == 0) {
+            size = numRequests;
+        }
+
+        // Check for the size + offset overflow
+        if (size + offset > numRequests) {
+            revert Overflow(size + offset, numRequests);
+        }
+
+        if (size > 0) {
+            requestIds = new uint256[](size);
+
+            // The first request Id is the next request Id of the zero element in the request Ids map
+            uint256 curRequestId = mapRequestIds[0][1];
+            // Traverse requests a specified offset
+            for (uint256 i = 0; i < offset; ++i) {
+                // Next request Id of the current element based on the current request Id
+                curRequestId = mapRequestIds[curRequestId][1];
+            }
+
+            // Traverse the rest of requests
+            for (uint256 i = 0; i < size; ++i) {
+                requestIds[i] = curRequestId;
+                // Next request Id of the current element based on the current request Id
+                curRequestId = mapRequestIds[curRequestId][1];
+            }
+        }
     }
 }
