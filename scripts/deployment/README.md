@@ -18,7 +18,7 @@ command and compiled with the
 npx hardhat compile
 ```
 
-Create a `globals.json` file in the root folder, or copy it from the file with pre-defined parameters (i.e., `scripts/deployment/globals_gnosis.json` for the gnosis network).
+Create a `globals.json` file in the root folder, or copy it from the file with pre-defined parameters (i.e., `scripts/deployment/globals_gnosis_mainnet.json` for the gnosis mainnet network).
 
 Parameters of the `globals.json` file:
 - `contractVerification`: a flag for verifying contracts in deployment scripts (`true`) or skipping it (`false`);
