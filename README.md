@@ -46,7 +46,7 @@ The finalized contract ABIs for deployment and their number of optimization pass
 Each folder there contains contracts compiled with the solidity version before their deployment.
 
 ## Acknowledgements
-The registries contracts were inspired and based on the following sources:
+The registry mech contracts were inspired and based on the following sources:
 - [Rari-Capital Solmate](https://github.com/Rari-Capital/solmate).
 - [Autonolas Registries](https://github.com/valory-xyz/autonolas-registries).
 - [Gnosis Mech](https://github.com/gnosis/mech).
