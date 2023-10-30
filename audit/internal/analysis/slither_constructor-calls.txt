@@ -1,0 +1,199 @@
+'solc --version' running
+'solc ./AgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentRegistry-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./ExtendedAgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+INFO:Printers:
+#########################
+####### AgentMech #######
+#########################
+
+## Constructor Call Sequence
+	- ERC721Mech
+	- AgentMech
+
+## Constructor Definitions
+
+### ERC721Mech
+
+     ctor(address _token, uint256 _tokenId) {
+        bytes memory initParams = abi.encode(_token, _tokenId);
+        setUp(initParams);
+    }
+
+    f
+
+### AgentMech
+
+     ctor(address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token, _tokenId) {
+        // Check for the token address
+        if (_token == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for the token to have the owner
+        address tokenOwner = IToken(_token).ownerOf(_tokenId);
+        if (tokenOwner == address(0)) {
+            revert AgentNotFound(_tokenId);
+        }
+
+        // Record the price
+        price = _price;
+    }
+
+    /
+
+############################
+####### AgentFactory #######
+############################
+
+## Constructor Call Sequence
+	- AgentFactory
+
+## Constructor Definitions
+
+### AgentFactory
+
+     ctor(address _agentRegistry) {
+        agentRegistry = _agentRegistry;
+        owner = msg.sender;
+    }
+
+    /
+
+INFO:Printers:
+#############################
+####### AgentRegistry #######
+#############################
+
+## Constructor Call Sequence
+	- ERC721
+	- AgentRegistry
+
+## Constructor Definitions
+
+### ERC721
+
+     constructor(string memory _name, string memory _symbol) {
+        name = _name;
+        symbol = _symbol;
+    }
+
+### AgentRegistry
+
+     constructor(string memory _name, string memory _symbol, string memory _baseURI)
+        ERC721(_name, _symbol)
+    {
+        baseURI = _baseURI;
+        owner = msg.sender;
+    }
+
+INFO:Printers:
+#########################
+####### AgentMech #######
+#########################
+
+## Constructor Call Sequence
+	- ERC721Mech
+	- AgentMech
+
+## Constructor Definitions
+
+### ERC721Mech
+
+     ctor(address _token, uint256 _tokenId) {
+        bytes memory initParams = abi.encode(_token, _tokenId);
+        setUp(initParams);
+    }
+
+    f
+
+### AgentMech
+
+     ctor(address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token, _tokenId) {
+        // Check for the token address
+        if (_token == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for the token to have the owner
+        address tokenOwner = IToken(_token).ownerOf(_tokenId);
+        if (tokenOwner == address(0)) {
+            revert AgentNotFound(_tokenId);
+        }
+
+        // Record the price
+        price = _price;
+    }
+
+    /
+
+INFO:Printers:
+#########################
+####### AgentMech #######
+#########################
+
+## Constructor Call Sequence
+	- ERC721Mech
+	- AgentMech
+
+## Constructor Definitions
+
+### ERC721Mech
+
+     ctor(address _token, uint256 _tokenId) {
+        bytes memory initParams = abi.encode(_token, _tokenId);
+        setUp(initParams);
+    }
+
+    f
+
+### AgentMech
+
+     ctor(address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token, _tokenId) {
+        // Check for the token address
+        if (_token == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for the token to have the owner
+        address tokenOwner = IToken(_token).ownerOf(_tokenId);
+        if (tokenOwner == address(0)) {
+            revert AgentNotFound(_tokenId);
+        }
+
+        // Record the price
+        price = _price;
+    }
+
+    /
+
+####################################
+####### ExtendedAgentFactory #######
+####################################
+
+## Constructor Call Sequence
+	- AgentFactory
+	- ExtendedAgentFactory
+
+## Constructor Definitions
+
+### AgentFactory
+
+     ctor(address _agentRegistry) {
+        agentRegistry = _agentRegistry;
+        owner = msg.sender;
+    }
+
+    /
+
+### ExtendedAgentFactory
+
+     ctor(address _agentRegistry) AgentFactory(_agentRegistry) {}
+
+    /
+
+INFO:Slither:. analyzed (95 contracts)

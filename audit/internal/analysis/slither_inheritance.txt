@@ -1,0 +1,557 @@
+'solc --version' running
+'solc ./AgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentRegistry-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./ExtendedAgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ UserOperationLib
+
++ IAccount
+
++ IAggregator
+
++ IStakeManager
+
++ IEntryPoint
+ -> IStakeManager
+
++ BaseAccount
+ -> IAccount
+
++ IERC165
+
++ IERC721
+ -> IERC165
+
++ Math
+
++ Strings
+
++ ECDSA
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+
++ Enum
+
++ Account
+ -> BaseAccount
+, [IAccount]
+
++ ERC1155TokenReceiver
+
++ ERC721TokenReceiver
+
++ ERC777TokensRecipient
+
++ Receiver
+ -> ERC1155TokenReceiver, ERC777TokensRecipient, ERC721TokenReceiver
+
++ IERC1271
+
++ IFactoryFriendly
+
++ IMech
+ -> IAccount, IERC1271, IFactoryFriendly
+
++ Mech
+ -> IMech, Account, Receiver
+, [ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, BaseAccount, IFactoryFriendly, IERC1271, IAccount]
+
++ ERC721Mech
+ -> Mech, ImmutableStorage
+, [Receiver, ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, Account, BaseAccount, IMech, IFactoryFriendly, IERC1271, IAccount]
+
++ IToken
+
++ AgentMech
+ -> ERC721Mech
+, [ImmutableStorage, Mech, Receiver, ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, Account, BaseAccount, IMech, IFactoryFriendly, IERC1271, IAccount]
+
++ IErrorsRegistries
+
++ GenericManager
+ -> IErrorsRegistries
+
++ IAgentRegistry
+
++ AgentFactory
+ -> GenericManager
+, [IErrorsRegistries]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ UserOperationLib
+
++ IAccount
+ -> BaseAccount, IMech
+, [Account, Mech, ERC721Mech, AgentMech]
+
++ IAggregator
+
++ IStakeManager
+ -> IEntryPoint
+
++ IEntryPoint
+
++ BaseAccount
+ -> Account
+, [Mech, ERC721Mech, AgentMech]
+
++ IERC165
+ -> IERC721
+
++ IERC721
+
++ Math
+
++ Strings
+
++ ECDSA
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+ -> ERC721Mech
+, [AgentMech]
+
++ Enum
+
++ Account
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ ERC1155TokenReceiver
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ ERC721TokenReceiver
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ ERC777TokensRecipient
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ Receiver
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ IERC1271
+ -> IMech
+, [Mech, ERC721Mech, AgentMech]
+
++ IFactoryFriendly
+ -> IMech
+, [Mech, ERC721Mech, AgentMech]
+
++ IMech
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ Mech
+ -> ERC721Mech
+, [AgentMech]
+
++ ERC721Mech
+ -> AgentMech
+
++ IToken
+
++ AgentMech
+
++ IErrorsRegistries
+ -> GenericManager
+, [AgentFactory]
+
++ GenericManager
+ -> AgentFactory
+
++ IAgentRegistry
+
++ AgentFactory
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IErrorsRegistries
+
++ ERC721
+
++ ERC721TokenReceiver
+
++ GenericRegistry
+ -> IErrorsRegistries, ERC721
+
++ AgentRegistry
+ -> GenericRegistry
+, [ERC721, IErrorsRegistries]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IErrorsRegistries
+ -> GenericRegistry
+, [AgentRegistry]
+
++ ERC721
+ -> GenericRegistry
+, [AgentRegistry]
+
++ ERC721TokenReceiver
+
++ GenericRegistry
+ -> AgentRegistry
+
++ AgentRegistry
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ UserOperationLib
+
++ IAccount
+
++ IAggregator
+
++ IStakeManager
+
++ IEntryPoint
+ -> IStakeManager
+
++ BaseAccount
+ -> IAccount
+
++ IERC165
+
++ IERC721
+ -> IERC165
+
++ Math
+
++ Strings
+
++ ECDSA
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+
++ Enum
+
++ Account
+ -> BaseAccount
+, [IAccount]
+
++ ERC1155TokenReceiver
+
++ ERC721TokenReceiver
+
++ ERC777TokensRecipient
+
++ Receiver
+ -> ERC1155TokenReceiver, ERC777TokensRecipient, ERC721TokenReceiver
+
++ IERC1271
+
++ IFactoryFriendly
+
++ IMech
+ -> IAccount, IERC1271, IFactoryFriendly
+
++ Mech
+ -> IMech, Account, Receiver
+, [ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, BaseAccount, IFactoryFriendly, IERC1271, IAccount]
+
++ ERC721Mech
+ -> Mech, ImmutableStorage
+, [Receiver, ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, Account, BaseAccount, IMech, IFactoryFriendly, IERC1271, IAccount]
+
++ IToken
+
++ AgentMech
+ -> ERC721Mech
+, [ImmutableStorage, Mech, Receiver, ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, Account, BaseAccount, IMech, IFactoryFriendly, IERC1271, IAccount]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ UserOperationLib
+
++ IAccount
+ -> BaseAccount, IMech
+, [Account, Mech, ERC721Mech, AgentMech]
+
++ IAggregator
+
++ IStakeManager
+ -> IEntryPoint
+
++ IEntryPoint
+
++ BaseAccount
+ -> Account
+, [Mech, ERC721Mech, AgentMech]
+
++ IERC165
+ -> IERC721
+
++ IERC721
+
++ Math
+
++ Strings
+
++ ECDSA
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+ -> ERC721Mech
+, [AgentMech]
+
++ Enum
+
++ Account
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ ERC1155TokenReceiver
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ ERC721TokenReceiver
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ ERC777TokensRecipient
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ Receiver
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ IERC1271
+ -> IMech
+, [Mech, ERC721Mech, AgentMech]
+
++ IFactoryFriendly
+ -> IMech
+, [Mech, ERC721Mech, AgentMech]
+
++ IMech
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ Mech
+ -> ERC721Mech
+, [AgentMech]
+
++ ERC721Mech
+ -> AgentMech
+
++ IToken
+
++ AgentMech
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ UserOperationLib
+
++ IAccount
+
++ IAggregator
+
++ IStakeManager
+
++ IEntryPoint
+ -> IStakeManager
+
++ BaseAccount
+ -> IAccount
+
++ IERC165
+
++ IERC721
+ -> IERC165
+
++ Math
+
++ Strings
+
++ ECDSA
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+
++ Enum
+
++ Account
+ -> BaseAccount
+, [IAccount]
+
++ ERC1155TokenReceiver
+
++ ERC721TokenReceiver
+
++ ERC777TokensRecipient
+
++ Receiver
+ -> ERC1155TokenReceiver, ERC777TokensRecipient, ERC721TokenReceiver
+
++ IERC1271
+
++ IFactoryFriendly
+
++ IMech
+ -> IAccount, IERC1271, IFactoryFriendly
+
++ Mech
+ -> IMech, Account, Receiver
+, [ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, BaseAccount, IFactoryFriendly, IERC1271, IAccount]
+
++ ERC721Mech
+ -> Mech, ImmutableStorage
+, [Receiver, ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, Account, BaseAccount, IMech, IFactoryFriendly, IERC1271, IAccount]
+
++ IToken
+
++ AgentMech
+ -> ERC721Mech
+, [ImmutableStorage, Mech, Receiver, ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, Account, BaseAccount, IMech, IFactoryFriendly, IERC1271, IAccount]
+
++ IErrorsRegistries
+
++ GenericManager
+ -> IErrorsRegistries
+
++ AgentFactory
+ -> GenericManager
+, [IErrorsRegistries]
+
++ IAgentRegistry
+
++ ExtendedAgentFactory
+ -> AgentFactory
+, [GenericManager, IErrorsRegistries]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ UserOperationLib
+
++ IAccount
+ -> BaseAccount, IMech
+, [Account, Mech, ERC721Mech, AgentMech]
+
++ IAggregator
+
++ IStakeManager
+ -> IEntryPoint
+
++ IEntryPoint
+
++ BaseAccount
+ -> Account
+, [Mech, ERC721Mech, AgentMech]
+
++ IERC165
+ -> IERC721
+
++ IERC721
+
++ Math
+
++ Strings
+
++ ECDSA
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+ -> ERC721Mech
+, [AgentMech]
+
++ Enum
+
++ Account
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ ERC1155TokenReceiver
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ ERC721TokenReceiver
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ ERC777TokensRecipient
+ -> Receiver
+, [Mech, ERC721Mech, AgentMech]
+
++ Receiver
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ IERC1271
+ -> IMech
+, [Mech, ERC721Mech, AgentMech]
+
++ IFactoryFriendly
+ -> IMech
+, [Mech, ERC721Mech, AgentMech]
+
++ IMech
+ -> Mech
+, [ERC721Mech, AgentMech]
+
++ Mech
+ -> ERC721Mech
+, [AgentMech]
+
++ ERC721Mech
+ -> AgentMech
+
++ IToken
+
++ AgentMech
+
++ IErrorsRegistries
+ -> GenericManager
+, [AgentFactory, ExtendedAgentFactory]
+
++ GenericManager
+ -> AgentFactory
+, [ExtendedAgentFactory]
+
++ AgentFactory
+ -> ExtendedAgentFactory
+
++ IAgentRegistry
+
++ ExtendedAgentFactory
+
+INFO:Slither:. analyzed (95 contracts)

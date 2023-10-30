@@ -1,0 +1,59 @@
+'solc --version' running
+'solc ./AgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentRegistry-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./ExtendedAgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+INFO:Printers:Call Graph: ./AgentFactory-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.UserOperationLib.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.IAggregator.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.IEntryPoint.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.IERC721.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.Math.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.Strings.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.ECDSA.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.console.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.WriteOnce.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.Enum.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.IToken.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.AgentMech.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.IAgentRegistry.call-graph.dot
+Call Graph: ./AgentFactory-flatten.sol.AgentFactory.call-graph.dot
+
+INFO:Printers:Call Graph: ./AgentRegistry-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./AgentRegistry-flatten.sol.ERC721TokenReceiver.call-graph.dot
+Call Graph: ./AgentRegistry-flatten.sol.AgentRegistry.call-graph.dot
+
+INFO:Printers:Call Graph: ./AgentMech-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.UserOperationLib.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.IAggregator.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.IEntryPoint.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.IERC721.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.Math.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.Strings.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.ECDSA.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.console.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.WriteOnce.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.Enum.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.IToken.call-graph.dot
+Call Graph: ./AgentMech-flatten.sol.AgentMech.call-graph.dot
+
+INFO:Printers:Call Graph: ./ExtendedAgentFactory-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.UserOperationLib.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.IAggregator.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.IEntryPoint.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.IERC721.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.Math.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.Strings.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.ECDSA.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.console.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.WriteOnce.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.Enum.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.IToken.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.AgentMech.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.IAgentRegistry.call-graph.dot
+Call Graph: ./ExtendedAgentFactory-flatten.sol.ExtendedAgentFactory.call-graph.dot
+
+INFO:Slither:. analyzed (95 contracts)
