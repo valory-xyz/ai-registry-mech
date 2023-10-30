@@ -1,0 +1,17 @@
+'solc --version' running
+'solc ./AgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentRegistry-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./AgentMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc --version' running
+'solc ./ExtendedAgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+INFO:Printers:Inheritance Graph: ./AgentFactory-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./AgentRegistry-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./AgentMech-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./ExtendedAgentFactory-flatten.sol.inheritance-graph.dot
+
+INFO:Slither:. analyzed (95 contracts)
