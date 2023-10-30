@@ -112,6 +112,7 @@ id2 = (bo, bThis is the content)
 id1 == id2
 abi.encode uses padding while abi.encodePacked does not. abi.encodePacked whatever will work.
 ```
+[x] Discussed. False positive.
 
 ##### Update library contracts as possible
 Contracts used as libraries include those that are obviously not needed in the "product" mode. <br> 
@@ -119,6 +120,7 @@ Contracts used as libraries include those that are obviously not needed in the "
 grep -r console ./lib/mech/contracts/    
 ./lib/mech/contracts/base/ImmutableStorage.sol:import "hardhat/console.sol";
 ```
+[?] Discussed. The update may not be a very easy task. The code `./lib/mech/contracts` has changed a lot.
 
 ##### What happens to the incoming native token?
 ```solidity
@@ -129,6 +131,7 @@ function request(bytes memory data) external payable returns (uint256 requestId)
         }
 
 ```
+[x] Discussed. Used in nested contract functions.
 
 ##### Very minor issue.
 lacks a zero-check on: <br>
@@ -145,3 +148,4 @@ contract AgentMech is ERC721Mech {
 ...
 }
 ```
+[x] Discussed. Price can be zero by design.
