@@ -83,7 +83,7 @@ contract AgentMech is ERC721Mech {
     function _preRequest(uint256 amount, uint256, bytes memory) internal virtual {
         // Check the request payment
         if (amount < price) {
-            revert NotEnoughPaid(msg.value, price);
+            revert NotEnoughPaid(amount, price);
         }
     }
 
