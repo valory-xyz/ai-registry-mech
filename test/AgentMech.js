@@ -83,14 +83,14 @@ describe("AgentMech", function () {
                 agentMech.connect(account).deliver(requestId, data)
             ).to.be.reverted;
 
-            // Get the request status
+            // Get the request status (requested)
             status = await agentMech.getRequestStatus(requestId);
             expect(status).to.equal(1);
 
             // Deliver a request
             await agentMech.deliver(requestId, data);
 
-            // Get the request status
+            // Get the request status (delivered)
             status = await agentMech.getRequestStatus(requestId);
             expect(status).to.equal(2);
         });

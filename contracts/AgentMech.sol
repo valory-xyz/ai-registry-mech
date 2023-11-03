@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {ERC721Mech} from "../lib/mech/contracts/ERC721Mech.sol";
+import "hardhat/console.sol";
 
 interface IToken {
     /// @dev Gets the owner of the `tokenId` token.
@@ -121,18 +122,28 @@ contract AgentMech is ERC721Mech {
         emit Request(msg.sender, requestId, data);
     }
 
+    /// @dev Performs actions before the delivery of a request.
+    function _preDeliver(uint256, bytes memory data) internal virtual returns (bytes memory deliveryData) {
+        deliveryData = data;
+    }
+
     /// @dev Performs actions after the delivery of a request.
-    function _postDeliver(uint256, bytes memory) internal virtual {}
+    function _postDeliver(uint256, bytes memory data) internal virtual returns (bytes memory deliveryData) {
+        deliveryData = data;
+    }
 
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
+        // Perform a pre-delivery of the data if it needs additional parsing
+        bytes memory deliveryData = _preDeliver(requestId, data);
+
         // Remove delivered request Id from the request Ids map
         uint256[2] memory requestIds = mapRequestIds[requestId];
         // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
-        // and the zero's element next request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][1] != requestId) {
+        // and the zero's element previous request Id is not equal to the provided request Id
+        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
             revert RequestIdNotFound(requestId);
         }
 
@@ -144,9 +155,10 @@ contract AgentMech is ERC721Mech {
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
 
-        _postDeliver(requestId, data);
+        // Perform a pre-delivery of the data
+        deliveryData = _postDeliver(requestId, deliveryData);
 
-        emit Deliver(msg.sender, requestId, data);
+        emit Deliver(msg.sender, requestId, deliveryData);
     }
 
     /// @dev Sets the new price.
@@ -180,8 +192,8 @@ contract AgentMech is ERC721Mech {
             // Get the request info
             uint256[2] memory requestIds = mapRequestIds[requestId];
             // Check if the request Id was already delivered: previous and next request Ids are zero,
-            // and the zero's element next request Id is not equal to the provided request Id
-            if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][1] != requestId) {
+            // and the zero's element previous request Id is not equal to the provided request Id
+            if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
                 status = RequestStatus.Delivered;
             } else {
                 status = RequestStatus.Requested;
