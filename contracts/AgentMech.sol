@@ -78,9 +78,10 @@ contract AgentMech is ERC721Mech {
         price = _price;
     }
 
-    /// @dev Checks for the request payment.
+    /// @dev Performs actions before the request is posted.
     /// @param amount Amount of payment in wei.
-    function _checkRequestPayment(uint256 amount) internal virtual {
+    function _preRequest(uint256 amount, uint256, bytes memory) internal virtual {
+        // Check the request payment
         if (amount < price) {
             revert NotEnoughPaid(msg.value, price);
         }
@@ -89,11 +90,12 @@ contract AgentMech is ERC721Mech {
     /// @dev Registers a request.
     /// @param data Self-descriptive opaque data-blob.
     function request(bytes memory data) external payable returns (uint256 requestId) {
-        // Check the request payment
-        _checkRequestPayment(msg.value);
-
         // Get the request Id
         requestId = getRequestId(msg.sender, data);
+
+        // Check the request payment
+        _preRequest(msg.value, requestId, data);
+
         // Increase the requests count supplied by the sender
         mapRequestsCounts[msg.sender]++;
         // Record the requestId => sender correspondence
