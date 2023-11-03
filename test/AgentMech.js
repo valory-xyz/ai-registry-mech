@@ -65,14 +65,15 @@ describe("AgentMech", function () {
             const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price);
 
             const requestId = await agentMech.getRequestId(deployer.address, data);
+            const requestIdWithNonce = await agentMech.getRequestIdWithNonce(deployer.address, data, 0);
 
             // Get the non-existent request status
-            let status = await agentMech.getRequestStatus(requestId);
+            let status = await agentMech.getRequestStatus(requestIdWithNonce);
             expect(status).to.equal(0);
 
             // Try to deliver a non existent request
             await expect(
-                agentMech.deliver(requestId, data)
+                agentMech.deliver(requestId, requestIdWithNonce, data)
             ).to.be.revertedWithCustomError(agentMech, "RequestIdNotFound");
 
             // Create a request
@@ -80,18 +81,18 @@ describe("AgentMech", function () {
 
             // Try to deliver not by the operator (agent owner)
             await expect(
-                agentMech.connect(account).deliver(requestId, data)
+                agentMech.connect(account).deliver(requestId, requestIdWithNonce, data)
             ).to.be.reverted;
 
             // Get the request status (requested)
-            status = await agentMech.getRequestStatus(requestId);
+            status = await agentMech.getRequestStatus(requestIdWithNonce);
             expect(status).to.equal(1);
 
             // Deliver a request
-            await agentMech.deliver(requestId, data);
+            await agentMech.deliver(requestId, requestIdWithNonce, data);
 
             // Get the request status (delivered)
-            status = await agentMech.getRequestStatus(requestId);
+            status = await agentMech.getRequestStatus(requestIdWithNonce);
             expect(status).to.equal(2);
         });
 
@@ -100,6 +101,7 @@ describe("AgentMech", function () {
 
             const numRequests = 5;
             const datas = new Array();
+            const requestIdSimple = new Array();
             const requestIds = new Array();
             let requestCount = 0;
             for (let i = 0; i < numRequests; i++) {
@@ -107,7 +109,8 @@ describe("AgentMech", function () {
             }
 
             // Get first request Id
-            requestIds[0] = await agentMech.getRequestId(deployer.address, datas[0]);
+            requestIdSimple[0] = await agentMech.getRequestId(deployer.address, datas[0]);
+            requestIds[0] = await agentMech.getRequestIdWithNonce(deployer.address, datas[0], 0);
             requestCount++;
 
             // Check request Ids
@@ -123,7 +126,7 @@ describe("AgentMech", function () {
             expect(uRequestIds[0]).to.equal(requestIds[0]);
 
             // Deliver a request
-            await agentMech.deliver(requestIds[0], data);
+            await agentMech.deliver(requestIdSimple[0], requestIds[0], data);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -137,6 +140,7 @@ describe("AgentMech", function () {
 
             // Stack all requests
             for (let i = 0; i < numRequests; i++) {
+                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i]);
                 await agentMech.request(datas[i], {value: price});
             }
 
@@ -150,7 +154,7 @@ describe("AgentMech", function () {
 
             // Deliver all requests
             for (let i = 0; i < numRequests; i++) {
-                await agentMech.deliver(requestIds[i], datas[i]);
+                await agentMech.deliver(requestIdSimple[i], requestIds[i], datas[i]);
             }
 
             // Check request Ids
@@ -159,13 +163,14 @@ describe("AgentMech", function () {
 
             // Update all requests again and post them
             for (let i = 0; i < numRequests; i++) {
+                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i]);
                 requestIds[i] = await agentMech.getRequestIdWithNonce(deployer.address, datas[i], requestCount);
                 requestCount++;
                 await agentMech.request(datas[i], {value: price});
             }
 
             // Deliver the first request
-            await agentMech.deliver(requestIds[0], datas[0]);
+            await agentMech.deliver(requestIdSimple[0], requestIds[0], datas[0]);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -176,7 +181,7 @@ describe("AgentMech", function () {
             }
 
             // Deliver the last request
-            await agentMech.deliver(requestIds[numRequests - 1], datas[numRequests - 1]);
+            await agentMech.deliver(requestIdSimple[numRequests - 1], requestIds[numRequests - 1], datas[numRequests - 1]);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -187,7 +192,7 @@ describe("AgentMech", function () {
 
             // Deliver the middle request
             const middle = Math.floor(numRequests / 2);
-            await agentMech.deliver(requestIds[middle], datas[middle]);
+            await agentMech.deliver(requestIdSimple[middle], requestIds[middle], datas[middle]);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -205,18 +210,22 @@ describe("AgentMech", function () {
 
             const numRequests = 9;
             const datas = new Array();
+            const requestIdSimple = new Array();
             const requestIds = new Array();
+            let requestCount = 0;
             // Compute and stack all the requests
             for (let i = 0; i < numRequests; i++) {
                 datas[i] = data + "00".repeat(i);
-                requestIds[i] = await agentMech.getRequestId(deployer.address, datas[i]);
+                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i]);
+                requestIds[i] = await agentMech.getRequestIdWithNonce(deployer.address, datas[i], requestCount);
+                requestCount++;
                 await agentMech.request(datas[i], {value: price});
             }
 
             // Deliver even requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 != 0) {
-                    await agentMech.deliver(requestIds[i], datas[i]);
+                    await agentMech.deliver(requestIdSimple[i], requestIds[i], datas[i]);
                 }
             }
 
@@ -231,7 +240,7 @@ describe("AgentMech", function () {
             // Deliver the rest of requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 == 0) {
-                    await agentMech.deliver(requestIds[i], datas[i]);
+                    await agentMech.deliver(requestIdSimple[i], requestIds[i], datas[i]);
                 }
             }
 
@@ -245,11 +254,15 @@ describe("AgentMech", function () {
 
             const numRequests = 10;
             const datas = new Array();
+            const requestIdSimple = new Array();
             const requestIds = new Array();
+            let requestCount = 0;
             // Stack all requests
             for (let i = 0; i < numRequests; i++) {
                 datas[i] = data + "00".repeat(i);
-                requestIds[i] = await agentMech.getRequestId(deployer.address, datas[i]);
+                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i]);
+                requestIds[i] = await agentMech.getRequestIdWithNonce(deployer.address, datas[i], requestCount);
+                requestCount++;
                 await agentMech.request(datas[i], {value: price});
             }
 
@@ -287,7 +300,7 @@ describe("AgentMech", function () {
 
             // Deliver all requests
             for (let i = 0; i < numRequests; i++) {
-                await agentMech.deliver(requestIds[i], datas[i]);
+                await agentMech.deliver(requestIdSimple[i], requestIds[i], datas[i]);
             }
         });
     });
