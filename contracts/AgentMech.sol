@@ -123,13 +123,10 @@ contract AgentMech is ERC721Mech {
     }
 
     /// @dev Performs actions before the delivery of a request.
-    function _preDeliver(uint256, bytes memory data) internal virtual returns (bytes memory deliveryData) {
-        deliveryData = data;
-    }
-
-    /// @dev Performs actions after the delivery of a request.
-    function _postDeliver(uint256, bytes memory data) internal virtual returns (bytes memory deliveryData) {
-        deliveryData = data;
+    /// @param data Self-descriptive opaque data-blob.
+    /// @return requestData Data for the request processing.
+    function _preDeliver(uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
+        requestData = data;
     }
 
     /// @dev Delivers a request.
@@ -137,7 +134,7 @@ contract AgentMech is ERC721Mech {
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
         // Perform a pre-delivery of the data if it needs additional parsing
-        bytes memory deliveryData = _preDeliver(requestId, data);
+        bytes memory requestData = _preDeliver(requestId, data);
 
         // Remove delivered request Id from the request Ids map
         uint256[2] memory requestIds = mapRequestIds[requestId];
@@ -155,10 +152,7 @@ contract AgentMech is ERC721Mech {
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
 
-        // Perform a pre-delivery of the data
-        deliveryData = _postDeliver(requestId, deliveryData);
-
-        emit Deliver(msg.sender, requestId, deliveryData);
+        emit Deliver(msg.sender, requestId, requestData);
     }
 
     /// @dev Sets the new price.
