@@ -66,6 +66,10 @@ describe("AgentMech", function () {
 
             const requestId = await agentMech.getRequestId(deployer.address, data);
 
+            // Get the non-existent request status
+            let status = await agentMech.getRequestStatus(requestId);
+            expect(status).to.equal(0);
+
             // Try to deliver a non existent request
             await expect(
                 agentMech.deliver(requestId, data)
@@ -74,13 +78,21 @@ describe("AgentMech", function () {
             // Create a request
             await agentMech.request(data, {value: price});
 
+            // Try to deliver not by the operator (agent owner)
+            await expect(
+                agentMech.connect(account).deliver(requestId, data)
+            ).to.be.reverted;
+
+            // Get the request status
+            status = await agentMech.getRequestStatus(requestId);
+            expect(status).to.equal(1);
+
             // Deliver a request
             await agentMech.deliver(requestId, data);
 
-            // Try to deliver not by the operator (agent owner)
-            await expect(
-                agentMech.connect(account).request(data)
-            ).to.be.reverted;
+            // Get the request status
+            status = await agentMech.getRequestStatus(requestId);
+            expect(status).to.equal(2);
         });
 
         it("Getting undelivered requests info", async function () {
