@@ -38,15 +38,25 @@ contract AgentMech is ERC721Mech {
     event Request(address indexed sender, uint256 requestId, bytes data);
     event PriceUpdated(uint256 price);
 
+    enum RequestStatus {
+        DoesNotExist,
+        Requested,
+        Delivered
+    }
+
     // Minimum required price
     uint256 public price;
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
+    // Number of total requests
+    uint256 public numTotalRequests;
 
     // Map of requests counts for corresponding addresses
-    mapping (address => uint256) public mapRequestsCounts;
+    mapping(address => uint256) public mapRequestsCounts;
     // Map of request Ids
-    mapping (uint256 => uint256[2]) public mapRequestIds;
+    mapping(uint256 => uint256[2]) public mapRequestIds;
+    // Map of request Id => sender address
+    mapping(uint256 => address) public mapRequestAddresses;
 
     /// @dev AgentMech constructor.
     /// @param _token Address of the token contract.
@@ -68,17 +78,28 @@ contract AgentMech is ERC721Mech {
         price = _price;
     }
 
+    /// @dev Performs actions before the request is posted.
+    /// @param amount Amount of payment in wei.
+    function _preRequest(uint256 amount, uint256, bytes memory) internal virtual {
+        // Check the request payment
+        if (amount < price) {
+            revert NotEnoughPaid(amount, price);
+        }
+    }
+
     /// @dev Registers a request.
     /// @param data Self-descriptive opaque data-blob.
     function request(bytes memory data) external payable returns (uint256 requestId) {
-        if (msg.value < price) {
-            revert NotEnoughPaid(msg.value, price);
-        }
-
         // Get the request Id
         requestId = getRequestId(msg.sender, data);
+
+        // Check the request payment
+        _preRequest(msg.value, requestId, data);
+
         // Increase the requests count supplied by the sender
         mapRequestsCounts[msg.sender]++;
+        // Record the requestId => sender correspondence
+        mapRequestAddresses[requestId] = msg.sender;
 
         // Record the request Id in the map
         // Get previous and next request Ids of the first element
@@ -96,19 +117,31 @@ contract AgentMech is ERC721Mech {
 
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
+        // Increase the total number of requests
+        numTotalRequests++;
 
         emit Request(msg.sender, requestId, data);
+    }
+
+    /// @dev Performs actions before the delivery of a request.
+    /// @param data Self-descriptive opaque data-blob.
+    /// @return requestData Data for the request processing.
+    function _preDeliver(uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
+        requestData = data;
     }
 
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
+        // Perform a pre-delivery of the data if it needs additional parsing
+        bytes memory requestData = _preDeliver(requestId, data);
+
         // Remove delivered request Id from the request Ids map
         uint256[2] memory requestIds = mapRequestIds[requestId];
-        // Check if the request Id is invalid: previous and next request Ids are zero,
-        // and the zero's element next request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][1] != requestId) {
+        // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
+        // and the zero's element previous request Id is not equal to the provided request Id
+        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
             revert RequestIdNotFound(requestId);
         }
 
@@ -120,7 +153,7 @@ contract AgentMech is ERC721Mech {
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
 
-        emit Deliver(msg.sender, requestId, data);
+        emit Deliver(msg.sender, requestId, requestData);
     }
 
     /// @dev Sets the new price.
@@ -143,6 +176,24 @@ contract AgentMech is ERC721Mech {
     /// @return requestsCount Requests count.
     function getRequestsCount(address account) external view returns (uint256 requestsCount) {
         requestsCount = mapRequestsCounts[account];
+    }
+
+    /// @dev Gets the request Id status.
+    /// @param requestId Request Id.
+    /// @return status Request status.
+    function getRequestStatus(uint256 requestId) external view returns (RequestStatus status) {
+        // Request exists if it was recorded in the requestId => account map
+        if (mapRequestAddresses[requestId] != address(0)) {
+            // Get the request info
+            uint256[2] memory requestIds = mapRequestIds[requestId];
+            // Check if the request Id was already delivered: previous and next request Ids are zero,
+            // and the zero's element previous request Id is not equal to the provided request Id
+            if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
+                status = RequestStatus.Delivered;
+            } else {
+                status = RequestStatus.Requested;
+            }
+        }
     }
 
     /// @dev Gets the set of undelivered request Ids.
