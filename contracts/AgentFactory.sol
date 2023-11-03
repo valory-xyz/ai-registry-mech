@@ -62,7 +62,7 @@ contract AgentFactory is GenericManager {
         address _agentRegistry,
         uint256 agentId,
         uint256 price
-    ) internal returns (address mech) {
+    ) internal virtual returns (address mech) {
         mech = address((new AgentMech){salt: salt}(_agentRegistry, agentId, price));
     }
 }
