@@ -207,7 +207,7 @@ contract AgentMech is ERC721Mech {
     /// @param account Account address.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestId Corresponding request Id.
-    function getRequestId(address account, bytes memory data) public view returns (uint256 requestId) {
+    function getRequestId(address account, bytes memory data) public pure returns (uint256 requestId) {
         requestId = uint256(keccak256(abi.encode(account, data)));
     }
 
