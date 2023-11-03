@@ -47,7 +47,22 @@ contract AgentFactory is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = address((new AgentMech){salt: salt}(agentRegistry, agentId, price));
+        mech = _createMech(salt, agentRegistry, agentId, price);
         emit CreateMech(mech, agentId, price);
+    }
+
+    /// @dev Creates the mech instance.
+    /// @param salt The generated salt.
+    /// @param _agentRegistry The agent registry address.
+    /// @param agentId The id of a created agent.
+    /// @param price Minimum required payment the agent accepts.
+    /// @return mech The created mech instance address.
+    function _createMech(
+        bytes32 salt,
+        address _agentRegistry,
+        uint256 agentId,
+        uint256 price
+    ) internal returns (address mech) {
+        mech = address((new AgentMech){salt: salt}(_agentRegistry, agentId, price));
     }
 }
