@@ -44,6 +44,16 @@ contract AgentMech is ERC721Mech {
         Delivered
     }
 
+    // Agent mech version number
+    string public constant VERSION = "1.0.0";
+    // Domain separator type hash
+    bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    // Original domain separator value
+    bytes32 public immutable domainSeparator;
+    // Original chain Id
+    uint256 public immutable chainId;
+
     // Minimum required price
     uint256 public price;
     // Number of undelivered requests
@@ -57,6 +67,8 @@ contract AgentMech is ERC721Mech {
     mapping(uint256 => uint256[2]) public mapRequestIds;
     // Map of request Id => sender address
     mapping(uint256 => address) public mapRequestAddresses;
+    // Map of account nonces
+    mapping(address => uint256) public mapNonces;
 
     /// @dev AgentMech constructor.
     /// @param _token Address of the token contract.
@@ -76,6 +88,24 @@ contract AgentMech is ERC721Mech {
 
         // Record the price
         price = _price;
+        // Record chain Id
+        chainId = block.chainid;
+        // Compute domain separator
+        domainSeparator = _computeDomainSeparator();
+    }
+
+    /// @dev Computes domain separator hash.
+    /// @return Hash of the domain separator based on its name, version, chain Id and contract address.
+    function _computeDomainSeparator() internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                DOMAIN_SEPARATOR_TYPE_HASH,
+                keccak256("AgentMech"),
+                keccak256(abi.encode(VERSION)),
+                block.chainid,
+                address(this)
+            )
+        );
     }
 
     /// @dev Performs actions before the request is posted.
@@ -100,6 +130,8 @@ contract AgentMech is ERC721Mech {
         mapRequestsCounts[msg.sender]++;
         // Record the requestId => sender correspondence
         mapRequestAddresses[requestId] = msg.sender;
+        // Update sender's nonce
+        mapNonces[msg.sender]++;
 
         // Record the request Id in the map
         // Get previous and next request Ids of the first element
@@ -163,12 +195,44 @@ contract AgentMech is ERC721Mech {
         emit PriceUpdated(newPrice);
     }
 
+    /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
+    /// @return Original or recomputed domain separator.
+    function getDomainSeparator() public view returns (bytes32) {
+        return block.chainid == chainId ? domainSeparator : _computeDomainSeparator();
+    }
+
     /// @dev Gets the request Id.
     /// @param account Account address.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestId Corresponding request Id.
-    function getRequestId(address account, bytes memory data) public pure returns (uint256 requestId) {
-        requestId = uint256(keccak256(abi.encode(account, data)));
+    function getRequestId(address account, bytes memory data) public view returns (uint256 requestId) {
+        requestId = getRequestIdWithNonce(account, data, mapNonces[account]);
+    }
+
+    /// @dev Gets the request Id with a specific nonce.
+    /// @param account Account address.
+    /// @param data Self-descriptive opaque data-blob.
+    /// @param nonce Nonce.
+    /// @return requestId Corresponding request Id.
+    function getRequestIdWithNonce(
+        address account,
+        bytes memory data,
+        uint256 nonce
+    ) public view returns (uint256 requestId)
+    {
+        requestId = uint256(keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                getDomainSeparator(),
+                keccak256(
+                    abi.encode(
+                        account,
+                        data,
+                        nonce
+                    )
+                )
+            )
+        ));
     }
 
     /// @dev Gets the requests count for a specific account.
