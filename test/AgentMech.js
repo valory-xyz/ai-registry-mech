@@ -101,10 +101,14 @@ describe("AgentMech", function () {
             const numRequests = 5;
             const datas = new Array();
             const requestIds = new Array();
+            let requestCount = 0;
             for (let i = 0; i < numRequests; i++) {
                 datas[i] = data + "00".repeat(i);
-                requestIds[i] = await agentMech.getRequestId(deployer.address, datas[i]);
             }
+
+            // Get first request Id
+            requestIds[0] = await agentMech.getRequestId(deployer.address, datas[0]);
+            requestCount++;
 
             // Check request Ids
             let uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -124,6 +128,12 @@ describe("AgentMech", function () {
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(0);
+
+            // Update the delivered request in array as one of them was already delivered
+            for (let i = 0; i < numRequests; i++) {
+                requestIds[i] = await agentMech.getRequestIdWithNonce(deployer.address, datas[i], requestCount);
+                requestCount++;
+            }
 
             // Stack all requests
             for (let i = 0; i < numRequests; i++) {
@@ -147,8 +157,10 @@ describe("AgentMech", function () {
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(0);
 
-            // Add all requests again
+            // Update all requests again and post them
             for (let i = 0; i < numRequests; i++) {
+                requestIds[i] = await agentMech.getRequestIdWithNonce(deployer.address, datas[i], requestCount);
+                requestCount++;
                 await agentMech.request(datas[i], {value: price});
             }
 
@@ -194,13 +206,10 @@ describe("AgentMech", function () {
             const numRequests = 9;
             const datas = new Array();
             const requestIds = new Array();
+            // Compute and stack all the requests
             for (let i = 0; i < numRequests; i++) {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await agentMech.getRequestId(deployer.address, datas[i]);
-            }
-
-            // Stack all requests except for the last one
-            for (let i = 0; i < numRequests; i++) {
                 await agentMech.request(datas[i], {value: price});
             }
 
@@ -237,13 +246,10 @@ describe("AgentMech", function () {
             const numRequests = 10;
             const datas = new Array();
             const requestIds = new Array();
+            // Stack all requests
             for (let i = 0; i < numRequests; i++) {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await agentMech.getRequestId(deployer.address, datas[i]);
-            }
-
-            // Stack all requests except for the last one
-            for (let i = 0; i < numRequests; i++) {
                 await agentMech.request(datas[i], {value: price});
             }
 
