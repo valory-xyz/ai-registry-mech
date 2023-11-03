@@ -109,7 +109,7 @@ describe("AgentMech", function () {
             }
 
             // Get first request Id
-            requestIdSimple[0] = await agentMech.getRequestId(deployer.address, datas[0])
+            requestIdSimple[0] = await agentMech.getRequestId(deployer.address, datas[0]);
             requestIds[0] = await agentMech.getRequestIdWithNonce(deployer.address, datas[0], 0);
             requestCount++;
 
@@ -140,7 +140,7 @@ describe("AgentMech", function () {
 
             // Stack all requests
             for (let i = 0; i < numRequests; i++) {
-                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i])
+                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i]);
                 await agentMech.request(datas[i], {value: price});
             }
 
@@ -163,7 +163,7 @@ describe("AgentMech", function () {
 
             // Update all requests again and post them
             for (let i = 0; i < numRequests; i++) {
-                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i])
+                requestIdSimple[i] = await agentMech.getRequestId(deployer.address, datas[i]);
                 requestIds[i] = await agentMech.getRequestIdWithNonce(deployer.address, datas[i], requestCount);
                 requestCount++;
                 await agentMech.request(datas[i], {value: price});

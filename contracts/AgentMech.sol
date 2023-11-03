@@ -252,7 +252,7 @@ contract AgentMech is ERC721Mech {
         if (mapRequestAddresses[requestId] != address(0)) {
             // Get the request info
             uint256[2] memory requestIds = mapRequestIds[requestId];
-            // Check if the request Id was already (deliver)ed: previous and next request Ids are zero,
+            // Check if the request Id was already delivered: previous and next request Ids are zero,
             // and the zero's element previous request Id is not equal to the provided request Id
             if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
                 status = RequestStatus.Delivered;
