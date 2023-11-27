@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {AgentMechSubscription} from "./AgentMechSubscription.sol";
-import {GenericManager} from "../../lib/autonolas-registries/contracts/GenericManager.sol";
+import {GenericManager} from "../../../lib/autonolas-registries/contracts/GenericManager.sol";
 
 interface IAgentRegistry {
     /// @dev Creates a agent.
@@ -57,7 +57,8 @@ contract AgentFactorySubscription is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = address((new AgentMech){salt: salt}(agentRegistry, agentId, creditsPerRequest, subscriptionNFT, subscriptionTokenId));
+        mech = address((new AgentMechSubscription){salt: salt}(agentRegistry, agentId, creditsPerRequest,
+            subscriptionNFT, subscriptionTokenId));
         emit CreateMech(mech, agentId, creditsPerRequest, subscriptionNFT, subscriptionTokenId);
     }
 }

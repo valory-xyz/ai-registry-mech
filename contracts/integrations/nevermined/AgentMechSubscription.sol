@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {AgentMech} from "../../contracts/AgentMech.sol";
+import {AgentMech} from "../../AgentMech.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -91,7 +91,7 @@ contract AgentMechSubscription is AgentMech {
         }
 
         // Check for the number of credits available in the subscription
-        uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(msg.sender, subscrptionTokenId);
+        uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(msg.sender, subscriptionTokenId);
         uint256 creditsPerRequest = price;
         if (creditsBalance < creditsPerRequest) {
             revert NotEnoughCredits(creditsBalance, creditsPerRequest);
@@ -101,9 +101,10 @@ contract AgentMechSubscription is AgentMech {
     }
 
     /// @dev Performs actions before the delivery of a request.
+    /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
+    function _preDeliver(uint256 requestId, bytes memory data) internal override returns (bytes memory requestData) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -111,7 +112,7 @@ contract AgentMechSubscription is AgentMech {
         _locked = 2;
 
         // Burn credits of the request Id sender upon delivery
-        IERC1155(subscriptionNFT).burn(mapRequestAddresses[requestId], subscrptionTokenId, price);
+        IERC1155(subscriptionNFT).burn(mapRequestAddresses[requestId], subscriptionTokenId, price);
 
         // Return the request data
         requestData = data;
@@ -119,8 +120,9 @@ contract AgentMechSubscription is AgentMech {
         _locked = 1;
     }
 
-    /// @dev Sets the new subscription.
-    /// @param subscriptionNFTAddress Address of the nft subscription.
+    /// @dev Sets a new subscription.
+    /// @param _subscriptionNFT Address of the NFT subscription.
+    /// @param _subscriptionTokenId Subscription Id.
     function setSubscription(address _subscriptionNFT, uint256 _subscriptionTokenId) external onlyOperator {
         // Check for the subscription address
         if (_subscriptionNFT == address(0)) {
