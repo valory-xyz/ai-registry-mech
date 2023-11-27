@@ -35,7 +35,7 @@ error Overflow(uint256 provided, uint256 max);
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
     event Deliver(address indexed sender, uint256 requestId, bytes data);
-    event Request(address indexed sender, uint256 requestId, bytes data);
+    event Request(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
     event PriceUpdated(uint256 price);
 
     enum RequestStatus {
@@ -43,6 +43,16 @@ contract AgentMech is ERC721Mech {
         Requested,
         Delivered
     }
+
+    // Agent mech version number
+    string public constant VERSION = "1.0.0";
+    // Domain separator type hash
+    bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    // Original domain separator value
+    bytes32 public immutable domainSeparator;
+    // Original chain Id
+    uint256 public immutable chainId;
 
     // Minimum required price
     uint256 public price;
@@ -57,6 +67,8 @@ contract AgentMech is ERC721Mech {
     mapping(uint256 => uint256[2]) public mapRequestIds;
     // Map of request Id => sender address
     mapping(uint256 => address) public mapRequestAddresses;
+    // Map of account nonces
+    mapping(address => uint256) public mapNonces;
 
     /// @dev AgentMech constructor.
     /// @param _token Address of the token contract.
@@ -76,6 +88,24 @@ contract AgentMech is ERC721Mech {
 
         // Record the price
         price = _price;
+        // Record chain Id
+        chainId = block.chainid;
+        // Compute domain separator
+        domainSeparator = _computeDomainSeparator();
+    }
+
+    /// @dev Computes domain separator hash.
+    /// @return Hash of the domain separator based on its name, version, chain Id and contract address.
+    function _computeDomainSeparator() internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                DOMAIN_SEPARATOR_TYPE_HASH,
+                keccak256("AgentMech"),
+                keccak256(abi.encode(VERSION)),
+                block.chainid,
+                address(this)
+            )
+        );
     }
 
     /// @dev Performs actions before the request is posted.
@@ -89,38 +119,41 @@ contract AgentMech is ERC721Mech {
 
     /// @dev Registers a request.
     /// @param data Self-descriptive opaque data-blob.
-    function request(bytes memory data) external payable returns (uint256 requestId) {
+    function request(bytes memory data) external payable returns (uint256 requestId, uint256 requestIdWithNonce) {
         // Get the request Id
         requestId = getRequestId(msg.sender, data);
+        requestIdWithNonce = getRequestIdWithNonce(msg.sender, data, mapNonces[msg.sender]);
 
         // Check the request payment
-        _preRequest(msg.value, requestId, data);
+        _preRequest(msg.value, requestIdWithNonce, data);
 
         // Increase the requests count supplied by the sender
         mapRequestsCounts[msg.sender]++;
         // Record the requestId => sender correspondence
-        mapRequestAddresses[requestId] = msg.sender;
+        mapRequestAddresses[requestIdWithNonce] = msg.sender;
+        // Update sender's nonce
+        mapNonces[msg.sender]++;
 
         // Record the request Id in the map
         // Get previous and next request Ids of the first element
         uint256[2] storage requestIds = mapRequestIds[0];
         // Create the new element
-        uint256[2] storage newRequestIds = mapRequestIds[requestId];
+        uint256[2] storage newRequestIds = mapRequestIds[requestIdWithNonce];
 
         // Previous element will be zero, next element will be the current next element
         uint256 curNextRequestId = requestIds[1];
         newRequestIds[1] = curNextRequestId;
         // Next element of the zero element will be the newly created element
-        requestIds[1] = requestId;
+        requestIds[1] = requestIdWithNonce;
         // Previous element of the current next element will be the newly created element
-        mapRequestIds[curNextRequestId][0] = requestId;
+        mapRequestIds[curNextRequestId][0] = requestIdWithNonce;
 
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
         // Increase the total number of requests
         numTotalRequests++;
 
-        emit Request(msg.sender, requestId, data);
+        emit Request(msg.sender, requestId, requestIdWithNonce, data);
     }
 
     /// @dev Performs actions before the delivery of a request.
@@ -132,24 +165,25 @@ contract AgentMech is ERC721Mech {
 
     /// @dev Delivers a request.
     /// @param requestId Request id.
+    /// @param requestIdWithNonce Request id with nonce.
     /// @param data Self-descriptive opaque data-blob.
-    function deliver(uint256 requestId, bytes memory data) external onlyOperator {
+    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
         // Perform a pre-delivery of the data if it needs additional parsing
-        bytes memory requestData = _preDeliver(requestId, data);
+        bytes memory requestData = _preDeliver(requestIdWithNonce, data);
 
         // Remove delivered request Id from the request Ids map
-        uint256[2] memory requestIds = mapRequestIds[requestId];
+        uint256[2] memory requestIds = mapRequestIds[requestIdWithNonce];
         // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
         // and the zero's element previous request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
-            revert RequestIdNotFound(requestId);
+        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestIdWithNonce) {
+            revert RequestIdNotFound(requestIdWithNonce);
         }
 
         // Re-link previous and next elements between themselves
         mapRequestIds[requestIds[0]][1] = requestIds[1];
         mapRequestIds[requestIds[1]][0] = requestIds[0];
         // Delete the delivered element from the map
-        delete mapRequestIds[requestId];
+        delete mapRequestIds[requestIdWithNonce];
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
 
@@ -163,12 +197,44 @@ contract AgentMech is ERC721Mech {
         emit PriceUpdated(newPrice);
     }
 
+    /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
+    /// @return Original or recomputed domain separator.
+    function getDomainSeparator() public view returns (bytes32) {
+        return block.chainid == chainId ? domainSeparator : _computeDomainSeparator();
+    }
+
     /// @dev Gets the request Id.
     /// @param account Account address.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestId Corresponding request Id.
     function getRequestId(address account, bytes memory data) public pure returns (uint256 requestId) {
         requestId = uint256(keccak256(abi.encode(account, data)));
+    }
+
+    /// @dev Gets the request Id with a specific nonce.
+    /// @param account Account address.
+    /// @param data Self-descriptive opaque data-blob.
+    /// @param nonce Nonce.
+    /// @return requestId Corresponding request Id.
+    function getRequestIdWithNonce(
+        address account,
+        bytes memory data,
+        uint256 nonce
+    ) public view returns (uint256 requestId)
+    {
+        requestId = uint256(keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                getDomainSeparator(),
+                keccak256(
+                    abi.encode(
+                        account,
+                        data,
+                        nonce
+                    )
+                )
+            )
+        ));
     }
 
     /// @dev Gets the requests count for a specific account.
@@ -196,7 +262,7 @@ contract AgentMech is ERC721Mech {
         }
     }
 
-    /// @dev Gets the set of undelivered request Ids.
+    /// @dev Gets the set of undelivered request Ids with Nonce.
     /// @param size Maximum batch size of a returned requests Id set. If the size is zero, the whole set is returned.
     /// @param offset The number of skipped requests that are not going to be part of the returned requests Id set.
     /// @return requestIds Set of undelivered request Ids.
