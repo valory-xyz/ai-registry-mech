@@ -90,11 +90,12 @@ contract AgentMechSubscription is AgentMech {
             revert NoDepositAllowed(amount);
         }
 
-        // Check for the number of credits available in the subscription
+        // Check for the number of credits available in the subscription vs total number of credits needed
         uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(msg.sender, subscriptionTokenId);
-        uint256 creditsPerRequest = price;
-        if (creditsBalance < creditsPerRequest) {
-            revert NotEnoughCredits(creditsBalance, creditsPerRequest);
+        uint256 numUndeliveredRequests = mapUndeliveredRequestsCounts[msg.sender];
+        uint256 creditsPerPendingRequests = (numUndeliveredRequests + 1) * price;
+        if (creditsBalance < creditsPerPendingRequests) {
+            revert NotEnoughCredits(creditsBalance, creditsPerPendingRequests);
         }
 
         _locked = 1;

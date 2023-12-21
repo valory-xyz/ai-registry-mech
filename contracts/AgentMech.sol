@@ -63,7 +63,9 @@ contract AgentMech is ERC721Mech {
 
     // Map of requests counts for corresponding addresses
     mapping(address => uint256) public mapRequestsCounts;
-    // Map of request Ids
+    // Map of undelivered requests counts for corresponding addresses
+    mapping(address => uint256) public mapUndeliveredRequestsCounts;
+    // Cyclical map of request Ids
     mapping(uint256 => uint256[2]) public mapRequestIds;
     // Map of request Id => sender address
     mapping(uint256 => address) public mapRequestAddresses;
@@ -129,6 +131,7 @@ contract AgentMech is ERC721Mech {
 
         // Increase the requests count supplied by the sender
         mapRequestsCounts[msg.sender]++;
+        mapUndeliveredRequestsCounts[msg.sender]++;
         // Record the requestId => sender correspondence
         mapRequestAddresses[requestIdWithNonce] = msg.sender;
         // Update sender's nonce
@@ -182,10 +185,14 @@ contract AgentMech is ERC721Mech {
         // Re-link previous and next elements between themselves
         mapRequestIds[requestIds[0]][1] = requestIds[1];
         mapRequestIds[requestIds[1]][0] = requestIds[0];
-        // Delete the delivered element from the map
-        delete mapRequestIds[requestIdWithNonce];
+
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
+        address account = mapRequestAddresses[requestIdWithNonce];
+        mapUndeliveredRequestsCounts[account]--;
+
+        // Delete the delivered element from the map
+        delete mapRequestIds[requestIdWithNonce];
 
         emit Deliver(msg.sender, requestId, requestData);
     }
