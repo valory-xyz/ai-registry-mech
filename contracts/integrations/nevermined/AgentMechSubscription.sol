@@ -38,7 +38,8 @@ error ReentrancyGuard();
 /// @title AgentMechSubscription - Smart contract for extending AgentMech with subscription
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a subscription.
 contract AgentMechSubscription is AgentMech {
-    event SubscriptionUpdated(address subscriptionNFT, uint256 subscriptionTokenId);
+    event DeliverPrice(uint256 indexed requestId, uint256 deliverPrice, uint256 creditsToBurn);
+    event SubscriptionUpdated(address indexed subscriptionNFT, uint256 subscriptionTokenId);
 
     // Subscription NFT
     address public subscriptionNFT;
@@ -102,21 +103,38 @@ contract AgentMechSubscription is AgentMech {
     }
 
     /// @dev Performs actions before the delivery of a request.
-    /// @param requestId Request Id.
+    /// @param requestIdWithNonce Request Id with nonce.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(uint256 requestId, bytes memory data) internal override returns (bytes memory requestData) {
+    function _preDeliver(uint256 requestIdWithNonce, bytes memory data) internal override returns (bytes memory requestData) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        // Burn credits of the request Id sender upon delivery
-        IERC1155(subscriptionNFT).burn(mapRequestAddresses[requestId], subscriptionTokenId, price);
+        // Extract the request deliver price
+        uint256 deliverPrice;
+        (deliverPrice, requestData) = abi.decode(data, (uint256, bytes));
 
-        // Return the request data
-        requestData = data;
+        // Get the request sender address
+        address account = mapRequestAddresses[requestIdWithNonce];
+
+        // Check for the number of credits available in the subscription
+        uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(account, subscriptionTokenId);
+
+        // Adjust the amount of credits to burn if the deliver price is bigger than the amount of credits available
+        uint256 creditsToBurn = deliverPrice;
+        if (creditsToBurn > creditsBalance) {
+            creditsToBurn = creditsBalance;
+        }
+
+        // Burn credits of the request Id sender upon delivery
+        if (creditsToBurn > 0) {
+            IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
+        }
+
+        emit DeliverPrice(requestIdWithNonce, deliverPrice, creditsToBurn);
 
         _locked = 1;
     }
