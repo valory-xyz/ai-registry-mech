@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {ERC721Mech} from "../lib/mech/contracts/ERC721Mech.sol";
+import {ERC721Mech} from "../lib/gnosis-mech/contracts/ERC721Mech.sol";
 
 interface IToken {
     /// @dev Gets the owner of the `tokenId` token.
