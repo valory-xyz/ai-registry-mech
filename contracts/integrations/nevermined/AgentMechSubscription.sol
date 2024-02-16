@@ -29,8 +29,8 @@ error NoDepositAllowed(uint256 amount);
 
 /// @dev Not enough credits to perform a request.
 /// @param creditsBalance Credits balance of a sender.
-/// @param creditsPerRequest Credits per request needed.
-error NotEnoughCredits(uint256 creditsBalance, uint256 creditsPerRequest);
+/// @param minCreditsPerRequest Minimum number of credits per request needed.
+error NotEnoughCredits(uint256 creditsBalance, uint256 minCreditsPerRequest);
 
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
@@ -51,17 +51,17 @@ contract AgentMechSubscription is AgentMech {
     /// @dev AgentMechSubscription constructor.
     /// @param _token Address of the token registry contract.
     /// @param _tokenId The token ID.
-    /// @param _creditsPerRequest Number of credits to pay for request via subscription.
+    /// @param _minCreditsPerRequest Minimum number of credits to pay for each request via a subscription.
     /// @param _subscriptionNFT Subscription address.
     /// @param _subscriptionTokenId Subscription token Id.
     constructor(
         address _token,
         uint256 _tokenId,
-        uint256 _creditsPerRequest,
+        uint256 _minCreditsPerRequest,
         address _subscriptionNFT,
         uint256 _subscriptionTokenId
     )
-        AgentMech(_token, _tokenId, _creditsPerRequest)
+        AgentMech(_token, _tokenId, _minCreditsPerRequest)
     {
         // Check for the subscription address
         if (_subscriptionNFT == address(0)) {

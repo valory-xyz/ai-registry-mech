@@ -17,7 +17,7 @@ contract AgentFactorySubscription is GenericManager {
     event CreateMech(
         address indexed mech,
         uint256 indexed agentId,
-        uint256 creditsPerRequest,
+        uint256 minCreditsPerRequest,
         address indexed subscriptionNFT,
         uint256 subscriptionTokenId
     );
@@ -36,7 +36,7 @@ contract AgentFactorySubscription is GenericManager {
     /// @dev Creates agent.
     /// @param agentOwner Owner of the agent.
     /// @param agentHash IPFS CID hash of the agent metadata.
-    /// @param creditsPerRequest Number of credits to pay for request via subscription.
+    /// @param minCreditsPerRequest Minimum number of credits to pay for each request via a subscription.
     /// @param subscriptionNFT Subscription address.
     /// @param subscriptionTokenId Subscription token Id.
     /// @return agentId The id of a created agent.
@@ -44,7 +44,7 @@ contract AgentFactorySubscription is GenericManager {
     function create(
         address agentOwner,
         bytes32 agentHash,
-        uint256 creditsPerRequest,
+        uint256 minCreditsPerRequest,
         address subscriptionNFT,
         uint256 subscriptionTokenId
     ) external returns (uint256 agentId, address mech)
@@ -57,8 +57,8 @@ contract AgentFactorySubscription is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = address((new AgentMechSubscription){salt: salt}(agentRegistry, agentId, creditsPerRequest,
+        mech = address((new AgentMechSubscription){salt: salt}(agentRegistry, agentId, minCreditsPerRequest,
             subscriptionNFT, subscriptionTokenId));
-        emit CreateMech(mech, agentId, creditsPerRequest, subscriptionNFT, subscriptionTokenId);
+        emit CreateMech(mech, agentId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
     }
 }

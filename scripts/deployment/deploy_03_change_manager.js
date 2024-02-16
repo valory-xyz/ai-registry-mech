@@ -12,11 +12,28 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const agentRegistryAddress = parsedData.agentRegistryAddress;
-    const agentFactoryAddress = parsedData.agentFactoryAddress;
+    const agentType = parsedData.agentType;
+    let agentFactoryAddress;
+    if (agentType === "subscription") {
+        agentFactoryAddress = parsedData.agentFactorySubscriptionAddress;
+    } else {
+        agentFactoryAddress = parsedData.agentFactoryAddress;
+    }
     let EOA;
 
     let networkURL;
-    if (providerName === "gnosis") {
+    if (providerName === "polygon") {
+        if (!process.env.ALCHEMY_API_KEY_MATIC) {
+            console.log("set ALCHEMY_API_KEY_MATIC env variable");
+        }
+        networkURL = "https://polygon-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MATIC;
+    } else if (providerName === "polygonMumbai") {
+        if (!process.env.ALCHEMY_API_KEY_MUMBAI) {
+            console.log("set ALCHEMY_API_KEY_MUMBAI env variable");
+            return;
+        }
+        networkURL = "https://polygon-mumbai.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MUMBAI;
+    } else if (providerName === "gnosis") {
         if (!process.env.GNOSISSCAN_API_KEY) {
             console.log("set GNOSISSCAN_API_KEY env variable");
             return;
@@ -24,6 +41,10 @@ async function main() {
         networkURL = "https://rpc.gnosischain.com";
     } else if (providerName === "chiado") {
         networkURL = "https://rpc.chiadochain.net";
+    } else if (providerName === "arbitrumOne") {
+        networkURL = "https://arb1.arbitrum.io/rpc";
+    } else if (providerName === "arbitrumSepolia") {
+        networkURL = "https://sepolia-rollup.arbitrum.io/rpc";
     } else {
         console.log("Unknown network provider", providerName);
         return;

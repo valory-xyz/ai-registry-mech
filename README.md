@@ -45,6 +45,9 @@ The description of deployment procedure can be found here: [deployment](https://
 The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/ai-registry-mech/blob/main/abis).
 Each folder there contains contracts compiled with the solidity version before their deployment.
 
+The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration.json).
+
+
 ## Acknowledgements
 The registry mech contracts were inspired and based on the following sources:
 - [Rari-Capital Solmate](https://github.com/Rari-Capital/solmate).
