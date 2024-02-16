@@ -48,6 +48,13 @@ Each folder there contains contracts compiled with the solidity version before t
 The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration.json).
 
 
+## Deployments
+
+| Network | AI Agent Registry    | AgentFactory    | AgentFactorySubscription   |
+| :---:   | :---: | :---: | :---: |
+| Gnosis | https://gnosisscan.io/address/0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA   | https://gnosisscan.io/address/0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94   | https://gnosisscan.io/address/0x910Ca843Cad6C050Faf3f84387879b2928D40370   |
+| Arbitrum | https://arbiscan.io/address/0xa4799b083e0068732456ef45ff9fe5c683658327   | https://arbiscan.io/address/0x4a46537dd58e524d4df68275946b022ea6623f71   | https://arbiscan.io/address/0xd8bcc126ff31d2582018715d5291a508530587b0   |
+
 ## Acknowledgements
 The registry mech contracts were inspired and based on the following sources:
 - [Rari-Capital Solmate](https://github.com/Rari-Capital/solmate).
