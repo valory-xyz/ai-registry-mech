@@ -68,6 +68,9 @@ async function main() {
     console.log("You are signing the following transaction: AgentFactory.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const agentFactory = await AgentFactory.connect(EOA).deploy(agentRegistryAddress, { gasPrice });
+    // In case when gas calculation is not working correctly on Arbitrum
+    //const gasLimit = 60000000;
+    //const agentFactory = await AgentFactory.connect(EOA).deploy(agentRegistryAddress, { gasLimit });
     const result = await agentFactory.deployed();
 
     // Transaction details

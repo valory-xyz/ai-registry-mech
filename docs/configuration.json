@@ -37,27 +37,27 @@
       {
         "name": "AgentRegistry",
         "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": ""
+        "address": "0x3ac32cE492d2bDaf11C8f43Edc16FCa9b4b65675"
       },
       {
         "name": "AgentFactory",
         "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": ""
+        "address": "0xF66E23209074FA7946E41f45f43d765281af2207"
       },
       {
         "name": "AgentMech",
         "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "address": "0x10f7f408Fb8571f154BeC6c2940B97ee50AD306A"
       },
       {
         "name": "AgentFactorySubscription",
         "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": ""
+        "address": "0x161977565b31B53Eaa6c977083eC5B19Cf176292"
       },
       {
         "name": "AgentMechSubscription",
         "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "address": "0x54E2374A04A6D97685Cc1da78116c9E9ddc373e7"
       }
     ]
   },
@@ -161,27 +161,27 @@
       {
         "name": "AgentRegistry",
         "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": ""
+        "address": "0xB575dd20281c63288428DD58e5f579CC7d6aae4d"
       },
       {
         "name": "AgentFactory",
         "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": ""
+        "address": "0x670Ac235EE13C0B2a5065282bBB0c61cfB354592"
       },
       {
         "name": "AgentMech",
         "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "address": "0xdBe4156770f5D008b6CE8f587fcAB1C3C92A8D2C"
       },
       {
         "name": "AgentFactorySubscription",
         "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": ""
+        "address": "0x34235f9D447f9F54167e2Ac7A0F4283cB3fAD669"
       },
       {
         "name": "AgentMechSubscription",
         "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "address": "0x45AB9181291DeDd82139BA87F38396D303b549f0"
       }
     ]
   }
