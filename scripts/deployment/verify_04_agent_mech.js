@@ -6,9 +6,13 @@ const parsedData = JSON.parse(dataFromJSON);
 const agentRegistryAddress = parsedData.agentRegistryAddress;
 const agentId = parsedData.agentId;
 const price = ethers.BigNumber.from(parsedData.price);
+const subscriptionNFTAddress = parsedData.subscriptionNFTAddress;
+const sybscriptionTokenId = parsedData.sybscriptionTokenId;
 
 module.exports = [
     agentRegistryAddress,
     agentId,
-    price
+    price,
+    subscriptionNFTAddress,
+    sybscriptionTokenId
 ];
