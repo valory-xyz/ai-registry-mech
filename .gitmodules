@@ -1,6 +1,6 @@
-[submodule "lib/mech"]
-	path = lib/mech
-	url = https://github.com/gnosis/mech.git
 [submodule "lib/autonolas-registries"]
 	path = lib/autonolas-registries
 	url = https://github.com/valory-xyz/autonolas-registries.git
+[submodule "lib/gnosis-mech"]
+	path = lib/gnosis-mech
+	url = https://github.com/valory-xyz/gnosis-mech

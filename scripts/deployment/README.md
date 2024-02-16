@@ -25,25 +25,30 @@ Parameters of the `globals.json` file:
 - `useLedger`: a flag whether to use the hardware wallet (`true`) or proceed with the seed-phrase accounts (`false`);
 - `derivationPath`: a string with the derivation path;
 - `providerName`: a network type (see `hardhat.config.js` for the network configurations);
+- `agentType`: a type of a mech factory: `default` or `subscription`
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
 - `deploy_01_agent_registry.js` will complete step 1.
 
 NOTE: All the scripts MUST be strictly run in the sequential order from smallest to biggest numbers.
-NOTE: AgentMech MUST NOT be deployed by its own script, as each AgentMech is created via the AgentFactory contract.
+NOTE: AgentMech MUST NOT be deployed by its own script, as each AgentMech is created via the AgentFactory or
+the AgentFactorySubscription contract.
 The `test_purposes_only_deploy_04_agent_mech.js` is provided strictly for testing purposes.
 
 Export network-related API keys defined in `hardhat.config.js` file that correspond to the required network.
 
 To run the script, use the following command:
 `npx hardhat run scripts/deployment/script_name --network network_type`,
-where `script_name` is a script name, i.e. `deploy_01_agent_registry.js`, `network_type` is a network type corresponding to the `hardhat.config.js` network configuration.
+where `script_name` is a script name, i.e. `deploy_01_agent_registry.js`, `network_type` is a network type corresponding
+to the `hardhat.config.js` network configuration.
 
 ## Validity checks and contract verification
-Each script controls the obtained values by checking them against the expected ones. Also, each script has a contract verification procedure.
-If a contract is deployed with arguments, these arguments are taken from the corresponding `verify_number_and_name` file, where `number_and_name` corresponds to the deployment script number and name.
+Each script controls the obtained values by checking them against the expected ones. Also, each script has a contract
+verification procedure. If a contract is deployed with arguments, these arguments are taken from the corresponding
+`verify_number_and_name` file, where `number_and_name` corresponds to the deployment script number and name.
 
-To verify a mech use `e_check_04_agent_mech.js` and first ensure that `globals.json` contains the mech data, e.g: `"agentMechAddress":"0x3504fb5053ec12f748017248a395b4ed31739705","agentId":1,"price":"10000000000000000"`
+To verify the mech, use `e_check_04_agent_mech.js` and first ensure that `globals.json` contains the mech data,
+e.g: `"agentMechAddress":"0x3504fb5053ec12f748017248a395b4ed31739705","agentId":1,"price":"10000000000000000"`
 
 ## Redeployment in case of changing AgentMech or AgentFactory
 Each AgentMech contract is created via the AgentFactory, essentially inheriting the AgentMech contract bytecode. If AgentMech

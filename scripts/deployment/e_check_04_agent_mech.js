@@ -6,7 +6,13 @@ async function main() {
     const dataFromJSON = fs.readFileSync(globalsFile, "utf8");
     let parsedData = JSON.parse(dataFromJSON);
     const providerName = parsedData.providerName;
-    const agentMechAddress = parsedData.agentMechAddress;
+    const agentType = parsedData.agentType;
+    let agentMechAddress;
+    if (agentType === "subscription") {
+        agentMechAddress = parsedData.agentMechSubscriptionAddress;
+    } else {
+        agentMechAddress = parsedData.agentMechAddress;
+    }
 
     // Contract verification
     if (parsedData.contractVerification) {

@@ -13,7 +13,9 @@ require("@nomicfoundation/hardhat-toolbox");
 const ALCHEMY_API_KEY_MAINNET = process.env.ALCHEMY_API_KEY_MAINNET;
 const ALCHEMY_API_KEY_MATIC = process.env.ALCHEMY_API_KEY_MATIC;
 const ALCHEMY_API_KEY_GOERLI = process.env.ALCHEMY_API_KEY_GOERLI;
+const ALCHEMY_API_KEY_SEPOLIA = process.env.ALCHEMY_API_KEY_SEPOLIA;
 const ALCHEMY_API_KEY_MUMBAI = process.env.ALCHEMY_API_KEY_MUMBAI;
+
 let TESTNET_MNEMONIC = process.env.TESTNET_MNEMONIC;
 
 const accounts = {
@@ -32,6 +34,7 @@ if (!TESTNET_MNEMONIC) {
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY;
 const GNOSISSCAN_API_KEY = process.env.GNOSISSCAN_API_KEY;
+const ARBISCAN_API_KEY = process.env.ARBISCAN_API_KEY;
 const CHIADOSCAN_API_KEY = "10200";
 
 module.exports = {
@@ -54,6 +57,11 @@ module.exports = {
             accounts: accounts,
             chainId: 100,
         },
+        arbitrumOne: {
+            url: "https://arb1.arbitrum.io/rpc",
+            accounts: accounts,
+            chainId: 42161,
+        },
         goerli: {
             url: "https://eth-goerli.g.alchemy.com/v2/" + ALCHEMY_API_KEY_GOERLI,
             chainId: 5,
@@ -66,6 +74,16 @@ module.exports = {
         chiado: {
             url: "https://rpc.chiadochain.net",
             accounts: accounts,
+        },
+        arbitrumSepolia: {
+            url: "https://sepolia-rollup.arbitrum.io/rpc",
+            accounts: accounts,
+            chainId: 421614,
+        },
+        sepolia: {
+            url: "https://eth-sepolia.g.alchemy.com/v2/" + ALCHEMY_API_KEY_SEPOLIA,
+            accounts: accounts,
+            chainId: 11155111,
         },
         hardhat: {
             allowUnlimitedContractSize: true
@@ -89,14 +107,25 @@ module.exports = {
                     browserURL: "https://gnosisscan.io/"
                 },
             },
+            {
+                network: "arbitrumSepolia",
+                chainId: 421614,
+                urls: {
+                    apiURL: "https://api-sepolia.arbiscan.io/api",
+                    browserURL: "https://sepolia.arbiscan.io"
+                },
+            },
         ],
         apiKey: {
             mainnet: ETHERSCAN_API_KEY,
             polygon: POLYGONSCAN_API_KEY,
             gnosis: GNOSISSCAN_API_KEY,
+            arbitrumOne: ARBISCAN_API_KEY,
             goerli: ETHERSCAN_API_KEY,
             polygonMumbai: POLYGONSCAN_API_KEY,
             chiado: CHIADOSCAN_API_KEY,
+            arbitrumSepolia: ARBISCAN_API_KEY,
+            sepolia: ETHERSCAN_API_KEY
         }
     },
     solidity: {
