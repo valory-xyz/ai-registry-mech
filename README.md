@@ -52,9 +52,12 @@ The list of contract addresses for different chains and their full contract conf
 
 | Network | AI Agent Registry    | AgentFactory    | AgentFactorySubscription   |
 | :---:   | :---: | :---: | :---: |
-| Gnosis | https://gnosisscan.io/address/0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA   | https://gnosisscan.io/address/0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94   | https://gnosisscan.io/address/0x910Ca843Cad6C050Faf3f84387879b2928D40370   |
-| Arbitrum | https://arbiscan.io/address/0xa4799b083e0068732456ef45ff9fe5c683658327   | https://arbiscan.io/address/0x4a46537dd58e524d4df68275946b022ea6623f71   | https://arbiscan.io/address/0xd8bcc126ff31d2582018715d5291a508530587b0   |
-| Polygon | https://polygonscan.com/address/0x984cf72fde8b5aa910e9e508ac5e007ae5bdcc9c   | https://polygonscan.com/address/0xd421f433e36465b3e558b1121f584ac09fc33df8   | https://polygonscan.com/address/0x6e7f594f680f7abad18b7a63de50f0fee47dfd06   |
+| Gnosis | https://gnosisscan.io/address/0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA   | https://gnosisscan.io/address/0x4be7A91e67be963806FeFA9C1FD6C53DfC358d94   | n/a   |
+| Gnosis | https://gnosisscan.io/address/0xaed729d4f4b895d8ca84ba022675bb0c44d2cd52   | n/a   | https://gnosisscan.io/address/0x910Ca843Cad6C050Faf3f84387879b2928D40370   |
+| Arbitrum | tbd   | https://arbiscan.io/address/0x4a46537dd58e524d4df68275946b022ea6623f71   | n/a   |
+| Arbitrum | https://arbiscan.io/address/0xa4799b083e0068732456ef45ff9fe5c683658327   | /na   | https://arbiscan.io/address/0xd8bcc126ff31d2582018715d5291a508530587b0   |
+| Polygon | tbd   | https://polygonscan.com/address/0xd421f433e36465b3e558b1121f584ac09fc33df8   | /na   |
+| Polygon | https://polygonscan.com/address/0x984cf72fde8b5aa910e9e508ac5e007ae5bdcc9c   | n/a   | https://polygonscan.com/address/0x6e7f594f680f7abad18b7a63de50f0fee47dfd06   |
 
 ## Acknowledgements
 The registry mech contracts were inspired and based on the following sources:
