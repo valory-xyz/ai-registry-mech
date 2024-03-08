@@ -25,7 +25,9 @@ Parameters of the `globals.json` file:
 - `useLedger`: a flag whether to use the hardware wallet (`true`) or proceed with the seed-phrase accounts (`false`);
 - `derivationPath`: a string with the derivation path;
 - `providerName`: a network type (see `hardhat.config.js` for the network configurations);
-- `agentType`: a type of a mech factory: `default` or `subscription`
+- `networkURL`: string with the network RPC URL;
+- `gasPriceInGwei`: gas price in Gwei;
+- `agentType`: a mech factory type: `default` or `subscription`.
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
 - `deploy_01_agent_registry.js` will complete step 1.
