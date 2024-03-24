@@ -6,12 +6,12 @@
       {
         "name": "AgentRegistry",
         "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": ""
+        "address": "0x984cf72FDe8B5aA910e9e508aC5e007ae5BDcC9C"
       },
       {
         "name": "AgentFactory",
         "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": ""
+        "address": "0xD421f433e36465B3e558B1121F584ac09Fc33DF8"
       },
       {
         "name": "AgentMech",
@@ -21,12 +21,12 @@
       {
         "name": "AgentFactorySubscription",
         "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": ""
+        "address": "0x6e7f594f680f7aBad18b7a63de50F0FeE47dfD06"
       },
       {
         "name": "AgentMechSubscription",
         "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "address": "0x1f7Ff9FF3536552aa58eb443396c8C03a580071A"
       }
     ]
   },
@@ -130,12 +130,12 @@
       {
         "name": "AgentRegistry",
         "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": ""
+        "address": "0xa4799B083E0068732456EF45ff9fe5c683658327"
       },
       {
         "name": "AgentFactory",
         "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": ""
+        "address": "0x4a46537dD58e524D4dF68275946b022eA6623F71"
       },
       {
         "name": "AgentMech",
@@ -145,12 +145,12 @@
       {
         "name": "AgentFactorySubscription",
         "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": ""
+        "address": "0xd8BCC126ff31d2582018715d5291A508530587b0"
       },
       {
         "name": "AgentMechSubscription",
         "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "address": "0x0eA6B3137f294657f0E854390bb2F607e315B82c"
       }
     ]
   },
@@ -182,6 +182,192 @@
         "name": "AgentMechSubscription",
         "artifact": "abis/0.8.21/AgentMech.json",
         "address": "0x45AB9181291DeDd82139BA87F38396D303b549f0"
+      }
+    ]
+  },
+  {
+    "name": "optimistic",
+    "chainId": "10",
+    "contracts": [
+      {
+        "name": "AgentRegistry",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "address": "0x75D529FAe220bC8db714F0202193726b46881B76"
+      },
+      {
+        "name": "AgentFactory",
+        "artifact": "abis/0.8.23/AgentFactory.json",
+        "address": "0x47135D1Cf850d7Df7f7f563F300cc7022F7978a4"
+      },
+      {
+        "name": "AgentMech",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactorySubscription",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "address": "0x1BD1505B711Fb58C54ca3712e6BEf47A133892d9"
+      },
+      {
+        "name": "AgentMechSubscription",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": "0xbA4491C86705e8f335Ceaa8aaDb41361b2F82498"
+      }
+    ]
+  },
+  {
+    "name": "optimisticSepolia",
+    "chainId": "11155420",
+    "contracts": [
+      {
+        "name": "AgentRegistry",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactory",
+        "artifact": "abis/0.8.23/AgentFactory.json",
+        "address": ""
+      },
+      {
+        "name": "AgentMech",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactorySubscription",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "address": ""
+      },
+      {
+        "name": "AgentMechSubscription",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      }
+    ]
+  },
+  {
+    "name": "base",
+    "chainId": "8453",
+    "contracts": [
+      {
+        "name": "AgentRegistry",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "address": "0x88DE734655184a09B70700aE4F72364d1ad23728"
+      },
+      {
+        "name": "AgentFactory",
+        "artifact": "abis/0.8.23/AgentFactory.json",
+        "address": "0x75D529FAe220bC8db714F0202193726b46881B76"
+      },
+      {
+        "name": "AgentMech",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactorySubscription",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "address": "0x87c511c8aE3fAF0063b3F3CF9C6ab96c4AA5C60c"
+      },
+      {
+        "name": "AgentMechSubscription",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": "0x37C484cc34408d0F827DB4d7B6e54b8837Bf8BDA"
+      }
+    ]
+  },
+  {
+    "name": "baseSepolia",
+    "chainId": "84532",
+    "contracts": [
+      {
+        "name": "AgentRegistry",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactory",
+        "artifact": "abis/0.8.23/AgentFactory.json",
+        "address": ""
+      },
+      {
+        "name": "AgentMech",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactorySubscription",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "address": ""
+      },
+      {
+        "name": "AgentMechSubscription",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      }
+    ]
+  },
+  {
+    "name": "celo",
+    "chainId": "42220",
+    "contracts": [
+      {
+        "name": "AgentRegistry",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "address": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA"
+      },
+      {
+        "name": "AgentFactory",
+        "artifact": "abis/0.8.23/AgentFactory.json",
+        "address": "0x87c511c8aE3fAF0063b3F3CF9C6ab96c4AA5C60c"
+      },
+      {
+        "name": "AgentMech",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactorySubscription",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "address": "0x88DE734655184a09B70700aE4F72364d1ad23728"
+      },
+      {
+        "name": "AgentMechSubscription",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": "0xeC20694b7BD7870d2dc415Af3b349360A6183245"
+      }
+    ]
+  },
+  {
+    "name": "celoAlfajores",
+    "chainId": "44787",
+    "contracts": [
+      {
+        "name": "AgentRegistry",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactory",
+        "artifact": "abis/0.8.23/AgentFactory.json",
+        "address": ""
+      },
+      {
+        "name": "AgentMech",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
+      },
+      {
+        "name": "AgentFactorySubscription",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "address": ""
+      },
+      {
+        "name": "AgentMechSubscription",
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": ""
       }
     ]
   }
