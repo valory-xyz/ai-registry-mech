@@ -191,28 +191,28 @@
     "contracts": [
       {
         "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
         "address": "0x75D529FAe220bC8db714F0202193726b46881B76"
       },
       {
         "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
+        "artifact": "abis/0.8.23/AgentFactory.json",
         "address": "0x47135D1Cf850d7Df7f7f563F300cc7022F7978a4"
       },
       {
         "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       },
       {
         "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
         "address": "0x1BD1505B711Fb58C54ca3712e6BEf47A133892d9"
       },
       {
         "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": "0xbA4491C86705e8f335Ceaa8aaDb41361b2F82498"
       }
     ]
   },
@@ -222,27 +222,27 @@
     "contracts": [
       {
         "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
         "address": ""
       },
       {
         "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
+        "artifact": "abis/0.8.23/AgentFactory.json",
         "address": ""
       },
       {
         "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       },
       {
         "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
         "address": ""
       },
       {
         "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       }
     ]
@@ -253,27 +253,27 @@
     "contracts": [
       {
         "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
         "address": "0x88DE734655184a09B70700aE4F72364d1ad23728"
       },
       {
         "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
+        "artifact": "abis/0.8.23/AgentFactory.json",
         "address": "0x75D529FAe220bC8db714F0202193726b46881B76"
       },
       {
         "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       },
       {
         "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
         "address": "0x87c511c8aE3fAF0063b3F3CF9C6ab96c4AA5C60c"
       },
       {
         "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": "0x37C484cc34408d0F827DB4d7B6e54b8837Bf8BDA"
       }
     ]
@@ -284,27 +284,27 @@
     "contracts": [
       {
         "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
         "address": ""
       },
       {
         "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
+        "artifact": "abis/0.8.23/AgentFactory.json",
         "address": ""
       },
       {
         "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       },
       {
         "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
         "address": ""
       },
       {
         "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       }
     ]
@@ -315,28 +315,28 @@
     "contracts": [
       {
         "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
         "address": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA"
       },
       {
         "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
+        "artifact": "abis/0.8.23/AgentFactory.json",
         "address": "0x87c511c8aE3fAF0063b3F3CF9C6ab96c4AA5C60c"
       },
       {
         "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       },
       {
         "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
         "address": "0x88DE734655184a09B70700aE4F72364d1ad23728"
       },
       {
         "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
+        "artifact": "abis/0.8.23/AgentMech.json",
+        "address": "0xeC20694b7BD7870d2dc415Af3b349360A6183245"
       }
     ]
   },
@@ -346,27 +346,27 @@
     "contracts": [
       {
         "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
+        "artifact": "abis/0.8.23/AgentRegistry.json",
         "address": ""
       },
       {
         "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
+        "artifact": "abis/0.8.23/AgentFactory.json",
         "address": ""
       },
       {
         "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       },
       {
         "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
+        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
         "address": ""
       },
       {
         "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
+        "artifact": "abis/0.8.23/AgentMech.json",
         "address": ""
       }
     ]
