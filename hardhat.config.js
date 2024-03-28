@@ -156,6 +156,14 @@ module.exports = {
                 },
             },
             {
+                network: "polygon",
+                chainId: 137,
+                urls: {
+                    apiURL: "https://api.polygonscan.com/api",
+                    browserURL: "https://polygonscan.com"
+                },
+            },
+            {
                 network: "optimistic",
                 chainId: 10,
                 urls: {
