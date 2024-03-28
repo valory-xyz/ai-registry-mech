@@ -140,6 +140,14 @@ module.exports = {
                 },
             },
             {
+                network: "arbitrumOne",
+                chainId: 42161,
+                urls: {
+                    apiURL: "https://api.arbiscan.io/api",
+                    browserURL: "https://arbiscan.io"
+                },
+            },
+            {
                 network: "arbitrumSepolia",
                 chainId: 421614,
                 urls: {
