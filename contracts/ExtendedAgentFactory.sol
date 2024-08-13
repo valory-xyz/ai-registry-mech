@@ -27,7 +27,8 @@ error MechAlreadyExist(address mech, address agentRegistry, uint256 agentId, uin
 contract ExtendedAgentFactory is AgentFactory {
     /// @dev ExtendedAgentFactory constructor.
     /// @param _agentRegistry Agent Registry address.
-    constructor(address _agentRegistry) AgentFactory(_agentRegistry) {}
+    /// @param _mechMarketplace Mech Marketplace address.
+    constructor(address _agentRegistry, address _mechMarketplace) AgentFactory(_agentRegistry, _mechMarketplace) {}
 
     /// @dev Adds a mech based on the provided agent Id.
     /// @param registry Agent Registry contract address.
