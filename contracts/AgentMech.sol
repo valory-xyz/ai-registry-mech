@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {ERC721Mech} from "../lib/gnosis-mech/contracts/ERC721Mech.sol";
 
@@ -34,8 +34,6 @@ error Overflow(uint256 provided, uint256 max);
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
-    event Deliver(address indexed sender, uint256 requestId, bytes data);
-    event Request(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
     event PriceUpdated(uint256 price);
 
     enum RequestStatus {
@@ -45,14 +43,7 @@ contract AgentMech is ERC721Mech {
     }
 
     // Agent mech version number
-    string public constant VERSION = "1.0.0";
-    // Domain separator type hash
-    bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    // Original domain separator value
-    bytes32 public immutable domainSeparator;
-    // Original chain Id
-    uint256 public immutable chainId;
+    string public constant VERSION = "1.1.0";
 
     // Minimum required price
     uint256 public price;
@@ -60,6 +51,8 @@ contract AgentMech is ERC721Mech {
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
+    // Mech marketplace address
+    address public mechMarketplace;
 
     // Map of requests counts for corresponding addresses
     mapping(address => uint256) public mapRequestsCounts;
@@ -76,9 +69,9 @@ contract AgentMech is ERC721Mech {
     /// @param _token Address of the token contract.
     /// @param _tokenId The token ID.
     /// @param _price The minimum required price.
-    constructor(address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token, _tokenId) {
-        // Check for the token address
-        if (_token == address(0)) {
+    constructor(address _mechMarketplace, address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token, _tokenId) {
+        // Check for zero addresses
+        if (_mechMarketplace == address(0) || _token == address(0)) {
             revert ZeroAddress();
         }
 
@@ -88,26 +81,21 @@ contract AgentMech is ERC721Mech {
             revert AgentNotFound(_tokenId);
         }
 
+        // Record the mech marketplace
+        mechMarketplace = _mechMarketplace;
         // Record the price
         price = _price;
-        // Record chain Id
-        chainId = block.chainid;
-        // Compute domain separator
-        domainSeparator = _computeDomainSeparator();
     }
 
-    /// @dev Computes domain separator hash.
-    /// @return Hash of the domain separator based on its name, version, chain Id and contract address.
-    function _computeDomainSeparator() internal view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                DOMAIN_SEPARATOR_TYPE_HASH,
-                keccak256("AgentMech"),
-                keccak256(abi.encode(VERSION)),
-                block.chainid,
-                address(this)
-            )
-        );
+    /// @dev Changes mech marketplace address.
+    /// @param newMechMarketplace New mech marketplace address.
+    function changeMechMarketplace(address newMechMarketplace) external onlyOperator {
+        // Check for zero address
+        if (newMechMarketplace == address(0)) {
+            revert ZeroAddress();
+        }
+
+        mechMarketplace = newMechMarketplace;
     }
 
     /// @dev Performs actions before the request is posted.
@@ -121,21 +109,19 @@ contract AgentMech is ERC721Mech {
 
     /// @dev Registers a request.
     /// @param data Self-descriptive opaque data-blob.
-    function request(bytes memory data) external payable returns (uint256 requestId, uint256 requestIdWithNonce) {
-        // Get the request Id
-        requestId = getRequestId(msg.sender, data);
-        requestIdWithNonce = getRequestIdWithNonce(msg.sender, data, mapNonces[msg.sender]);
+    function request(address account, bytes memory data, uint256 requestId, uint256 requestIdWithNonce) external payable {
+        if (msg.sender != mechMarketplace) {
+            revert();
+        }
 
         // Check the request payment
         _preRequest(msg.value, requestIdWithNonce, data);
 
         // Increase the requests count supplied by the sender
-        mapRequestsCounts[msg.sender]++;
-        mapUndeliveredRequestsCounts[msg.sender]++;
+        mapRequestsCounts[account]++;
+        mapUndeliveredRequestsCounts[account]++;
         // Record the requestId => sender correspondence
-        mapRequestAddresses[requestIdWithNonce] = msg.sender;
-        // Update sender's nonce
-        mapNonces[msg.sender]++;
+        mapRequestAddresses[requestIdWithNonce] = account;
 
         // Record the request Id in the map
         // Get previous and next request Ids of the first element
@@ -156,7 +142,45 @@ contract AgentMech is ERC721Mech {
         // Increase the total number of requests
         numTotalRequests++;
 
-        emit Request(msg.sender, requestId, requestIdWithNonce, data);
+        emit Request(account, requestId, requestIdWithNonce, data);
+    }
+
+    function recordRequest(address account, uint256 requestId, uint256 requestIdWithNonce) external {
+        if (msg.sender != mechMarketplace) {
+            revert();
+        }
+
+        // Increase the number of undelivered and total number of requests
+        numUndeliveredRequests++;
+        numTotalRequests++;
+        mapRequestAddresses[requestIdWithNonce] = account;
+        mapUndeliveredRequestsCounts[account]++;
+        mapRequestsCounts[account]++;
+
+        // TODO Event
+    }
+
+    function revokeRequest(uint256 requestId, uint256 requestIdWithNonce) external {
+        if (msg.sender != mechMarketplace) {
+            revert();
+        }
+
+        // Decrease the number of undelivered and total number of requests
+        numUndeliveredRequests--;
+        numTotalRequests--;
+        address account = mapRequestAddresses[requestIdWithNonce];
+        // This must never happen
+        if (account == address(0)) {
+            revert();
+        }
+        mapUndeliveredRequestsCounts[account]--;
+        mapRequestsCounts[account]--;
+
+        // Delete revoked request from maps
+        delete mapRequestIds[requestIdWithNonce];
+        delete mapRequestAddresses[requestIdWithNonce];
+
+        // TODO Event
     }
 
     /// @dev Performs actions before the delivery of a request.
@@ -170,7 +194,7 @@ contract AgentMech is ERC721Mech {
     /// @param requestId Request id.
     /// @param requestIdWithNonce Request id with nonce.
     /// @param data Self-descriptive opaque data-blob.
-    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
+    function deliver(address account, uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
         // Perform a pre-delivery of the data if it needs additional parsing
         bytes memory requestData = _preDeliver(requestIdWithNonce, data);
 
@@ -188,8 +212,12 @@ contract AgentMech is ERC721Mech {
 
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
+        // TODO: this count be unknown or moved to the marketplace, as the deliver might happen for not recorded request Id
         address account = mapRequestAddresses[requestIdWithNonce];
         mapUndeliveredRequestsCounts[account]--;
+
+        // Mech marketplace delivery finalization
+        mechMarketplace.deliver(requestId, requestIdWithNonce, requestData);
 
         // Delete the delivered element from the map
         delete mapRequestIds[requestIdWithNonce];
@@ -202,46 +230,6 @@ contract AgentMech is ERC721Mech {
     function setPrice(uint256 newPrice) external onlyOperator {
         price = newPrice;
         emit PriceUpdated(newPrice);
-    }
-
-    /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
-    /// @return Original or recomputed domain separator.
-    function getDomainSeparator() public view returns (bytes32) {
-        return block.chainid == chainId ? domainSeparator : _computeDomainSeparator();
-    }
-
-    /// @dev Gets the request Id.
-    /// @param account Account address.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @return requestId Corresponding request Id.
-    function getRequestId(address account, bytes memory data) public pure returns (uint256 requestId) {
-        requestId = uint256(keccak256(abi.encode(account, data)));
-    }
-
-    /// @dev Gets the request Id with a specific nonce.
-    /// @param account Account address.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @param nonce Nonce.
-    /// @return requestId Corresponding request Id.
-    function getRequestIdWithNonce(
-        address account,
-        bytes memory data,
-        uint256 nonce
-    ) public view returns (uint256 requestId)
-    {
-        requestId = uint256(keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                getDomainSeparator(),
-                keccak256(
-                    abi.encode(
-                        account,
-                        data,
-                        nonce
-                    )
-                )
-            )
-        ));
     }
 
     /// @dev Gets the requests count for a specific account.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {AgentMechSubscription} from "./AgentMechSubscription.sol";
 import {GenericManager} from "../../../lib/autonolas-registries/contracts/GenericManager.sol";
