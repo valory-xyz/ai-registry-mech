@@ -27,15 +27,20 @@ error MechAlreadyExist(address mech, address agentRegistry, uint256 agentId, uin
 contract ExtendedAgentFactory is AgentFactory {
     /// @dev ExtendedAgentFactory constructor.
     /// @param _agentRegistry Agent Registry address.
-    /// @param _mechMarketplace Mech Marketplace address.
-    constructor(address _agentRegistry, address _mechMarketplace) AgentFactory(_agentRegistry, _mechMarketplace) {}
+    constructor(address _agentRegistry) AgentFactory(_agentRegistry) {}
 
     /// @dev Adds a mech based on the provided agent Id.
+    /// @param mechMarketplace Mech marketplace address.
     /// @param registry Agent Registry contract address.
     /// @param agentId The id of an agent.
     /// @param price Minimum required payment the agent accepts.
     /// @return mech The created mech instance address.
-    function addMech(address registry, uint256 agentId, uint256 price) external returns (address mech) {
+    function addMech(
+        address mechMarketplace,
+        address registry,
+        uint256 agentId,
+        uint256 price
+    ) external returns (address mech) {
         // Check if the agent exists
         if (!IAgentRegistry(registry).exists(agentId)) {
             revert AgentNotFound(agentId);
@@ -46,7 +51,7 @@ contract ExtendedAgentFactory is AgentFactory {
 
         // Check if the same mech already exists
         bytes memory byteCode = type(AgentMech).creationCode;
-        byteCode = abi.encodePacked(byteCode, abi.encode(registry, agentId, price));
+        byteCode = abi.encodePacked(byteCode, abi.encode(mechMarketplace, registry, agentId, price));
         bytes32 hashedAddress = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(byteCode)));
         // Compute the address of the created mech contract
         mech = address(uint160(uint(hashedAddress)));
@@ -55,7 +60,7 @@ contract ExtendedAgentFactory is AgentFactory {
         }
 
         // Create the mech instance
-        (new AgentMech){salt: salt}(registry, agentId, price);
+        (new AgentMech){salt: salt}(mechMarketplace, registry, agentId, price);
         // ownerOf(uintId) is isOperator() for the mech
         emit CreateMech(mech, agentId, price);
     }

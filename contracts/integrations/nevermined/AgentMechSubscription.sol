@@ -49,19 +49,21 @@ contract AgentMechSubscription is AgentMech {
     uint256 internal _locked = 1;
 
     /// @dev AgentMechSubscription constructor.
-    /// @param _token Address of the token registry contract.
+    /// @param _mechMarketplace Mech marketplace address.
+    /// @param _registry Address of the token registry contract.
     /// @param _tokenId The token ID.
     /// @param _minCreditsPerRequest Minimum number of credits to pay for each request via a subscription.
     /// @param _subscriptionNFT Subscription address.
     /// @param _subscriptionTokenId Subscription token Id.
     constructor(
-        address _token,
+        address _mechMarketplace,
+        address _registry,
         uint256 _tokenId,
         uint256 _minCreditsPerRequest,
         address _subscriptionNFT,
         uint256 _subscriptionTokenId
     )
-        AgentMech(_token, _tokenId, _minCreditsPerRequest)
+        AgentMech(_mechMarketplace, _registry, _tokenId, _minCreditsPerRequest)
     {
         // Check for the subscription address
         if (_subscriptionNFT == address(0)) {

@@ -10,6 +10,14 @@ interface IToken {
     function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
 }
 
+interface IMechMarketplace {
+    /// @dev Delivers a request.
+    /// @param requestId Request id.
+    /// @param requestIdWithNonce Request id with nonce.
+    /// @param requestData Self-descriptive opaque data-blob.
+    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external;
+}
+
 /// @dev Provided zero address.
 error ZeroAddress();
 
@@ -34,6 +42,8 @@ error Overflow(uint256 provided, uint256 max);
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
+    event Deliver(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
+    event Request(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
     event PriceUpdated(uint256 price);
 
     enum RequestStatus {
@@ -151,11 +161,9 @@ contract AgentMech is ERC721Mech {
         }
 
         // Increase the number of undelivered and total number of requests
-        numUndeliveredRequests++;
-        numTotalRequests++;
         mapRequestAddresses[requestIdWithNonce] = account;
-        mapUndeliveredRequestsCounts[account]++;
         mapRequestsCounts[account]++;
+        numTotalRequests++;
 
         // TODO Event
     }
@@ -165,16 +173,16 @@ contract AgentMech is ERC721Mech {
             revert();
         }
 
-        // Decrease the number of undelivered and total number of requests
-        numUndeliveredRequests--;
-        numTotalRequests--;
         address account = mapRequestAddresses[requestIdWithNonce];
         // This must never happen
         if (account == address(0)) {
             revert();
         }
+        // Decrease the number of undelivered and total number of requests
         mapUndeliveredRequestsCounts[account]--;
         mapRequestsCounts[account]--;
+        numUndeliveredRequests--;
+        numTotalRequests--;
 
         // Delete revoked request from maps
         delete mapRequestIds[requestIdWithNonce];
@@ -194,35 +202,40 @@ contract AgentMech is ERC721Mech {
     /// @param requestId Request id.
     /// @param requestIdWithNonce Request id with nonce.
     /// @param data Self-descriptive opaque data-blob.
-    function deliver(address account, uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
+    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
         // Perform a pre-delivery of the data if it needs additional parsing
         bytes memory requestData = _preDeliver(requestIdWithNonce, data);
 
-        // Remove delivered request Id from the request Ids map
-        uint256[2] memory requestIds = mapRequestIds[requestIdWithNonce];
-        // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
-        // and the zero's element previous request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestIdWithNonce) {
-            revert RequestIdNotFound(requestIdWithNonce);
+        // Get the account to deliver request to
+        address account = mapRequestAddresses[requestIdWithNonce];
+        // The account is non-zero if it is delivered by the priority mech, otherwise it is being delivered by another one
+        // All the statistics then is going to be managed in that another delivery mech
+        if (account != address(0)) {
+            // Decrease the number of undelivered requests
+            mapUndeliveredRequestsCounts[account]--;
+            numUndeliveredRequests--;
+
+            // Remove delivered request Id from the request Ids map
+            uint256[2] memory requestIds = mapRequestIds[requestIdWithNonce];
+            // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
+            // and the zero's element previous request Id is not equal to the provided request Id
+            if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestIdWithNonce) {
+                revert RequestIdNotFound(requestIdWithNonce);
+            }
+
+            // Re-link previous and next elements between themselves
+            mapRequestIds[requestIds[0]][1] = requestIds[1];
+            mapRequestIds[requestIds[1]][0] = requestIds[0];
+
+            // Delete the delivered element from the map
+            delete mapRequestIds[requestIdWithNonce];
+            delete mapRequestAddresses[requestIdWithNonce];
         }
 
-        // Re-link previous and next elements between themselves
-        mapRequestIds[requestIds[0]][1] = requestIds[1];
-        mapRequestIds[requestIds[1]][0] = requestIds[0];
-
-        // Decrease the number of undelivered requests
-        numUndeliveredRequests--;
-        // TODO: this count be unknown or moved to the marketplace, as the deliver might happen for not recorded request Id
-        address account = mapRequestAddresses[requestIdWithNonce];
-        mapUndeliveredRequestsCounts[account]--;
-
         // Mech marketplace delivery finalization
-        mechMarketplace.deliver(requestId, requestIdWithNonce, requestData);
+        IMechMarketplace(mechMarketplace).deliver(requestId, requestIdWithNonce, requestData);
 
-        // Delete the delivered element from the map
-        delete mapRequestIds[requestIdWithNonce];
-
-        emit Deliver(msg.sender, requestId, requestData);
+        emit Deliver(msg.sender, requestId, requestIdWithNonce, requestData);
     }
 
     /// @dev Sets the new price.

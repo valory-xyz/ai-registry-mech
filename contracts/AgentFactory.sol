@@ -12,7 +12,7 @@ interface IAgentRegistry {
     function create(address agentOwner, bytes32 agentHash) external returns (uint256 agentId);
 }
 
-interface ImechMarketplace {
+interface IMechMarketplace {
     function setRegisterMechStatus(address mech, bool status) external;
 }
 
@@ -53,26 +53,10 @@ contract AgentFactory is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = _createMech(salt, mechMarketplace, agentRegistry, mechMarketplace, agentId, price);
-        // Register mech in a specified marketplace
-        ImechMarketplace(mechMarketplace).setRegisterMechStatus(mech, true);
-        emit CreateMech(mech, agentId, price);
-    }
-
-    /// @dev Creates the mech instance.
-    /// @param salt The generated salt.
-    /// @param mechMarketplace Mech marketplace address.
-    /// @param _agentRegistry The agent registry address.
-    /// @param agentId The id of a created agent.
-    /// @param price Minimum required payment the agent accepts.
-    /// @return mech The created mech instance address.
-    function _createMech(
-        bytes32 salt,
-        address mechMarketplace,
-        address agentRegistry,
-        uint256 agentId,
-        uint256 price
-    ) internal virtual returns (address mech) {
         mech = address((new AgentMech){salt: salt}(mechMarketplace, agentRegistry, agentId, price));
+        // Register mech in a specified marketplace
+        IMechMarketplace(mechMarketplace).setRegisterMechStatus(mech, true);
+
+        emit CreateMech(mech, agentId, price);
     }
 }

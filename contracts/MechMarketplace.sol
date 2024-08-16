@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+// Agent Mech interface
+interface IMech {
+    function request(address account, bytes memory data, uint256 requestId, uint256 requestIdWithNonce) external payable;
+    function recordRequest(address account, uint256 requestId, uint256 requestIdWithNonce) external;
+    function revokeRequest(uint256 requestId, uint256 requestIdWithNonce) external;
+}
+
 /// @dev Provided zero address.
 error ZeroAddress();
 
@@ -31,6 +38,7 @@ struct MechDelivery {
     address priorityMech;
     uint64 responseTimeout;
     address deliveryMech;
+    address account;
 }
 
 /// @title ref TODO
@@ -80,19 +88,16 @@ contract MechMarketplace {
     address public factory;
 
     /// @dev MechMarketplace constructor.
-    /// @param _price The minimum required price.
     /// @param _minResponceTimeout min timeout in sec
     /// @param _maxResponceTimeout max timeout in sec
     /// @param _factory agentFactory address
-    constructor(uint256 _price, uint256 _minResponceTimeout, uint256 _maxResponceTimeout, address _factory) {
+    constructor(uint256 _minResponceTimeout, uint256 _maxResponceTimeout, address _factory) {
         // TODO: comments
         owner = msg.sender;
         minResponceTimeout = _minResponceTimeout;
         maxResponceTimeout = _maxResponceTimeout;
         factory = _factory;
 
-        // Record the price
-        price = _price;
         // Record chain Id
         chainId = block.chainid;
         // Compute domain separator
@@ -147,8 +152,6 @@ contract MechMarketplace {
         requestId = getRequestId(msg.sender, data);
         requestIdWithNonce = getRequestIdWithNonce(msg.sender, data, mapNonces[msg.sender]);
 
-        IMech(priorityMech).request{value: msg.value}(msg.sender, data, requestId, requestIdWithNonce);
-
         // Update sender's nonce
         mapNonces[msg.sender]++;
 
@@ -157,7 +160,9 @@ contract MechMarketplace {
         // Record timeout + priorityMech
         mechDelivery.priorityMech = priorityMech;
         // responseTimeout from relative time to absolute time
-        mechDelivery.responseTimeout = responseTimeout + block.timestamp;
+        mechDelivery.responseTimeout = uint64(responseTimeout + block.timestamp);
+        // Record request account
+        mechDelivery.account = msg.sender;
 
         // Increase mech requester karma
         mapRequesterMechKarma[msg.sender][priorityMech]++;
@@ -167,13 +172,15 @@ contract MechMarketplace {
         // Increase the total number of requests
         numTotalRequests++;
 
+        IMech(priorityMech).request{value: msg.value}(msg.sender, data, requestId, requestIdWithNonce);
+
         emit Request(msg.sender, priorityMech, requestId, requestIdWithNonce, data);
     }
 
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param requestIdWithNonce Request id with nonce.
-    /// @param data Self-descriptive opaque data-blob.
+    /// @param requestData Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external {
         // TODO: rename revert
         if(!mapRegisterMech[msg.sender]) {
@@ -182,6 +189,7 @@ contract MechMarketplace {
 
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
         address priorityMech = mechDelivery.priorityMech;
+        address account = mechDelivery.account;
         // TODO: rename revert - no request to deliver
         if (priorityMech == address(0)) {
             revert();
@@ -194,11 +202,11 @@ contract MechMarketplace {
         if(mechDelivery.responseTimeout <= block.timestamp) {
             if(priorityMech != msg.sender) {
                 revert();
-            } 
+            }
         } else {
             if (priorityMech != msg.sender) {
                 mapMechKarma[priorityMech]--;
-                IMech(msg.sender).recordRequest(requestId, requestIdWithNonce);
+                IMech(msg.sender).recordRequest(account, requestId, requestIdWithNonce);
                 IMech(priorityMech).revokeRequest(requestId, requestIdWithNonce);
             } 
         }
@@ -255,9 +263,9 @@ contract MechMarketplace {
     }
 
     /// @dev Gets the request Id status.
-    /// @param requestId Request Id.
+    /// @param requestIdWithNonce Request Id with nonce.
     /// @return status Request status.
-    function getRequestStatus(uint256 requestId) external view returns (RequestStatus status) {
+    function getRequestStatus(uint256 requestIdWithNonce) external view returns (RequestStatus status) {
         // Request exists if it has a record in the mapRequestIdDeliveries
         MechDelivery memory mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
         if (mechDelivery.priorityMech != address(0)) {
