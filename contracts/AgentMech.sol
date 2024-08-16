@@ -161,7 +161,6 @@ contract AgentMech is ERC721Mech {
         }
 
         // Increase the number of undelivered and total number of requests
-        mapRequestAddresses[requestIdWithNonce] = account;
         mapRequestsCounts[account]++;
         numTotalRequests++;
 
