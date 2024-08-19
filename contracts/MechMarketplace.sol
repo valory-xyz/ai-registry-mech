@@ -3,12 +3,24 @@ pragma solidity ^0.8.25;
 
 // Agent Mech interface
 interface IMech {
+    /// @dev Registers a request.
+    /// @param account Requester account address.
+    /// @param data Self-descriptive opaque data-blob.
+    /// @param requestId Request Id.
+    /// @param requestIdWithNonce Request Id with nonce.
     function request(address account, bytes memory data, uint256 requestId, uint256 requestIdWithNonce) external payable;
+
+    /// @dev Revokes the request from the mech that does not deliver it.
+    /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
+    /// @param requestIdWithNonce Request Id with nonce.
     function revokeRequest(uint256 requestIdWithNonce) external;
 }
 
 /// @dev Provided zero address.
 error ZeroAddress();
+
+/// @dev Provided zero value.
+error ZeroValue();
 
 /// @dev Agent does not exist.
 /// @param agentId Agent Id.
@@ -33,21 +45,30 @@ error Overflow(uint256 provided, uint256 max);
 /// @param owner Required sender address as an owner.
 error OwnerOnly(address sender, address owner);
 
+/// @dev Caught reentrancy violation.
+error ReentrancyGuard();
+
+// Mech delivery info struct
 struct MechDelivery {
+    // Priority mech address
     address priorityMech;
+    // Delivery mech address
     address deliveryMech;
+    // Account address sending the request
     address account;
+    // Response timeout window
     uint32 responseTimeout;
 }
 
-/// @title ref TODO
-/// @dev ref TODO
+/// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs.
 contract MechMarketplace {
-    event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
-        uint256 requestId, bytes data);
+    event OwnerUpdated(address indexed owner);
+    event FactoryUpdated(address indexed factory);
+    event MechRegisterationStatusChanged(address indexed mech, bool status);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId,
         uint256 requestIdWithNonce, bytes data);
-    event PriceUpdated(uint256 price);
+    event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
+        uint256 requestId, bytes data);
 
     enum RequestStatus {
         DoesNotExist,
@@ -69,29 +90,47 @@ contract MechMarketplace {
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
-    // TODO: comments
+    // Minimum response time
     uint256 public minResponseTimeout;
+    // Maximum response time
     uint256 public maxResponseTimeout;
+    // Reentrancy lock
+    uint256 internal _locked = 1;
+    // Contract owner
     address public owner;
-    // Mech factory contract address
+    // Agent mech factory contract address
     address public factory;
-    
-    // Map of request Id => mech delivery information
+
+    // Mapping of request Id => mech delivery information
     mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
-    // Map of account nonces
+    // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
-    
-    // TODO: comments
-    mapping(address => bool) public mapRegisterMech;
+    // Mapping of registered mechs
+    mapping(address => bool) public mapMechRegistrations;
+    // Mapping of mech address => karma
     mapping(address => int256) public mapMechKarma;
+    // Mapping of requester address => mech address => karma
     mapping(address => mapping(address => uint256)) public mapRequesterMechKarma;
 
     /// @dev MechMarketplace constructor.
-    /// @param _minResponceTimeout min timeout in sec
-    /// @param _maxResponceTimeout max timeout in sec
-    /// @param _factory agentFactory address
-    constructor(uint256 _minResponceTimeout, uint256 _maxResponceTimeout, address _factory) {
-        // TODO: comments
+    /// @param _factory Agent mech factory address.
+    /// @param _minResponceTimeout Min response time in sec.
+    /// @param _maxResponceTimeout Max response time in sec.
+    constructor(address _factory, uint256 _minResponceTimeout, uint256 _maxResponceTimeout) {
+        // Check for zero address
+        if (_factory == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero values
+        if (_minResponceTimeout == 0 || _maxResponceTimeout == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for sanity values
+        if (_minResponceTimeout > _maxResponceTimeout) {
+            revert();
+        }
         owner = msg.sender;
         minResponseTimeout = _minResponceTimeout;
         maxResponseTimeout = _maxResponceTimeout;
@@ -117,23 +156,47 @@ contract MechMarketplace {
         );
     }
 
-    function changeFactory(address newFactory) external {
+    /// @dev Changes contract owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the ownership
         if (msg.sender != owner) {
-            revert();
+            revert OwnerOnly(msg.sender, owner);
         }
 
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes mech factory address.
+    /// @param newFactory New mech factory address.
+    function changeFactory(address newFactory) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for zero address
         if (newFactory == address(0)) {
             revert ZeroAddress();
         }
 
         factory = newFactory;
-        // TODO event
+        emit FactoryUpdated(newFactory);
     }
 
-    function setRegisterMechStatus(address mech, bool status) external{
-        // TODO: rename revert, owner can rewrite mech status/add mech
+    /// @dev Sets mech registration status.
+    /// @param mech Mech address.
+    /// @param status True, if registered, false otherwise.
+    function setMechRegistrationStatus(address mech, bool status) external{
+        // Check for the agent mech factory access or contract ownership
         if (msg.sender != factory && msg.sender != owner) {
-            revert();
+            revert OwnerOnly(msg.sender, owner);
         }
 
         // Check that mech is a contract
@@ -141,25 +204,37 @@ contract MechMarketplace {
             revert();
         }
 
-        mapRegisterMech[mech] = status;
-        // TODO: event
+        mapMechRegistrations[mech] = status;
+        emit MechRegisterationStatusChanged(mech, status);
     }
 
     /// @dev Registers a request.
     /// @param data Self-descriptive opaque data-blob.
-    /// @param priorityMech address of priority mech
-    /// @param responseTimeout relative timeout in sec
-    function request(bytes memory data, address priorityMech, uint256 responseTimeout) external payable returns (uint256 requestId, uint256 requestIdWithNonce) {
+    /// @param priorityMech Address of a priority mech.
+    /// @param responseTimeout Relative response time in sec.
+    /// @return requestId Request Id.
+    /// @return requestIdWithNonce Request Id with nonce.
+    function request(
+        bytes memory data,
+        address priorityMech,
+        uint256 responseTimeout
+    ) external payable returns (uint256 requestId, uint256 requestIdWithNonce) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // TODO: rename revert
         if (priorityMech == address(0)) {
             revert();
         }
         // mech itself can't request
-        if (mapRegisterMech[msg.sender]) {
+        if (mapMechRegistrations[msg.sender]) {
             revert();
         }
         // Check that priority mech is registered
-        if (!mapRegisterMech[priorityMech]) {
+        if (!mapMechRegistrations[priorityMech]) {
             revert();
         }
         // responseTimeout can't overflow 2^32
@@ -197,18 +272,28 @@ contract MechMarketplace {
         IMech(priorityMech).request{value: msg.value}(msg.sender, data, requestId, requestIdWithNonce);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestId, requestIdWithNonce, data);
+
+        _locked = 1;
     }
 
     /// @dev Delivers a request.
+    /// @notice This function can only be called by the agent mech delivering the request.
     /// @param requestId Request id.
     /// @param requestIdWithNonce Request id with nonce.
     /// @param requestData Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // TODO: rename revert
-        if (!mapRegisterMech[msg.sender]) {
+        if (!mapMechRegistrations[msg.sender]) {
             revert();
         }
 
+        // Get mech delivery info struct
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
         address priorityMech = mechDelivery.priorityMech;
         // TODO: rename revert - no request to deliver
@@ -218,11 +303,12 @@ contract MechMarketplace {
 
         address account = mechDelivery.account;
 
-        // Already delivered
+        // Check that the request is not already delivered
         if (mechDelivery.deliveryMech != address(0)) {
             revert();
         }
-        // in windows, TODO: rename revert
+
+        // Within the defined response time only a chosen priority mech is able to deliver
         if (mechDelivery.responseTimeout <= block.timestamp) {
             if (priorityMech != msg.sender) {
                 revert();
@@ -239,10 +325,12 @@ contract MechMarketplace {
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
 
-        // TODO: comments
+        // Increase mech karma that delivers the request
         mapMechKarma[msg.sender]++;
 
         emit MarketplaceDeliver(priorityMech, msg.sender, account, requestId, requestData);
+
+        _locked = 1;
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
@@ -301,6 +389,9 @@ contract MechMarketplace {
         }
     }
 
+    /// @dev Gets mech delivery info.
+    /// @param requestIdWithNonce Request Id with nonce.
+    /// @return Mech delivery info.
     function getMechDeliveryInfo(uint256 requestIdWithNonce) external view returns (MechDelivery memory) {
         return mapRequestIdDeliveries[requestIdWithNonce];
     }

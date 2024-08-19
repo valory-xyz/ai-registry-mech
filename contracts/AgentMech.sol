@@ -3,17 +3,15 @@ pragma solidity ^0.8.25;
 
 import {ERC721Mech} from "../lib/gnosis-mech/contracts/ERC721Mech.sol";
 
-interface IToken {
-    /// @dev Gets the owner of the `tokenId` token.
-    /// @param tokenId Token Id that must exist.
-    /// @return tokenOwner Token owner.
-    function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
-}
-
+// Mech delivery info struct
 struct MechDelivery {
+    // Priority mech address
     address priorityMech;
+    // Delivery mech address
     address deliveryMech;
+    // Account address sending the request
     address account;
+    // Response timeout window
     uint32 responseTimeout;
 }
 
@@ -24,7 +22,17 @@ interface IMechMarketplace {
     /// @param requestData Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external;
 
+    /// @dev Gets mech delivery info.
+    /// @param requestIdWithNonce Request Id with nonce.
+    /// @return Mech delivery info.
     function getMechDeliveryInfo(uint256 requestIdWithNonce) external returns (MechDelivery memory);
+}
+
+interface IToken {
+    /// @dev Gets the owner of the `tokenId` token.
+    /// @param tokenId Token Id that must exist.
+    /// @return tokenOwner Token owner.
+    function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
 }
 
 /// @dev Provided zero address.
@@ -48,11 +56,15 @@ error RequestIdNotFound(uint256 requestId);
 /// @param max Maximum possible value.
 error Overflow(uint256 provided, uint256 max);
 
+/// @dev Caught reentrancy violation.
+error ReentrancyGuard();
+
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
     event Deliver(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
     event Request(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
+    event RevokeRequest(address indexed sender, uint256 requestIdWithNonce);
     event PriceUpdated(uint256 price);
 
     enum RequestStatus {
@@ -72,6 +84,8 @@ contract AgentMech is ERC721Mech {
     uint256 public numTotalRequests;
     // Mech marketplace address
     address public mechMarketplace;
+    // Reentrancy lock
+    uint256 internal _locked = 1;
 
     // Map of requests counts for corresponding addresses
     mapping(address => uint256) public mapRequestsCounts;
@@ -127,8 +141,16 @@ contract AgentMech is ERC721Mech {
     }
 
     /// @dev Registers a request.
+    /// @param account Requester account address.
     /// @param data Self-descriptive opaque data-blob.
-    function request(address account, bytes memory data, uint256 requestId, uint256 requestIdWithNonce) external payable {
+    /// @param requestId Request Id.
+    /// @param requestIdWithNonce Request Id with nonce.
+    function request(
+        address account,
+        bytes memory data,
+        uint256 requestId,
+        uint256 requestIdWithNonce
+    ) external payable {
         if (msg.sender != mechMarketplace) {
             revert();
         }
@@ -164,7 +186,11 @@ contract AgentMech is ERC721Mech {
         emit Request(account, requestId, requestIdWithNonce, data);
     }
 
+    /// @dev Revokes the request from the mech that does not deliver it.
+    /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
+    /// @param requestIdWithNonce Request Id with nonce.
     function revokeRequest(uint256 requestIdWithNonce) external {
+        // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert();
         }
@@ -184,7 +210,7 @@ contract AgentMech is ERC721Mech {
         delete mapRequestIds[requestIdWithNonce];
         delete mapRequestAddresses[requestIdWithNonce];
 
-        // TODO Event
+        emit RevokeRequest(account, requestIdWithNonce);
     }
 
     /// @dev Performs actions before the delivery of a request.
@@ -199,6 +225,12 @@ contract AgentMech is ERC721Mech {
     /// @param requestIdWithNonce Request id with nonce.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Get the account to deliver request to
         address account = mapRequestAddresses[requestIdWithNonce];
         // The account is non-zero if it is delivered by the priority mech, otherwise it is being delivered by another one
@@ -243,6 +275,8 @@ contract AgentMech is ERC721Mech {
         IMechMarketplace(mechMarketplace).deliver(requestId, requestIdWithNonce, requestData);
 
         emit Deliver(msg.sender, requestId, requestIdWithNonce, requestData);
+
+        _locked = 1;
     }
 
     /// @dev Sets the new price.

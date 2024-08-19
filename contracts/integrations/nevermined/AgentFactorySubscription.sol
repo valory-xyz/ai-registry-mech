@@ -13,7 +13,7 @@ interface IAgentRegistry {
 }
 
 interface IMechMarketplace {
-    function setRegisterMechStatus(address mech, bool status) external;
+    function setMechRegistrationStatus(address mech, bool status) external;
 }
 
 /// @title Agent Factory Subscription - Periphery smart contract for managing agent and mech creation with subscription
@@ -66,7 +66,7 @@ contract AgentFactorySubscription is GenericManager {
         mech = address((new AgentMechSubscription){salt: salt}(mechMarketplace, agentRegistry, agentId,
             minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
         // Register mech in a specified marketplace
-        IMechMarketplace(mechMarketplace).setRegisterMechStatus(mech, true);
+        IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
 
         emit CreateMech(mech, agentId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
     }

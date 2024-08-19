@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {AgentMech} from "../../AgentMech.sol";
+import {AgentMech, ReentrancyGuard} from "../../AgentMech.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -32,9 +32,6 @@ error NoDepositAllowed(uint256 amount);
 /// @param minCreditsPerRequest Minimum number of credits per request needed.
 error NotEnoughCredits(uint256 creditsBalance, uint256 minCreditsPerRequest);
 
-/// @dev Caught reentrancy violation.
-error ReentrancyGuard();
-
 /// @title AgentMechSubscription - Smart contract for extending AgentMech with subscription
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a subscription.
 contract AgentMechSubscription is AgentMech {
@@ -45,8 +42,6 @@ contract AgentMechSubscription is AgentMech {
     address public subscriptionNFT;
     // Subscription token Id
     uint256 public subscriptionTokenId;
-    // Reentrancy lock
-    uint256 internal _locked = 1;
 
     /// @dev AgentMechSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
@@ -109,7 +104,11 @@ contract AgentMechSubscription is AgentMech {
     /// @param requestIdWithNonce Request Id with nonce.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(address account, uint256 requestIdWithNonce, bytes memory data) internal override returns (bytes memory requestData) {
+    function _preDeliver(
+        address account,
+        uint256 requestIdWithNonce,
+        bytes memory data
+    ) internal override returns (bytes memory requestData) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
