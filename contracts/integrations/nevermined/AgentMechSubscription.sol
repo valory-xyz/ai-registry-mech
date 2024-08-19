@@ -105,10 +105,11 @@ contract AgentMechSubscription is AgentMech {
     }
 
     /// @dev Performs actions before the delivery of a request.
+    /// @param account Request sender address.
     /// @param requestIdWithNonce Request Id with nonce.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(uint256 requestIdWithNonce, bytes memory data) internal override returns (bytes memory requestData) {
+    function _preDeliver(address account, uint256 requestIdWithNonce, bytes memory data) internal override returns (bytes memory requestData) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -118,9 +119,6 @@ contract AgentMechSubscription is AgentMech {
         // Extract the request deliver price
         uint256 deliverPrice;
         (deliverPrice, requestData) = abi.decode(data, (uint256, bytes));
-
-        // Get the request sender address
-        address account = mapRequestAddresses[requestIdWithNonce];
 
         // Check for the number of credits available in the subscription
         uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(account, subscriptionTokenId);

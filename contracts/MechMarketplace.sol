@@ -4,8 +4,7 @@ pragma solidity ^0.8.25;
 // Agent Mech interface
 interface IMech {
     function request(address account, bytes memory data, uint256 requestId, uint256 requestIdWithNonce) external payable;
-    function recordRequest(address account, uint256 requestId, uint256 requestIdWithNonce) external;
-    function revokeRequest(uint256 requestId, uint256 requestIdWithNonce) external;
+    function revokeRequest(uint256 requestIdWithNonce) external;
 }
 
 /// @dev Provided zero address.
@@ -36,17 +35,17 @@ error OwnerOnly(address sender, address owner);
 
 struct MechDelivery {
     address priorityMech;
-    uint64 responseTimeout;
     address deliveryMech;
     address account;
+    uint32 responseTimeout;
 }
 
 /// @title ref TODO
 /// @dev ref TODO
 contract MechMarketplace {
-    event Deliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
+    event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data);
-    event Request(address indexed requester, address indexed requestedMech, uint256 requestId,
+    event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId,
         uint256 requestIdWithNonce, bytes data);
     event PriceUpdated(uint256 price);
 
@@ -66,15 +65,16 @@ contract MechMarketplace {
     // Original chain Id
     uint256 public immutable chainId;
 
-    // TODO: comments
-    address public owner;
-    uint256 public minResponceTimeout;
-    uint256 public maxResponceTimeout;
-
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
+    // TODO: comments
+    uint256 public minResponseTimeout;
+    uint256 public maxResponseTimeout;
+    address public owner;
+    // Mech factory contract address
+    address public factory;
     
     // Map of request Id => mech delivery information
     mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
@@ -85,7 +85,6 @@ contract MechMarketplace {
     mapping(address => bool) public mapRegisterMech;
     mapping(address => int256) public mapMechKarma;
     mapping(address => mapping(address => uint256)) public mapRequesterMechKarma;
-    address public factory;
 
     /// @dev MechMarketplace constructor.
     /// @param _minResponceTimeout min timeout in sec
@@ -94,8 +93,8 @@ contract MechMarketplace {
     constructor(uint256 _minResponceTimeout, uint256 _maxResponceTimeout, address _factory) {
         // TODO: comments
         owner = msg.sender;
-        minResponceTimeout = _minResponceTimeout;
-        maxResponceTimeout = _maxResponceTimeout;
+        minResponseTimeout = _minResponceTimeout;
+        maxResponseTimeout = _maxResponceTimeout;
         factory = _factory;
 
         // Record chain Id
@@ -110,7 +109,7 @@ contract MechMarketplace {
         return keccak256(
             abi.encode(
                 DOMAIN_SEPARATOR_TYPE_HASH,
-                keccak256("AgentMech"),
+                keccak256("MechMarketplace"),
                 keccak256(abi.encode(VERSION)),
                 block.chainid,
                 address(this)
@@ -118,11 +117,30 @@ contract MechMarketplace {
         );
     }
 
-    function setRegisterMechStatus(address mech, bool status) external{
-        // TODO: rename revert, owner can rewrite mech status/add mech
-        if(msg.sender != factory && msg.sender != owner) {
+    function changeFactory(address newFactory) external {
+        if (msg.sender != owner) {
             revert();
         }
+
+        if (newFactory == address(0)) {
+            revert ZeroAddress();
+        }
+
+        factory = newFactory;
+        // TODO event
+    }
+
+    function setRegisterMechStatus(address mech, bool status) external{
+        // TODO: rename revert, owner can rewrite mech status/add mech
+        if (msg.sender != factory && msg.sender != owner) {
+            revert();
+        }
+
+        // Check that mech is a contract
+        if (mech.code.length == 0) {
+            revert();
+        }
+
         mapRegisterMech[mech] = status;
         // TODO: event
     }
@@ -140,8 +158,12 @@ contract MechMarketplace {
         if (mapRegisterMech[msg.sender]) {
             revert();
         }
+        // Check that priority mech is registered
+        if (!mapRegisterMech[priorityMech]) {
+            revert();
+        }
         // responseTimeout can't overflow 2^32
-        if (responseTimeout < minResponceTimeout || responseTimeout > maxResponceTimeout) {
+        if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
             revert();
         }
         if (data.length == 0) {
@@ -160,7 +182,7 @@ contract MechMarketplace {
         // Record timeout + priorityMech
         mechDelivery.priorityMech = priorityMech;
         // responseTimeout from relative time to absolute time
-        mechDelivery.responseTimeout = uint64(responseTimeout + block.timestamp);
+        mechDelivery.responseTimeout = uint32(responseTimeout + block.timestamp);
         // Record request account
         mechDelivery.account = msg.sender;
 
@@ -174,7 +196,7 @@ contract MechMarketplace {
 
         IMech(priorityMech).request{value: msg.value}(msg.sender, data, requestId, requestIdWithNonce);
 
-        emit Request(msg.sender, priorityMech, requestId, requestIdWithNonce, data);
+        emit MarketplaceRequest(msg.sender, priorityMech, requestId, requestIdWithNonce, data);
     }
 
     /// @dev Delivers a request.
@@ -183,31 +205,32 @@ contract MechMarketplace {
     /// @param requestData Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external {
         // TODO: rename revert
-        if(!mapRegisterMech[msg.sender]) {
+        if (!mapRegisterMech[msg.sender]) {
             revert();
         }
 
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
         address priorityMech = mechDelivery.priorityMech;
-        address account = mechDelivery.account;
         // TODO: rename revert - no request to deliver
         if (priorityMech == address(0)) {
             revert();
         }
+
+        address account = mechDelivery.account;
+
         // Already delivered
         if (mechDelivery.deliveryMech != address(0)) {
             revert();
         }
         // in windows, TODO: rename revert
-        if(mechDelivery.responseTimeout <= block.timestamp) {
-            if(priorityMech != msg.sender) {
+        if (mechDelivery.responseTimeout <= block.timestamp) {
+            if (priorityMech != msg.sender) {
                 revert();
             }
         } else {
             if (priorityMech != msg.sender) {
                 mapMechKarma[priorityMech]--;
-                IMech(msg.sender).recordRequest(account, requestId, requestIdWithNonce);
-                IMech(priorityMech).revokeRequest(requestId, requestIdWithNonce);
+                IMech(priorityMech).revokeRequest(requestIdWithNonce);
             } 
         }
 
@@ -219,7 +242,7 @@ contract MechMarketplace {
         // TODO: comments
         mapMechKarma[msg.sender]++;
 
-        emit Deliver(priorityMech, msg.sender, account, requestId, requestData);
+        emit MarketplaceDeliver(priorityMech, msg.sender, account, requestId, requestData);
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
@@ -276,6 +299,10 @@ contract MechMarketplace {
                 status = RequestStatus.Delivered;
             }
         }
+    }
+
+    function getMechDeliveryInfo(uint256 requestIdWithNonce) external view returns (MechDelivery memory) {
+        return mapRequestIdDeliveries[requestIdWithNonce];
     }
 }
 

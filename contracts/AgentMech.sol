@@ -10,12 +10,21 @@ interface IToken {
     function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
 }
 
+struct MechDelivery {
+    address priorityMech;
+    address deliveryMech;
+    address account;
+    uint32 responseTimeout;
+}
+
 interface IMechMarketplace {
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param requestIdWithNonce Request id with nonce.
     /// @param requestData Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external;
+
+    function getMechDeliveryInfo(uint256 requestIdWithNonce) external returns (MechDelivery memory);
 }
 
 /// @dev Provided zero address.
@@ -155,19 +164,7 @@ contract AgentMech is ERC721Mech {
         emit Request(account, requestId, requestIdWithNonce, data);
     }
 
-    function recordRequest(address account, uint256 requestId, uint256 requestIdWithNonce) external {
-        if (msg.sender != mechMarketplace) {
-            revert();
-        }
-
-        // Increase the number of undelivered and total number of requests
-        mapRequestsCounts[account]++;
-        numTotalRequests++;
-
-        // TODO Event
-    }
-
-    function revokeRequest(uint256 requestId, uint256 requestIdWithNonce) external {
+    function revokeRequest(uint256 requestIdWithNonce) external {
         if (msg.sender != mechMarketplace) {
             revert();
         }
@@ -193,7 +190,7 @@ contract AgentMech is ERC721Mech {
     /// @dev Performs actions before the delivery of a request.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
+    function _preDeliver(address, uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
         requestData = data;
     }
 
@@ -202,9 +199,6 @@ contract AgentMech is ERC721Mech {
     /// @param requestIdWithNonce Request id with nonce.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
-        // Perform a pre-delivery of the data if it needs additional parsing
-        bytes memory requestData = _preDeliver(requestIdWithNonce, data);
-
         // Get the account to deliver request to
         address account = mapRequestAddresses[requestIdWithNonce];
         // The account is non-zero if it is delivered by the priority mech, otherwise it is being delivered by another one
@@ -229,7 +223,21 @@ contract AgentMech is ERC721Mech {
             // Delete the delivered element from the map
             delete mapRequestIds[requestIdWithNonce];
             delete mapRequestAddresses[requestIdWithNonce];
+        } else {
+            // account is zero if the delivery mech is different from a priority mech
+            account = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestIdWithNonce).account;
+
+            if (account == address(0)) {
+                revert();
+            }
+
+            // Increase the number of undelivered and total number of requests
+            mapRequestsCounts[account]++;
+            numTotalRequests++;
         }
+
+        // Perform a pre-delivery of the data if it needs additional parsing
+        bytes memory requestData = _preDeliver(account, requestIdWithNonce, data);
 
         // Mech marketplace delivery finalization
         IMechMarketplace(mechMarketplace).deliver(requestId, requestIdWithNonce, requestData);
