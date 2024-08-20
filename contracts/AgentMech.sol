@@ -69,6 +69,7 @@ error ReentrancyGuard();
 /// @title AgentMech - Smart contract for extending ERC721Mech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
+    event MechMarketplaceUpdated(address indexed mechMarketplace);
     event Deliver(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
     event Request(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestIdWithNonce);
@@ -169,6 +170,7 @@ contract AgentMech is ERC721Mech {
         }
 
         mechMarketplace = newMechMarketplace;
+        emit MechMarketplaceUpdated(newMechMarketplace);
     }
 
     /// @dev Registers a request.
