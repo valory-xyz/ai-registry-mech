@@ -45,8 +45,31 @@ error Overflow(uint256 provided, uint256 max);
 /// @param owner Required sender address as an owner.
 error OwnerOnly(address sender, address owner);
 
+/// @dev Provided account is not a contract.
+/// @param account Account address.
+error NotContract(address account);
+
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
+
+/// @dev Account is unauthorized.
+/// @param account Account address.
+error UnauthorizedAccount(address account);
+
+/// @dev Provided value is out of bounds.
+/// @param provided value.
+/// @param min Minimum possible value.
+/// @param max Maximum possible value.
+error OutOfBounds(uint256 provided, uint256 min, uint256 max);
+
+/// @dev The request is already delivered.
+/// @param requestId Request Id.
+error AlreadyDelivered(uint256 requestId);
+
+/// @dev Priority mech response timeout is not yet met.
+/// @param expected Expected timestamp.
+/// @param current Current timestamp.
+error PriorityMechResponseTimeout(uint256 expected, uint256 current);
 
 // Mech delivery info struct
 struct MechDelivery {
@@ -129,8 +152,14 @@ contract MechMarketplace {
 
         // Check for sanity values
         if (_minResponceTimeout > _maxResponceTimeout) {
-            revert();
+            revert Overflow(_minResponceTimeout, _maxResponceTimeout);
         }
+
+        // responseTimeout limits
+        if (_maxResponceTimeout > type(uint32).max) {
+            revert Overflow(_maxResponceTimeout, type(uint32).max);
+        }
+
         owner = msg.sender;
         minResponseTimeout = _minResponceTimeout;
         maxResponseTimeout = _maxResponceTimeout;
@@ -201,7 +230,7 @@ contract MechMarketplace {
 
         // Check that mech is a contract
         if (mech.code.length == 0) {
-            revert();
+            revert NotContract(mech);
         }
 
         mapMechRegistrations[mech] = status;
@@ -209,6 +238,7 @@ contract MechMarketplace {
     }
 
     /// @dev Registers a request.
+    /// @notice The request is going to be registered by a specified priority agent mech.
     /// @param data Self-descriptive opaque data-blob.
     /// @param priorityMech Address of a priority mech.
     /// @param responseTimeout Relative response time in sec.
@@ -225,24 +255,29 @@ contract MechMarketplace {
         }
         _locked = 2;
 
-        // TODO: rename revert
+        // Check for zero address
         if (priorityMech == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
-        // mech itself can't request
+        // Agent mech itself cannot post a request
         if (mapMechRegistrations[msg.sender]) {
-            revert();
+            revert UnauthorizedAccount(msg.sender);
         }
         // Check that priority mech is registered
         if (!mapMechRegistrations[priorityMech]) {
-            revert();
+            revert UnauthorizedAccount(priorityMech);
         }
-        // responseTimeout can't overflow 2^32
+        // responseTimeout bounds
         if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
-            revert();
+            revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
         }
+        // responseTimeout limits
+        if (responseTimeout + block.timestamp > type(uint32).max) {
+            revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
+        }
+        // Check for non-zero data
         if (data.length == 0) {
-            revert();
+            revert ZeroValue();
         }
 
         // Get the request Id
@@ -252,9 +287,10 @@ contract MechMarketplace {
         // Update sender's nonce
         mapNonces[msg.sender]++;
 
+        // Get mech delivery info struct
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
 
-        // Record timeout + priorityMech
+        // Record priorityMech and response timeout
         mechDelivery.priorityMech = priorityMech;
         // responseTimeout from relative time to absolute time
         mechDelivery.responseTimeout = uint32(responseTimeout + block.timestamp);
@@ -269,6 +305,7 @@ contract MechMarketplace {
         // Increase the total number of requests
         numTotalRequests++;
 
+        // Process request by a specified priority mech
         IMech(priorityMech).request{value: msg.value}(msg.sender, data, requestId, requestIdWithNonce);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestId, requestIdWithNonce, data);
@@ -288,38 +325,40 @@ contract MechMarketplace {
         }
         _locked = 2;
 
-        // TODO: rename revert
         if (!mapMechRegistrations[msg.sender]) {
-            revert();
+            revert UnauthorizedAccount(msg.sender);
         }
 
         // Get mech delivery info struct
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
         address priorityMech = mechDelivery.priorityMech;
-        // TODO: rename revert - no request to deliver
+
+        // Check for request existence
         if (priorityMech == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         address account = mechDelivery.account;
-
         // Check that the request is not already delivered
         if (mechDelivery.deliveryMech != address(0)) {
-            revert();
+            revert AlreadyDelivered(requestIdWithNonce);
         }
 
-        // Within the defined response time only a chosen priority mech is able to deliver
-        if (mechDelivery.responseTimeout <= block.timestamp) {
-            if (priorityMech != msg.sender) {
-                revert();
-            }
-        } else {
-            if (priorityMech != msg.sender) {
+        // If delivery mech is different from the priority one
+        if (priorityMech != msg.sender) {
+            // Within the defined response time only a chosen priority mech is able to deliver
+            if (mechDelivery.responseTimeout < block.timestamp) {
+                // Decrease priority mech karma as the mech did not deliver
                 mapMechKarma[priorityMech]--;
+                // Revoke request from the priority mech
                 IMech(priorityMech).revokeRequest(requestIdWithNonce);
-            } 
+            } else {
+                // Priority mech responseTimeout is still >= block.timestamp
+                revert PriorityMechResponseTimeout(mechDelivery.responseTimeout, block.timestamp);
+            }
         }
 
+        // Record the actual delivery mech
         mechDelivery.deliveryMech = msg.sender;
 
         // Decrease the number of undelivered requests
