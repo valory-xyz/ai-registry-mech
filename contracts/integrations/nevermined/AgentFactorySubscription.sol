@@ -12,7 +12,11 @@ interface IAgentRegistry {
     function create(address agentOwner, bytes32 agentHash) external returns (uint256 agentId);
 }
 
+// Mech Marketplace interface
 interface IMechMarketplace {
+    /// @dev Sets mech registration status.
+    /// @param mech Mech address.
+    /// @param status True, if registered, false otherwise.
     function setMechRegistrationStatus(address mech, bool status) external;
 }
 
