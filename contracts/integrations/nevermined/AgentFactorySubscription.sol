@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {AgentMechSubscription} from "./AgentMechSubscription.sol";
 import {GenericManager} from "../../../lib/autonolas-registries/contracts/GenericManager.sol";
@@ -10,6 +10,10 @@ interface IAgentRegistry {
     /// @param agentHash IPFS CID hash of the agent metadata.
     /// @return agentId The id of a minted agent.
     function create(address agentOwner, bytes32 agentHash) external returns (uint256 agentId);
+}
+
+interface IMechMarketplace {
+    function setMechRegistrationStatus(address mech, bool status) external;
 }
 
 /// @title Agent Factory Subscription - Periphery smart contract for managing agent and mech creation with subscription
@@ -23,7 +27,7 @@ contract AgentFactorySubscription is GenericManager {
     );
 
     // Agent factory version number
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.1.0";
 
     // Agent registry address
     address public immutable agentRegistry;
@@ -34,6 +38,7 @@ contract AgentFactorySubscription is GenericManager {
     }
 
     /// @dev Creates agent.
+    /// @param mechMarketplace Mech marketplace address.
     /// @param agentOwner Owner of the agent.
     /// @param agentHash IPFS CID hash of the agent metadata.
     /// @param minCreditsPerRequest Minimum number of credits to pay for each request via a subscription.
@@ -42,6 +47,7 @@ contract AgentFactorySubscription is GenericManager {
     /// @return agentId The id of a created agent.
     /// @return mech The created mech instance address.
     function create(
+        address mechMarketplace,
         address agentOwner,
         bytes32 agentHash,
         uint256 minCreditsPerRequest,
@@ -57,8 +63,11 @@ contract AgentFactorySubscription is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = address((new AgentMechSubscription){salt: salt}(agentRegistry, agentId, minCreditsPerRequest,
-            subscriptionNFT, subscriptionTokenId));
+        mech = address((new AgentMechSubscription){salt: salt}(mechMarketplace, agentRegistry, agentId,
+            minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
+        // Register mech in a specified marketplace
+        IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
+
         emit CreateMech(mech, agentId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
     }
 }

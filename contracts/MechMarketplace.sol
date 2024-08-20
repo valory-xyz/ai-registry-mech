@@ -1,8 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
+
+// Agent Mech interface
+interface IMech {
+    /// @dev Registers a request.
+    /// @param account Requester account address.
+    /// @param data Self-descriptive opaque data-blob.
+    /// @param requestId Request Id.
+    /// @param requestIdWithNonce Request Id with nonce.
+    function request(address account, bytes memory data, uint256 requestId, uint256 requestIdWithNonce) external payable;
+
+    /// @dev Revokes the request from the mech that does not deliver it.
+    /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
+    /// @param requestIdWithNonce Request Id with nonce.
+    function revokeRequest(uint256 requestIdWithNonce) external;
+}
 
 /// @dev Provided zero address.
 error ZeroAddress();
+
+/// @dev Provided zero value.
+error ZeroValue();
 
 /// @dev Agent does not exist.
 /// @param agentId Agent Id.
@@ -27,12 +45,53 @@ error Overflow(uint256 provided, uint256 max);
 /// @param owner Required sender address as an owner.
 error OwnerOnly(address sender, address owner);
 
-/// @title ref TODO
-/// @dev ref TODO
+/// @dev Provided account is not a contract.
+/// @param account Account address.
+error NotContract(address account);
+
+/// @dev Caught reentrancy violation.
+error ReentrancyGuard();
+
+/// @dev Account is unauthorized.
+/// @param account Account address.
+error UnauthorizedAccount(address account);
+
+/// @dev Provided value is out of bounds.
+/// @param provided value.
+/// @param min Minimum possible value.
+/// @param max Maximum possible value.
+error OutOfBounds(uint256 provided, uint256 min, uint256 max);
+
+/// @dev The request is already delivered.
+/// @param requestId Request Id.
+error AlreadyDelivered(uint256 requestId);
+
+/// @dev Priority mech response timeout is not yet met.
+/// @param expected Expected timestamp.
+/// @param current Current timestamp.
+error PriorityMechResponseTimeout(uint256 expected, uint256 current);
+
+// Mech delivery info struct
+struct MechDelivery {
+    // Priority mech address
+    address priorityMech;
+    // Delivery mech address
+    address deliveryMech;
+    // Account address sending the request
+    address account;
+    // Response timeout window
+    uint32 responseTimeout;
+}
+
+/// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs.
 contract MechMarketplace {
-    event Deliver(address indexed sender, uint256 requestId, bytes data);
-    event Request(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
-    event PriceUpdated(uint256 price);
+    event OwnerUpdated(address indexed owner);
+    event FactoryUpdated(address indexed factory);
+    event MechRegisterationStatusChanged(address indexed mech, bool status);
+    event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId,
+        uint256 requestIdWithNonce, bytes data);
+    event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
+        uint256 requestId, bytes data);
 
     enum RequestStatus {
         DoesNotExist,
@@ -50,49 +109,62 @@ contract MechMarketplace {
     // Original chain Id
     uint256 public immutable chainId;
 
-    // TODO: comments
-    address public owner;
-    uint256 public minResponceTimeout;
-    uint256 public maxResponceTimeout;
-
-    // Minimum required price, ownered???
-    uint256 public price;
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
-
-    // Map of requests counts for corresponding addresses
-    mapping(address => uint256) public mapRequestsCounts;
-    // Map of undelivered requests counts for corresponding addresses
-    mapping(address => uint256) public mapUndeliveredRequestsCounts;
-    // Cyclical map of request Ids
-    mapping(uint256 => uint256[2]) public mapRequestIds;
-    // Map of request Id => sender address
-    mapping(uint256 => address) public mapRequestAddresses;
-    // Map of account nonces
-    mapping(address => uint256) public mapNonces;
-    
-    // TODO: comments
-    mapping(uint256 => uint256) public mapRequestPriority;
-    mapping(address => bool) public mapRegisterMech;
-    mapping(address => int256) public mapMechKarma;
+    // Minimum response time
+    uint256 public minResponseTimeout;
+    // Maximum response time
+    uint256 public maxResponseTimeout;
+    // Reentrancy lock
+    uint256 internal _locked = 1;
+    // Contract owner
+    address public owner;
+    // Agent mech factory contract address
     address public factory;
 
+    // Mapping of request Id => mech delivery information
+    mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
+    // Mapping of account nonces
+    mapping(address => uint256) public mapNonces;
+    // Mapping of registered mechs
+    mapping(address => bool) public mapMechRegistrations;
+    // Mapping of mech address => karma
+    mapping(address => int256) public mapMechKarma;
+    // Mapping of requester address => mech address => karma
+    mapping(address => mapping(address => uint256)) public mapRequesterMechKarma;
+
     /// @dev MechMarketplace constructor.
-    /// @param _price The minimum required price.
-    /// @param _minResponceTimeout min timeout in sec
-    /// @param _maxResponceTimeout max timeout in sec
-    /// @param _factory agentFactory address
-    constructor(uint256 _price, uint256 _minResponceTimeout, uint256 _maxResponceTimeout, address _factory) {
-        // TODO: comments
+    /// @param _factory Agent mech factory address.
+    /// @param _minResponceTimeout Min response time in sec.
+    /// @param _maxResponceTimeout Max response time in sec.
+    constructor(address _factory, uint256 _minResponceTimeout, uint256 _maxResponceTimeout) {
+        // Check for zero address
+        if (_factory == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero values
+        if (_minResponceTimeout == 0 || _maxResponceTimeout == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for sanity values
+        if (_minResponceTimeout > _maxResponceTimeout) {
+            revert Overflow(_minResponceTimeout, _maxResponceTimeout);
+        }
+
+        // responseTimeout limits
+        if (_maxResponceTimeout > type(uint32).max) {
+            revert Overflow(_maxResponceTimeout, type(uint32).max);
+        }
+
         owner = msg.sender;
-        minResponceTimeout = _minResponceTimeout;
-        maxResponceTimeout = _maxResponceTimeout;
+        minResponseTimeout = _minResponceTimeout;
+        maxResponseTimeout = _maxResponceTimeout;
         factory = _factory;
 
-        // Record the price
-        price = _price;
         // Record chain Id
         chainId = block.chainid;
         // Compute domain separator
@@ -105,7 +177,7 @@ contract MechMarketplace {
         return keccak256(
             abi.encode(
                 DOMAIN_SEPARATOR_TYPE_HASH,
-                keccak256("AgentMech"),
+                keccak256("MechMarketplace"),
                 keccak256(abi.encode(VERSION)),
                 block.chainid,
                 address(this)
@@ -113,161 +185,191 @@ contract MechMarketplace {
         );
     }
 
-    /// @dev Performs actions before the request is posted.
-    /// @param amount Amount of payment in wei.
-    function _preRequest(uint256 amount, uint256, bytes memory) internal virtual {
-        // Check the request payment
-        if (amount < price) {
-            revert NotEnoughPaid(amount, price);
+    /// @dev Changes contract owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
         }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
     }
 
-    function setRegisterMechStatus(address mech, bool status) external{
-        // TODO: rename revert, owner can rewrite mech status/add mech
-        if(msg.sender != factory && msg.sender != owner) {
-            revert();
+    /// @dev Changes mech factory address.
+    /// @param newFactory New mech factory address.
+    function changeFactory(address newFactory) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
         }
-        mapRegisterMech[mech] = status;
-        // TODO: event
+
+        // Check for zero address
+        if (newFactory == address(0)) {
+            revert ZeroAddress();
+        }
+
+        factory = newFactory;
+        emit FactoryUpdated(newFactory);
+    }
+
+    /// @dev Sets mech registration status.
+    /// @param mech Mech address.
+    /// @param status True, if registered, false otherwise.
+    function setMechRegistrationStatus(address mech, bool status) external{
+        // Check for the agent mech factory access or contract ownership
+        if (msg.sender != factory && msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check that mech is a contract
+        if (mech.code.length == 0) {
+            revert NotContract(mech);
+        }
+
+        mapMechRegistrations[mech] = status;
+        emit MechRegisterationStatusChanged(mech, status);
     }
 
     /// @dev Registers a request.
+    /// @notice The request is going to be registered by a specified priority agent mech.
     /// @param data Self-descriptive opaque data-blob.
-    /// @param priorityMech address of priority mech
-    /// @param responseTimeout relative timeout in sec
-    function request(bytes memory data, address priorityMech, uint256 responseTimeout) external payable returns (uint256 requestId, uint256 requestIdWithNonce) {
-        // TODO: rename revert
-        if(priorityMech == address(0)) {
-            revert();
+    /// @param priorityMech Address of a priority mech.
+    /// @param responseTimeout Relative response time in sec.
+    /// @return requestId Request Id.
+    /// @return requestIdWithNonce Request Id with nonce.
+    function request(
+        bytes memory data,
+        address priorityMech,
+        uint256 responseTimeout
+    ) external payable returns (uint256 requestId, uint256 requestIdWithNonce) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
         }
-        // mech itself can't request
-        if(mapRegisterMech[msg.sender]) {
-            revert();
+        _locked = 2;
+
+        // Check for zero address
+        if (priorityMech == address(0)) {
+            revert ZeroAddress();
         }
-        // responseTimeout can't overflow 2^32
-        if(responseTimeout < minResponceTimeout || responseTimeout > maxResponceTimeout) {
-            revert();
+        // Agent mech itself cannot post a request
+        if (mapMechRegistrations[msg.sender]) {
+            revert UnauthorizedAccount(msg.sender);
         }
-        if(data.length == 0) {
-            revert();
+        // Check that priority mech is registered
+        if (!mapMechRegistrations[priorityMech]) {
+            revert UnauthorizedAccount(priorityMech);
+        }
+        // responseTimeout bounds
+        if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
+            revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
+        }
+        // responseTimeout limits
+        if (responseTimeout + block.timestamp > type(uint32).max) {
+            revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
+        }
+        // Check for non-zero data
+        if (data.length == 0) {
+            revert ZeroValue();
         }
 
         // Get the request Id
         requestId = getRequestId(msg.sender, data);
         requestIdWithNonce = getRequestIdWithNonce(msg.sender, data, mapNonces[msg.sender]);
 
-        // Check the request payment
-        _preRequest(msg.value, requestIdWithNonce, data);
-
-        // Increase the requests count supplied by the sender
-        mapRequestsCounts[msg.sender]++;
-        mapUndeliveredRequestsCounts[msg.sender]++;
-        // Record the requestId => sender correspondence
-        mapRequestAddresses[requestIdWithNonce] = msg.sender;
         // Update sender's nonce
         mapNonces[msg.sender]++;
 
-        // Record timeout + priorityMech
-        uint256 requestPriority = uint160(priorityMech);
-        // responseTimeout takes the second 96 bits, from relative time to absolute time
-        responseTimeout += block.timestamp;
-        requestPriority |= responseTimeout << 160;
-        mapRequestPriority[requestIdWithNonce] = requestPriority;
+        // Get mech delivery info struct
+        MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
 
-        // Record the request Id in the map
-        // Get previous and next request Ids of the first element
-        uint256[2] storage requestIds = mapRequestIds[0];
-        // Create the new element
-        uint256[2] storage newRequestIds = mapRequestIds[requestIdWithNonce];
+        // Record priorityMech and response timeout
+        mechDelivery.priorityMech = priorityMech;
+        // responseTimeout from relative time to absolute time
+        mechDelivery.responseTimeout = uint32(responseTimeout + block.timestamp);
+        // Record request account
+        mechDelivery.account = msg.sender;
 
-        // Previous element will be zero, next element will be the current next element
-        uint256 curNextRequestId = requestIds[1];
-        newRequestIds[1] = curNextRequestId;
-        // Next element of the zero element will be the newly created element
-        requestIds[1] = requestIdWithNonce;
-        // Previous element of the current next element will be the newly created element
-        mapRequestIds[curNextRequestId][0] = requestIdWithNonce;
+        // Increase mech requester karma
+        mapRequesterMechKarma[msg.sender][priorityMech]++;
 
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
         // Increase the total number of requests
         numTotalRequests++;
 
-        emit Request(msg.sender, requestId, requestIdWithNonce, data);
-    }
+        // Process request by a specified priority mech
+        IMech(priorityMech).request{value: msg.value}(msg.sender, data, requestId, requestIdWithNonce);
 
-    /// @dev Performs actions before the delivery of a request.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @return requestData Data for the request processing.
-    function _preDeliver(uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
-        requestData = data;
+        emit MarketplaceRequest(msg.sender, priorityMech, requestId, requestIdWithNonce, data);
+
+        _locked = 1;
     }
 
     /// @dev Delivers a request.
+    /// @notice This function can only be called by the agent mech delivering the request.
     /// @param requestId Request id.
     /// @param requestIdWithNonce Request id with nonce.
-    /// @param data Self-descriptive opaque data-blob.
-    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external {
-        // TODO: rename revert
-        if(!mapRegisterMech[msg.sender]) {
-            revert();
+    /// @param requestData Self-descriptive opaque data-blob.
+    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
         }
-        
-        uint256 requestPriority = mapRequestPriority[requestIdWithNonce];
-        address expectedMech = address(uint160(requestPriority));
-        // TODO: rename revert
-        if(expectedMech == address(0)) {
-            revert();
-        }
-        // in windows, TODO: rename revert
-        if((requestPriority >> 160) <= block.timestamp) {
-            if(expectedMech != msg.sender) {
-                revert();
-            } 
-        } else {
-            if(expectedMech != msg.sender) {
-                mapMechKarma[expectedMech]--;
-            } 
-        }
-        
-        // Perform a pre-delivery of the data if it needs additional parsing
-        bytes memory requestData = _preDeliver(requestIdWithNonce, data);
+        _locked = 2;
 
-        // Remove delivered request Id from the request Ids map
-        uint256[2] memory requestIds = mapRequestIds[requestIdWithNonce];
-        // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
-        // and the zero's element previous request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestIdWithNonce) {
-            revert RequestIdNotFound(requestIdWithNonce);
+        if (!mapMechRegistrations[msg.sender]) {
+            revert UnauthorizedAccount(msg.sender);
         }
 
-        // Re-link previous and next elements between themselves
-        mapRequestIds[requestIds[0]][1] = requestIds[1];
-        mapRequestIds[requestIds[1]][0] = requestIds[0];
+        // Get mech delivery info struct
+        MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
+        address priorityMech = mechDelivery.priorityMech;
+
+        // Check for request existence
+        if (priorityMech == address(0)) {
+            revert ZeroAddress();
+        }
+
+        address account = mechDelivery.account;
+        // Check that the request is not already delivered
+        if (mechDelivery.deliveryMech != address(0)) {
+            revert AlreadyDelivered(requestIdWithNonce);
+        }
+
+        // If delivery mech is different from the priority one
+        if (priorityMech != msg.sender) {
+            // Within the defined response time only a chosen priority mech is able to deliver
+            if (mechDelivery.responseTimeout < block.timestamp) {
+                // Decrease priority mech karma as the mech did not deliver
+                mapMechKarma[priorityMech]--;
+                // Revoke request from the priority mech
+                IMech(priorityMech).revokeRequest(requestIdWithNonce);
+            } else {
+                // Priority mech responseTimeout is still >= block.timestamp
+                revert PriorityMechResponseTimeout(mechDelivery.responseTimeout, block.timestamp);
+            }
+        }
+
+        // Record the actual delivery mech
+        mechDelivery.deliveryMech = msg.sender;
 
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
-        address account = mapRequestAddresses[requestIdWithNonce];
-        mapUndeliveredRequestsCounts[account]--;
 
-        // TODO: comments
-        delete mapRequestPriority[requestIdWithNonce];
+        // Increase mech karma that delivers the request
         mapMechKarma[msg.sender]++;
 
-        // Delete the delivered element from the map
-        delete mapRequestIds[requestIdWithNonce];
+        emit MarketplaceDeliver(priorityMech, msg.sender, account, requestId, requestData);
 
-        emit Deliver(msg.sender, requestId, requestData);
-    }
-
-    /// @dev Sets the new price.
-    /// @param newPrice New mimimum required price.
-    function setPrice(uint256 newPrice) external {
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-        price = newPrice;
-        emit PriceUpdated(newPrice);
+        _locked = 1;
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
@@ -310,67 +412,27 @@ contract MechMarketplace {
         ));
     }
 
-    /// @dev Gets the requests count for a specific account.
-    /// @param account Account address.
-    /// @return requestsCount Requests count.
-    function getRequestsCount(address account) external view returns (uint256 requestsCount) {
-        requestsCount = mapRequestsCounts[account];
-    }
-
     /// @dev Gets the request Id status.
-    /// @param requestId Request Id.
+    /// @param requestIdWithNonce Request Id with nonce.
     /// @return status Request status.
-    function getRequestStatus(uint256 requestId) external view returns (RequestStatus status) {
-        // Request exists if it was recorded in the requestId => account map
-        if (mapRequestAddresses[requestId] != address(0)) {
-            // Get the request info
-            uint256[2] memory requestIds = mapRequestIds[requestId];
-            // Check if the request Id was already delivered: previous and next request Ids are zero,
-            // and the zero's element previous request Id is not equal to the provided request Id
-            if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
-                status = RequestStatus.Delivered;
-            } else {
+    function getRequestStatus(uint256 requestIdWithNonce) external view returns (RequestStatus status) {
+        // Request exists if it has a record in the mapRequestIdDeliveries
+        MechDelivery memory mechDelivery = mapRequestIdDeliveries[requestIdWithNonce];
+        if (mechDelivery.priorityMech != address(0)) {
+            // Check if the request Id was already delivered: delivery mech address is not zero
+            if (mechDelivery.deliveryMech == address(0)) {
                 status = RequestStatus.Requested;
+            } else {
+                status = RequestStatus.Delivered;
             }
         }
     }
 
-    /// @dev Gets the set of undelivered request Ids with Nonce.
-    /// @param size Maximum batch size of a returned requests Id set. If the size is zero, the whole set is returned.
-    /// @param offset The number of skipped requests that are not going to be part of the returned requests Id set.
-    /// @return requestIds Set of undelivered request Ids.
-    function getUndeliveredRequestIds(uint256 size, uint256 offset) external view returns (uint256[] memory requestIds) {
-        // Get the number of undelivered requests
-        uint256 numRequests = numUndeliveredRequests;
-
-        // If size is zero, return all the requests
-        if (size == 0) {
-            size = numRequests;
-        }
-
-        // Check for the size + offset overflow
-        if (size + offset > numRequests) {
-            revert Overflow(size + offset, numRequests);
-        }
-
-        if (size > 0) {
-            requestIds = new uint256[](size);
-
-            // The first request Id is the next request Id of the zero element in the request Ids map
-            uint256 curRequestId = mapRequestIds[0][1];
-            // Traverse requests a specified offset
-            for (uint256 i = 0; i < offset; ++i) {
-                // Next request Id of the current element based on the current request Id
-                curRequestId = mapRequestIds[curRequestId][1];
-            }
-
-            // Traverse the rest of requests
-            for (uint256 i = 0; i < size; ++i) {
-                requestIds[i] = curRequestId;
-                // Next request Id of the current element based on the current request Id
-                curRequestId = mapRequestIds[curRequestId][1];
-            }
-        }
+    /// @dev Gets mech delivery info.
+    /// @param requestIdWithNonce Request Id with nonce.
+    /// @return Mech delivery info.
+    function getMechDeliveryInfo(uint256 requestIdWithNonce) external view returns (MechDelivery memory) {
+        return mapRequestIdDeliveries[requestIdWithNonce];
     }
 }
 
