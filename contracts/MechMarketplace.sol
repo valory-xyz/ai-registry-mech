@@ -87,6 +87,7 @@ struct MechDelivery {
 contract MechMarketplace {
     event OwnerUpdated(address indexed owner);
     event FactoryUpdated(address indexed factory);
+    event MinMaxResponseTimeoutUpdated(uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event MechRegisterationStatusChanged(address indexed mech, bool status);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId,
         uint256 requestIdWithNonce, bytes data);
@@ -137,32 +138,32 @@ contract MechMarketplace {
 
     /// @dev MechMarketplace constructor.
     /// @param _factory Agent mech factory address.
-    /// @param _minResponceTimeout Min response time in sec.
-    /// @param _maxResponceTimeout Max response time in sec.
-    constructor(address _factory, uint256 _minResponceTimeout, uint256 _maxResponceTimeout) {
+    /// @param _minResponseTimeout Min response time in sec.
+    /// @param _maxResponseTimeout Max response time in sec.
+    constructor(address _factory, uint256 _minResponseTimeout, uint256 _maxResponseTimeout) {
         // Check for zero address
         if (_factory == address(0)) {
             revert ZeroAddress();
         }
 
         // Check for zero values
-        if (_minResponceTimeout == 0 || _maxResponceTimeout == 0) {
+        if (_minResponseTimeout == 0 || _maxResponseTimeout == 0) {
             revert ZeroValue();
         }
 
         // Check for sanity values
-        if (_minResponceTimeout > _maxResponceTimeout) {
-            revert Overflow(_minResponceTimeout, _maxResponceTimeout);
+        if (_minResponseTimeout > _maxResponseTimeout) {
+            revert Overflow(_minResponseTimeout, _maxResponseTimeout);
         }
 
         // responseTimeout limits
-        if (_maxResponceTimeout > type(uint32).max) {
-            revert Overflow(_maxResponceTimeout, type(uint32).max);
+        if (_maxResponseTimeout > type(uint32).max) {
+            revert Overflow(_maxResponseTimeout, type(uint32).max);
         }
 
         owner = msg.sender;
-        minResponseTimeout = _minResponceTimeout;
-        maxResponseTimeout = _maxResponceTimeout;
+        minResponseTimeout = _minResponseTimeout;
+        maxResponseTimeout = _maxResponseTimeout;
         factory = _factory;
 
         // Record chain Id
@@ -220,26 +221,33 @@ contract MechMarketplace {
     }
 
     /// @dev Changes min and max response timeout values.
-    /// @param newMinResponceTimeout New min response timeout.
-    /// @param newMaxResponceTimeout New max response timeout.
-    function changeMinMaxResponseTimeout(uint256 newMinResponceTimeout, uint256 newMaxResponceTimeout) external {
+    /// @param newMinResponseTimeout New min response timeout.
+    /// @param newMaxResponseTimeout New max response timeout.
+    function changeMinMaxResponseTimeout(uint256 newMinResponseTimeout, uint256 newMaxResponseTimeout) external {
+        // Check contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         // Check for zero values
-        if (newMinResponceTimeout == 0 || newMaxResponceTimeout == 0) {
+        if (newMinResponseTimeout == 0 || newMaxResponseTimeout == 0) {
             revert ZeroValue();
         }
 
         // Check for sanity values
-        if (newMinResponceTimeout > newMaxResponceTimeout) {
-            revert Overflow(newMinResponceTimeout, newMaxResponceTimeout);
+        if (newMinResponseTimeout > newMaxResponseTimeout) {
+            revert Overflow(newMinResponseTimeout, newMaxResponseTimeout);
         }
 
         // responseTimeout limits
-        if (newMaxResponceTimeout > type(uint32).max) {
-            revert Overflow(newMaxResponceTimeout, type(uint32).max);
+        if (newMaxResponseTimeout > type(uint32).max) {
+            revert Overflow(newMaxResponseTimeout, type(uint32).max);
         }
 
-        minResponseTimeout = newMinResponceTimeout;
-        maxResponseTimeout = newMaxResponceTimeout;
+        minResponseTimeout = newMinResponseTimeout;
+        maxResponseTimeout = newMaxResponseTimeout;
+        
+        emit MinMaxResponseTimeoutUpdated(newMinResponseTimeout, newMaxResponseTimeout);
     }
 
     /// @dev Sets mech registration status.

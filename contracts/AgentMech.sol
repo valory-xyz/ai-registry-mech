@@ -256,15 +256,15 @@ contract AgentMech is ERC721Mech {
         }
         _locked = 2;
 
-        // Get the account to deliver request to
+        // Get an account to deliver request to
         address account = mapRequestAddresses[requestIdWithNonce];
-        // The account is zero if the delivery mech is different from a priority mech
+        // The account is zero if the delivery mech is different from a priority mech, or if request does not exist
         if (account == address(0)) {
             account = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestIdWithNonce).account;
 
-            // This must never happen, as each valid requestIdWithNonce has a corresponding account recorded in marketplace
+            // Check if request exists
             if (account == address(0)) {
-                revert ZeroAddress();
+                revert RequestIdNotFound(requestIdWithNonce);
             }
 
             // Increase the total number of requests, as the request is delivered by this mech

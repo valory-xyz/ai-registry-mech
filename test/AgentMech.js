@@ -56,7 +56,7 @@ describe.only("AgentMech", function () {
     });
 
     context("Request", async function () {
-        it.only("Creating an agent mech and doing a request", async function () {
+        it("Creating an agent mech and doing a request", async function () {
             const agentMech = await AgentMech.deploy(mechMarketplace.address, agentRegistry.address, unitId, price);
             await mechMarketplace.setMechRegistrationStatus(agentMech.address, true);
 
@@ -111,15 +111,15 @@ describe.only("AgentMech", function () {
     });
 
     context("Deliver", async function () {
-        it("Delivering a request", async function () {
-            const account = signers[1];
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price);
+        it("Delivering a request by a priority mech", async function () {
+            const agentMech = await AgentMech.deploy(mechMarketplace.address, agentRegistry.address, unitId, price);
+            await mechMarketplace.setMechRegistrationStatus(agentMech.address, true);
 
-            const requestId = await agentMech.getRequestId(deployer.address, data);
-            const requestIdWithNonce = await agentMech.getRequestIdWithNonce(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data);
+            const requestIdWithNonce = await mechMarketplace.getRequestIdWithNonce(deployer.address, data, 0);
 
             // Get the non-existent request status
-            let status = await agentMech.getRequestStatus(requestIdWithNonce);
+            let status = await mechMarketplace.getRequestStatus(requestIdWithNonce);
             expect(status).to.equal(0);
 
             // Try to deliver a non existent request
@@ -128,22 +128,27 @@ describe.only("AgentMech", function () {
             ).to.be.revertedWithCustomError(agentMech, "RequestIdNotFound");
 
             // Create a request
-            await agentMech.request(data, {value: price});
+            await mechMarketplace.request(data, agentMech.address, minResponceTimeout, {value: price});
 
             // Try to deliver not by the operator (agent owner)
             await expect(
-                agentMech.connect(account).deliver(requestId, requestIdWithNonce, data)
+                agentMech.connect(signers[1]).deliver(requestId, requestIdWithNonce, data)
             ).to.be.reverted;
 
             // Get the request status (requested)
-            status = await agentMech.getRequestStatus(requestIdWithNonce);
+            status = await mechMarketplace.getRequestStatus(requestIdWithNonce);
             expect(status).to.equal(1);
+
+            // Try to deliver request not by the mech
+            await expect(
+                mechMarketplace.deliver(requestId, requestIdWithNonce, data)
+            ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
 
             // Deliver a request
             await agentMech.deliver(requestId, requestIdWithNonce, data);
 
             // Get the request status (delivered)
-            status = await agentMech.getRequestStatus(requestIdWithNonce);
+            status = await mechMarketplace.getRequestStatus(requestIdWithNonce);
             expect(status).to.equal(2);
         });
 
