@@ -3,16 +3,20 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("AgentMech", function () {
+describe.only("AgentMech", function () {
     let AgentMech;
     let agentRegistry;
+    let mechMarketplace;
     let signers;
     let deployer;
     const agentHash = "0x" + "5".repeat(64);
     const AddressZero = "0x" + "0".repeat(40);
     const unitId = 1;
     const price = 1;
-    const data = "0x";
+    const data = "0x00";
+    const minResponceTimeout = 10;
+    const maxResponceTimeout = 20;
+
     beforeEach(async function () {
         AgentMech = await ethers.getContractFactory("AgentMech");
 
@@ -24,6 +28,10 @@ describe("AgentMech", function () {
         signers = await ethers.getSigners();
         deployer = signers[0];
 
+        const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
+        mechMarketplace = await MechMarketplace.deploy(deployer.address, 10, 10);
+        await mechMarketplace.deployed();
+
         // Mint one agent
         await agentRegistry.changeManager(deployer.address);
         await agentRegistry.create(deployer.address, agentHash);
@@ -31,30 +39,49 @@ describe("AgentMech", function () {
 
     context("Initialization", async function () {
         it("Checking for arguments passed to the constructor", async function () {
+            // Zero addresses
             await expect(
-                AgentMech.deploy(AddressZero, unitId, price)
-            ).to.be.reverted;
+                AgentMech.deploy(AddressZero, AddressZero, unitId, price)
+            ).to.be.revertedWithCustomError(AgentMech, "ZeroAddress");
 
             await expect(
-                AgentMech.deploy(agentRegistry.address, unitId + 1, price)
+                AgentMech.deploy(mechMarketplace.address, AddressZero, unitId, price)
+            ).to.be.revertedWithCustomError(AgentMech, "ZeroAddress");
+
+            // Agent Id does not exist
+            await expect(
+                AgentMech.deploy(mechMarketplace.address, agentRegistry.address, unitId + 1, price)
             ).to.be.reverted;
         });
     });
 
     context("Request", async function () {
-        it("Creating an agent mech and doing a request", async function () {
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price);
+        it.only("Creating an agent mech and doing a request", async function () {
+            const agentMech = await AgentMech.deploy(mechMarketplace.address, agentRegistry.address, unitId, price);
+            await mechMarketplace.setMechRegistrationStatus(agentMech.address, true);
+
+            // Try to post a request directly to the mech
+            await expect(
+                agentMech.request(deployer.address, data, 0, 0)
+            ).to.be.revertedWithCustomError(agentMech, "ManagerOnly");
+
+            // Try to request a zero data
+            await expect(
+                mechMarketplace.request("0x", agentMech.address, minResponceTimeout)
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
 
             // Try to supply less value when requesting
             await expect(
-                agentMech.request(data)
+                mechMarketplace.request(data, agentMech.address, minResponceTimeout)
             ).to.be.revertedWithCustomError(agentMech, "NotEnoughPaid");
 
             // Create a request
-            await agentMech.request(data, {value: price});
+            await mechMarketplace.request(data, agentMech.address, minResponceTimeout, {value: price});
 
             // Get the requests count
-            const requestsCount = await agentMech.getRequestsCount(deployer.address);
+            let requestsCount = await agentMech.getRequestsCount(deployer.address);
+            expect(requestsCount).to.equal(1);
+            requestsCount = await mechMarketplace.numTotalRequests();
             expect(requestsCount).to.equal(1);
         });
     });

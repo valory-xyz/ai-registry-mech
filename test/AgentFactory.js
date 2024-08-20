@@ -6,6 +6,7 @@ const { ethers } = require("hardhat");
 describe("AgentFactory", function () {
     let agentRegistry;
     let agentFactory;
+    let mechMarketplace;
     let signers;
     const agentHash = "0x" + "5".repeat(64);
     const price = 1;
@@ -17,6 +18,10 @@ describe("AgentFactory", function () {
         const AgentFactory = await ethers.getContractFactory("AgentFactory");
         agentFactory = await AgentFactory.deploy(agentRegistry.address);
         await agentFactory.deployed();
+
+        const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
+        mechMarketplace = await MechMarketplace.deploy(agentFactory.address, 10, 10);
+        await mechMarketplace.deployed();
 
         signers = await ethers.getSigners();
     });
@@ -39,7 +44,7 @@ describe("AgentFactory", function () {
 
             // Try minting when paused
             await expect(
-                agentFactory.create(user.address, agentHash, price)
+                agentFactory.create(mechMarketplace.address, user.address, agentHash, price)
             ).to.be.revertedWithCustomError(agentFactory, "Paused");
 
             // Try to unpause not from the owner of the service manager
@@ -52,7 +57,7 @@ describe("AgentFactory", function () {
 
             // Mint an agent
             await agentRegistry.changeManager(agentFactory.address);
-            await agentFactory.create(user.address, agentHash, price);
+            await agentFactory.create(mechMarketplace.address, user.address, agentHash, price);
         });
     });
 });
