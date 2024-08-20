@@ -219,6 +219,29 @@ contract MechMarketplace {
         emit FactoryUpdated(newFactory);
     }
 
+    /// @dev Changes min and max response timeout values.
+    /// @param newMinResponceTimeout New min response timeout.
+    /// @param newMaxResponceTimeout New max response timeout.
+    function changeMinMaxResponseTimeout(uint256 newMinResponceTimeout, uint256 newMaxResponceTimeout) external {
+        // Check for zero values
+        if (newMinResponceTimeout == 0 || newMaxResponceTimeout == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for sanity values
+        if (newMinResponceTimeout > newMaxResponceTimeout) {
+            revert Overflow(newMinResponceTimeout, newMaxResponceTimeout);
+        }
+
+        // responseTimeout limits
+        if (newMaxResponceTimeout > type(uint32).max) {
+            revert Overflow(newMaxResponceTimeout, type(uint32).max);
+        }
+
+        minResponseTimeout = newMinResponceTimeout;
+        maxResponseTimeout = newMaxResponceTimeout;
+    }
+
     /// @dev Sets mech registration status.
     /// @param mech Mech address.
     /// @param status True, if registered, false otherwise.

@@ -9,8 +9,8 @@ describe.only("AgentMech", function () {
     let mechMarketplace;
     let signers;
     let deployer;
+    const AddressZero = ethers.constants.AddressZero;
     const agentHash = "0x" + "5".repeat(64);
-    const AddressZero = "0x" + "0".repeat(40);
     const unitId = 1;
     const price = 1;
     const data = "0x00";
@@ -64,6 +64,30 @@ describe.only("AgentMech", function () {
             await expect(
                 agentMech.request(deployer.address, data, 0, 0)
             ).to.be.revertedWithCustomError(agentMech, "ManagerOnly");
+
+            // Try to request to a zero priority mech
+            await expect(
+                mechMarketplace.request("0x", AddressZero, 0)
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
+
+            // Try to request to a non-registered mech
+            await expect(
+                mechMarketplace.request("0x", agentRegistry.address, 0)
+            ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
+
+            // Response time is out of bounds
+            await expect(
+                mechMarketplace.request("0x", agentMech.address, minResponceTimeout - 1)
+            ).to.be.revertedWithCustomError(mechMarketplace, "OutOfBounds");
+            await expect(
+                mechMarketplace.request("0x", agentMech.address, maxResponceTimeout + 1)
+            ).to.be.revertedWithCustomError(mechMarketplace, "OutOfBounds");
+            // Change max response timeout close to type(uint32).max
+            const closeToMaxUint96 = "4294967295";
+            await mechMarketplace.changeMinMaxResponseTimeout(minResponceTimeout, closeToMaxUint96);
+            await expect(
+                mechMarketplace.request("0x", agentMech.address, closeToMaxUint96)
+            ).to.be.revertedWithCustomError(mechMarketplace, "Overflow");
 
             // Try to request a zero data
             await expect(
