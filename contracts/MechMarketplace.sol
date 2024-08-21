@@ -16,6 +16,17 @@ interface IMech {
     function revokeRequest(uint256 requestIdWithNonce) external;
 }
 
+// Karma interface
+interface IKarma {
+    function changeMechKarma(address mech, int256 karma) external;
+    function increaseRequesterMechKarma(address requester, address mech) external;
+}
+
+/// @dev Only `owner` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param owner Required sender address as an owner.
+error OwnerOnly(address sender, address owner);
+
 /// @dev Provided zero address.
 error ZeroAddress();
 
@@ -39,11 +50,6 @@ error RequestIdNotFound(uint256 requestId);
 /// @param provided Overflow value.
 /// @param max Maximum possible value.
 error Overflow(uint256 provided, uint256 max);
-
-/// @dev Only `owner` has a privilege, but the `sender` was provided.
-/// @param sender Sender address.
-/// @param owner Required sender address as an owner.
-error OwnerOnly(address sender, address owner);
 
 /// @dev Provided account is not a contract.
 /// @param account Account address.
@@ -96,11 +102,12 @@ contract MechMarketplace {
 
     enum RequestStatus {
         DoesNotExist,
-        Requested,
+        RequestedPriority,
+        RequestedExpired,
         Delivered
     }
 
-    // version number
+    // Contract version number
     string public constant VERSION = "1.0.0";
     // Domain separator type hash
     bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
@@ -109,6 +116,8 @@ contract MechMarketplace {
     bytes32 public immutable domainSeparator;
     // Original chain Id
     uint256 public immutable chainId;
+    // Mech karma contract address
+    address public immutable karmaProxy;
 
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
@@ -131,18 +140,15 @@ contract MechMarketplace {
     mapping(address => uint256) public mapNonces;
     // Mapping of registered mechs
     mapping(address => bool) public mapMechRegistrations;
-    // Mapping of mech address => karma
-    mapping(address => int256) public mapMechKarma;
-    // Mapping of requester address => mech address => karma
-    mapping(address => mapping(address => uint256)) public mapRequesterMechKarma;
 
     /// @dev MechMarketplace constructor.
     /// @param _factory Agent mech factory address.
+    /// @param _karmaProxy Karma proxy contract address.
     /// @param _minResponseTimeout Min response time in sec.
     /// @param _maxResponseTimeout Max response time in sec.
-    constructor(address _factory, uint256 _minResponseTimeout, uint256 _maxResponseTimeout) {
+    constructor(address _factory, address _karmaProxy, uint256 _minResponseTimeout, uint256 _maxResponseTimeout) {
         // Check for zero address
-        if (_factory == address(0)) {
+        if (_factory == address(0) || _karmaProxy == address(0)) {
             revert ZeroAddress();
         }
 
@@ -162,9 +168,10 @@ contract MechMarketplace {
         }
 
         owner = msg.sender;
+        factory = _factory;
+        karmaProxy = _karmaProxy;
         minResponseTimeout = _minResponseTimeout;
         maxResponseTimeout = _maxResponseTimeout;
-        factory = _factory;
 
         // Record chain Id
         chainId = block.chainid;
@@ -329,7 +336,7 @@ contract MechMarketplace {
         mechDelivery.account = msg.sender;
 
         // Increase mech requester karma
-        mapRequesterMechKarma[msg.sender][priorityMech]++;
+        IKarma(karmaProxy).increaseRequesterMechKarma(msg.sender, priorityMech);
 
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
@@ -380,7 +387,7 @@ contract MechMarketplace {
             // Within the defined response time only a chosen priority mech is able to deliver
             if (mechDelivery.responseTimeout < block.timestamp) {
                 // Decrease priority mech karma as the mech did not deliver
-                mapMechKarma[priorityMech]--;
+                IKarma(karmaProxy).changeMechKarma(msg.sender, -1);
                 // Revoke request from the priority mech
                 IMech(priorityMech).revokeRequest(requestIdWithNonce);
             } else {
@@ -396,7 +403,7 @@ contract MechMarketplace {
         numUndeliveredRequests--;
 
         // Increase mech karma that delivers the request
-        mapMechKarma[msg.sender]++;
+        IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
 
         emit MarketplaceDeliver(priorityMech, msg.sender, account, requestId, requestData);
 
@@ -452,7 +459,11 @@ contract MechMarketplace {
         if (mechDelivery.priorityMech != address(0)) {
             // Check if the request Id was already delivered: delivery mech address is not zero
             if (mechDelivery.deliveryMech == address(0)) {
-                status = RequestStatus.Requested;
+                if (mechDelivery.responseTimeout <= block.timestamp) {
+                    status = RequestStatus.RequestedPriority;
+                } else {
+                    status = RequestStatus.RequestedExpired;
+                }
             } else {
                 status = RequestStatus.Delivered;
             }

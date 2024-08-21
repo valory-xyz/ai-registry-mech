@@ -40,10 +40,10 @@ interface IToken {
 /// @dev Provided zero address.
 error ZeroAddress();
 
-/// @dev Only `manager` has a privilege, but the `sender` was provided.
+/// @dev Only `marketplace` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
 /// @param manager Required sender address as a manager.
-error ManagerOnly(address sender, address manager);
+error MarketplaceOnly(address sender, address manager);
 
 /// @dev Agent does not exist.
 /// @param agentId Agent Id.
@@ -102,9 +102,12 @@ contract AgentMech is ERC721Mech {
     /// @param _token Address of the token contract.
     /// @param _tokenId The token ID.
     /// @param _price The minimum required price.
-    constructor(address _mechMarketplace, address _token, uint256 _tokenId, uint256 _price) ERC721Mech(_token, _tokenId) {
-        // Check for zero addresses
-        if (_mechMarketplace == address(0) || _token == address(0)) {
+    /// @param _mechMarketplace Mech marketplace address.
+    constructor(address _token, uint256 _tokenId, uint256 _price, address _mechMarketplace)
+        ERC721Mech(_token, _tokenId)
+    {
+        // Check for zero address
+        if (_token == address(0)) {
             revert ZeroAddress();
         }
 
@@ -185,8 +188,8 @@ contract AgentMech is ERC721Mech {
         uint256 requestId,
         uint256 requestIdWithNonce
     ) external payable {
-        if (msg.sender != mechMarketplace) {
-            revert ManagerOnly(msg.sender, mechMarketplace);
+        if (mechMarketplace != address(0) && msg.sender != mechMarketplace) {
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Check the request payment
@@ -225,8 +228,9 @@ contract AgentMech is ERC721Mech {
     /// @param requestIdWithNonce Request Id with nonce.
     function revokeRequest(uint256 requestIdWithNonce) external {
         // Check for marketplace access
+        // Note if mechMarketplace is zero, this function must never be called
         if (msg.sender != mechMarketplace) {
-            revert ManagerOnly(msg.sender, mechMarketplace);
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         address account = mapRequestAddresses[requestIdWithNonce];
@@ -260,9 +264,11 @@ contract AgentMech is ERC721Mech {
         address account = mapRequestAddresses[requestIdWithNonce];
         // The account is zero if the delivery mech is different from a priority mech, or if request does not exist
         if (account == address(0)) {
-            account = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestIdWithNonce).account;
+            if (mechMarketplace != address(0)) {
+                account = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestIdWithNonce).account;
+            }
 
-            // Check if request exists
+            // Check if request exists in the mech marketplace
             if (account == address(0)) {
                 revert RequestIdNotFound(requestIdWithNonce);
             }
@@ -279,7 +285,9 @@ contract AgentMech is ERC721Mech {
         bytes memory requestData = _preDeliver(account, requestIdWithNonce, data);
 
         // Mech marketplace delivery finalization
-        IMechMarketplace(mechMarketplace).deliver(requestId, requestIdWithNonce, requestData);
+        if (mechMarketplace != address(0)) {
+            IMechMarketplace(mechMarketplace).deliver(requestId, requestIdWithNonce, requestData);
+        }
 
         emit Deliver(msg.sender, requestId, requestIdWithNonce, requestData);
 
