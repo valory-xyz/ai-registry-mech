@@ -5,11 +5,11 @@ pragma solidity ^0.8.25;
 error ZeroImplementationAddress();
 
 /*
-* This is a Service Staking proxy contract.
+* This is a Karma proxy contract.
 * Proxy implementation is created based on the Universal Upgradeable Proxy Standard (UUPS) EIP-1822.
 * The implementation address must be located in a unique storage slot of the proxy contract.
 * The upgrade logic must be located in the implementation contract.
-* Special service staking implementation address slot is produced by hashing the "KARMA_PROXY"
+* Special karma implementation address slot is produced by hashing the "KARMA_PROXY"
 * string in order to make the slot unique.
 * The fallback() implementation for all the delegatecall-s is inspired by the Gnosis Safe set of contracts.
 */
