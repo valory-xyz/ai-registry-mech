@@ -1,0 +1,50 @@
+'solc --version' running
+'solc ./KarmaProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./MechMarketplace-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./Karma-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal1/analysis/contracts' running
+INFO:Printers:
++ Contract KarmaProxy (Upgradeable Proxy) (Most derived contract)
+  - From KarmaProxy
+    - constructor(address) (public)
+    - fallback() (external)
+
+INFO:Printers:
++ Contract IMech (Most derived contract)
+  - From IMech
+    - request(address,bytes,uint256) (external)
+    - revokeRequest(uint256) (external)
+
++ Contract IKarma (Most derived contract)
+  - From IKarma
+    - changeMechKarma(address,int256) (external)
+    - changeRequesterMechKarma(address,address,int256) (external)
+
++ Contract MechMarketplace (Most derived contract)
+  - From MechMarketplace
+    - _computeDomainSeparator() (internal)
+    - changeFactory(address) (external)
+    - changeMinMaxResponseTimeout(uint256,uint256) (external)
+    - changeOwner(address) (external)
+    - constructor(address,address,uint256,uint256) (public)
+    - deliver(uint256,bytes) (external)
+    - getDomainSeparator() (public)
+    - getMechDeliveryInfo(uint256) (external)
+    - getRequestId(address,bytes,uint256) (public)
+    - getRequestStatus(uint256) (external)
+    - request(bytes,address,uint256) (external)
+    - setMechRegistrationStatus(address,bool) (external)
+
+INFO:Printers:
++ Contract Karma (Most derived contract)
+  - From Karma
+    - changeImplementation(address) (external)
+    - changeMechKarma(address,int256) (external)
+    - changeOwner(address) (external)
+    - changeRequesterMechKarma(address,address,int256) (external)
+    - getImplementation() (external)
+    - initialize() (external)
+    - setMechMarketplaceStatuses(address[],bool[]) (external)
+
+INFO:Slither:. analyzed (5 contracts)
