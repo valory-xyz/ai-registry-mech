@@ -10,7 +10,11 @@ error OwnerOnly(address sender, address owner);
 error ZeroAddress();
 
 contract Karma {
+    event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
+    event SetMechMarketplaceStatuses(address[] mechMarketplaces, bool[] statuses);
+    event MechKarmaChanged(address indexed mech, int256 karmaChange);
+    event RequesterMechKarmaChanged(address indexed requester, address indexed mech, int256 karmaChange);
 
     // Version number
     string public constant VERSION = "1.0.0";
@@ -41,6 +45,7 @@ contract Karma {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Check for zero address
         if (newImplementation == address(0)) {
             revert();
         }
@@ -49,6 +54,8 @@ contract Karma {
         assembly {
             sstore(KARMA_PROXY, newImplementation)
         }
+
+        emit ImplementationUpdated(newImplementation);
     }
 
     /// @dev Changes contract owner address.
@@ -85,21 +92,39 @@ contract Karma {
 
             mapMechMarketplaces[mechMarketplaces[i]] = statuses[i];
         }
+
+        emit SetMechMarketplaceStatuses(mechMarketplaces, statuses);
     }
 
     function changeMechKarma(address mech, int256 karmaChange) external {
+        // Check for marketplace access
         if (!mapMechMarketplaces[msg.sender]) {
             revert();
         }
 
+        // Change mech karma
         mapMechKarma[mech] += karmaChange;
+
+        emit MechKarmaChanged(mech, karmaChange);
     }
 
     function changeRequesterMechKarma(address requester, address mech, int256 karmaChange) external {
+        // Check for marketplace access
         if (!mapMechMarketplaces[msg.sender]) {
             revert();
         }
 
+        // Change requester mech karma
         mapRequesterMechKarma[requester][mech] += karmaChange;
+
+        emit RequesterMechKarmaChanged(requester, mech, karmaChange);
+    }
+
+    /// @dev Gets the implementation address.
+    /// @return implementation Implementation address.
+    function getImplementation() external view returns (address implementation) {
+        assembly {
+            implementation := sload(KARMA_PROXY)
+        }
     }
 }

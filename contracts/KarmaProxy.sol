@@ -49,11 +49,4 @@ contract KarmaProxy {
             return(0, returndatasize())
         }
     }
-
-    /// @dev Gets the implementation address.
-    function getImplementation() external view returns (address implementation) {
-        assembly {
-            implementation := sload(KARMA_PROXY)
-        }
-    }
 }
