@@ -25,7 +25,7 @@ contract Karma {
     // Mapping of mech address => karma
     mapping(address => int256) public mapMechKarma;
     // Mapping of requester address => mech address => karma
-    mapping(address => mapping(address => uint256)) public mapRequesterMechKarma;
+    mapping(address => mapping(address => int256)) public mapRequesterMechKarma;
 
     function initialize() external{
         if (owner != address(0)) {
@@ -87,19 +87,19 @@ contract Karma {
         }
     }
 
-    function changeMechKarma(address mech, int256 karma) external {
+    function changeMechKarma(address mech, int256 karmaChange) external {
         if (!mapMechMarketplaces[msg.sender]) {
             revert();
         }
 
-        mapMechKarma[mech] += karma;
+        mapMechKarma[mech] += karmaChange;
     }
 
-    function increaseRequesterMechKarma(address requester, address mech) external {
+    function changeRequesterMechKarma(address requester, address mech, int256 karmaChange) external {
         if (!mapMechMarketplaces[msg.sender]) {
             revert();
         }
 
-        mapRequesterMechKarma[requester][mech]++;
+        mapRequesterMechKarma[requester][mech] += karmaChange;
     }
 }

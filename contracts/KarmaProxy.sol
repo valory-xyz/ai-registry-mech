@@ -37,7 +37,7 @@ contract KarmaProxy {
     }
 
     /// @dev Delegatecall to all the incoming data.
-    fallback() external payable {
+    fallback() external {
         assembly {
             let implementation := sload(KARMA_PROXY)
             calldatacopy(0, 0, calldatasize())

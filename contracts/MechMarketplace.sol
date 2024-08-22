@@ -19,7 +19,7 @@ interface IMech {
 // Karma interface
 interface IKarma {
     function changeMechKarma(address mech, int256 karma) external;
-    function increaseRequesterMechKarma(address requester, address mech) external;
+    function changeRequesterMechKarma(address requester, address mech, int256 karmaChange) external;
 }
 
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
@@ -336,7 +336,7 @@ contract MechMarketplace {
         mechDelivery.account = msg.sender;
 
         // Increase mech requester karma
-        IKarma(karmaProxy).increaseRequesterMechKarma(msg.sender, priorityMech);
+        IKarma(karmaProxy).changeRequesterMechKarma(msg.sender, priorityMech, 1);
 
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
