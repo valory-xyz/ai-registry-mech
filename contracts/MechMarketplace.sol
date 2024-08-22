@@ -390,7 +390,7 @@ contract MechMarketplace {
             // Within the defined response time only a chosen priority mech is able to deliver
             if (block.timestamp > mechDelivery.responseTimeout) {
                 // Decrease priority mech karma as the mech did not deliver
-                IKarma(karmaProxy).changeMechKarma(msg.sender, -1);
+                IKarma(karmaProxy).changeMechKarma(priorityMech, -1);
                 // Revoke request from the priority mech
                 IMech(priorityMech).revokeRequest(requestId);
             } else {

@@ -2,6 +2,7 @@
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("AgentMech", function () {
     let AgentMech;
@@ -50,8 +51,9 @@ describe("AgentMech", function () {
         // Whitelist marketplace in the karma proxy
         await karma.setMechMarketplaceStatuses([mechMarketplace.address], [true]);
 
-        // Mint one agent
+        // Mint two agents
         await agentRegistry.changeManager(deployer.address);
+        await agentRegistry.create(deployer.address, agentHash);
         await agentRegistry.create(deployer.address, agentHash);
     });
 
@@ -68,7 +70,7 @@ describe("AgentMech", function () {
 
             // Agent Id does not exist
             await expect(
-                AgentMech.deploy(agentRegistry.address, unitId + 1, price, mechMarketplace.address)
+                AgentMech.deploy(agentRegistry.address, unitId + 2, price, mechMarketplace.address)
             ).to.be.reverted;
         });
     });
@@ -167,6 +169,64 @@ describe("AgentMech", function () {
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
+
+            // Check mech karma
+            let mechKarma = await karma.mapMechKarma(agentMech.address);
+            expect(mechKarma).to.equal(1);
+            // Check requester mech karma
+            mechKarma = await karma.mapRequesterMechKarma(deployer.address, agentMech.address);
+            expect(mechKarma).to.equal(1);
+        });
+
+        it("Delivering a request by a different mech", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            const priorityMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
+            const deliveryMech = await AgentMech.deploy(agentRegistry.address, unitId + 1, price, mechMarketplace.address);
+            await mechMarketplace.setMechRegistrationStatus(priorityMech.address, true);
+            await mechMarketplace.setMechRegistrationStatus(deliveryMech.address, true);
+
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+
+            // Get the non-existent request status
+            let status = await mechMarketplace.getRequestStatus(requestId);
+            expect(status).to.equal(0);
+
+            // Create a request
+            await mechMarketplace.request(data, priorityMech.address, minResponceTimeout, {value: price});
+
+            // Try to deliver by a delivery mech right away
+            await expect(
+                deliveryMech.deliver(requestId, data)
+            ).to.be.revertedWithCustomError(mechMarketplace, "PriorityMechResponseTimeout");
+
+            // Get the request status (requested priority)
+            status = await mechMarketplace.getRequestStatus(requestId);
+            expect(status).to.equal(1);
+
+            // Increase the time such that the request expires for a priority mech
+            await helpers.time.increase(maxResponceTimeout);
+
+            // Get the request status (requested expired)
+            status = await mechMarketplace.getRequestStatus(requestId);
+            expect(status).to.equal(2);
+
+            // Deliver a request by the delivery mech
+            await deliveryMech.deliver(requestId, data);
+
+            // Get the request status (delivered)
+            status = await mechMarketplace.getRequestStatus(requestId);
+            expect(status).to.equal(3);
+
+            // Check priority mech and delivery mech karma
+            let mechKarma = await karma.mapMechKarma(priorityMech.address);
+            expect(mechKarma).to.equal(-1);
+            mechKarma = await karma.mapMechKarma(deliveryMech.address);
+            expect(mechKarma).to.equal(1);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
         });
 
         it("Getting undelivered requests info", async function () {
