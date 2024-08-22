@@ -19,14 +19,13 @@ struct MechDelivery {
 interface IMechMarketplace {
     /// @dev Delivers a request.
     /// @param requestId Request id.
-    /// @param requestIdWithNonce Request id with nonce.
     /// @param requestData Self-descriptive opaque data-blob.
-    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory requestData) external;
+    function deliver(uint256 requestId, bytes memory requestData) external;
 
     /// @dev Gets mech delivery info.
-    /// @param requestIdWithNonce Request Id with nonce.
+    /// @param requestId Request Id.
     /// @return Mech delivery info.
-    function getMechDeliveryInfo(uint256 requestIdWithNonce) external returns (MechDelivery memory);
+    function getMechDeliveryInfo(uint256 requestId) external returns (MechDelivery memory);
 }
 
 // Token interface
@@ -70,9 +69,9 @@ error ReentrancyGuard();
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is ERC721Mech {
     event MechMarketplaceUpdated(address indexed mechMarketplace);
-    event Deliver(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
-    event Request(address indexed sender, uint256 requestId, uint256 requestIdWithNonce, bytes data);
-    event RevokeRequest(address indexed sender, uint256 requestIdWithNonce);
+    event Deliver(address indexed sender, uint256 requestId, bytes data);
+    event Request(address indexed sender, uint256 requestId, bytes data);
+    event RevokeRequest(address indexed sender, uint256 requestId);
     event PriceUpdated(uint256 price);
 
     // Agent mech version number
@@ -141,18 +140,18 @@ contract AgentMech is ERC721Mech {
 
     /// @dev Cleans the request info from all the relevant storage.
     /// @param account Requester account address.
-    /// @param requestIdWithNonce Request Id with nonce.
-    function _cleanRequestInfo(address account, uint256 requestIdWithNonce) internal {
+    /// @param requestId Request Id.
+    function _cleanRequestInfo(address account, uint256 requestId) internal {
         // Decrease the number of undelivered requests
         mapUndeliveredRequestsCounts[account]--;
         numUndeliveredRequests--;
 
         // Remove delivered request Id from the request Ids map
-        uint256[2] memory requestIds = mapRequestIds[requestIdWithNonce];
+        uint256[2] memory requestIds = mapRequestIds[requestId];
         // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
         // and the zero's element previous request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestIdWithNonce) {
-            revert RequestIdNotFound(requestIdWithNonce);
+        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
+            revert RequestIdNotFound(requestId);
         }
 
         // Re-link previous and next elements between themselves
@@ -160,8 +159,8 @@ contract AgentMech is ERC721Mech {
         mapRequestIds[requestIds[1]][0] = requestIds[0];
 
         // Delete the delivered element from the map
-        delete mapRequestIds[requestIdWithNonce];
-        delete mapRequestAddresses[requestIdWithNonce];
+        delete mapRequestIds[requestId];
+        delete mapRequestAddresses[requestId];
     }
 
     /// @dev Changes mech marketplace address.
@@ -181,60 +180,58 @@ contract AgentMech is ERC721Mech {
     /// @param account Requester account address.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
-    /// @param requestIdWithNonce Request Id with nonce.
     function request(
         address account,
         bytes memory data,
-        uint256 requestId,
-        uint256 requestIdWithNonce
+        uint256 requestId
     ) external payable {
         if (mechMarketplace != address(0) && msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Check the request payment
-        _preRequest(msg.value, requestIdWithNonce, data);
+        _preRequest(msg.value, requestId, data);
 
         // Increase the requests count supplied by the sender
         mapRequestsCounts[account]++;
         mapUndeliveredRequestsCounts[account]++;
-        // Record the requestIdWithNonce => sender correspondence
-        mapRequestAddresses[requestIdWithNonce] = account;
+        // Record the requestId => sender correspondence
+        mapRequestAddresses[requestId] = account;
 
         // Record the request Id in the map
         // Get previous and next request Ids of the first element
         uint256[2] storage requestIds = mapRequestIds[0];
         // Create the new element
-        uint256[2] storage newRequestIds = mapRequestIds[requestIdWithNonce];
+        uint256[2] storage newRequestIds = mapRequestIds[requestId];
 
         // Previous element will be zero, next element will be the current next element
         uint256 curNextRequestId = requestIds[1];
         newRequestIds[1] = curNextRequestId;
         // Next element of the zero element will be the newly created element
-        requestIds[1] = requestIdWithNonce;
+        requestIds[1] = requestId;
         // Previous element of the current next element will be the newly created element
-        mapRequestIds[curNextRequestId][0] = requestIdWithNonce;
+        mapRequestIds[curNextRequestId][0] = requestId;
 
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
         // Increase the total number of requests
         numTotalRequests++;
 
-        emit Request(account, requestId, requestIdWithNonce, data);
+        emit Request(account, requestId, data);
     }
 
     /// @dev Revokes the request from the mech that does not deliver it.
     /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
-    /// @param requestIdWithNonce Request Id with nonce.
-    function revokeRequest(uint256 requestIdWithNonce) external {
+    /// @param requestId Request Id.
+    function revokeRequest(uint256 requestId) external {
         // Check for marketplace access
         // Note if mechMarketplace is zero, this function must never be called
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
-        address account = mapRequestAddresses[requestIdWithNonce];
-        // This must never happen, as the priority mech recorded requestIdWithNonce => account info during the request
+        address account = mapRequestAddresses[requestId];
+        // This must never happen, as the priority mech recorded requestId => account info during the request
         if (account == address(0)) {
             revert ZeroAddress();
         }
@@ -243,17 +240,16 @@ contract AgentMech is ERC721Mech {
         numTotalRequests--;
 
         // Clean request info
-        _cleanRequestInfo(account, requestIdWithNonce);
+        _cleanRequestInfo(account, requestId);
 
-        emit RevokeRequest(account, requestIdWithNonce);
+        emit RevokeRequest(account, requestId);
     }
 
     /// @dev Delivers a request.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
-    /// @param requestIdWithNonce Request id with nonce.
     /// @param data Self-descriptive opaque data-blob.
-    function deliver(uint256 requestId, uint256 requestIdWithNonce, bytes memory data) external onlyOperator {
+    function deliver(uint256 requestId, bytes memory data) external onlyOperator {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -261,16 +257,16 @@ contract AgentMech is ERC721Mech {
         _locked = 2;
 
         // Get an account to deliver request to
-        address account = mapRequestAddresses[requestIdWithNonce];
+        address account = mapRequestAddresses[requestId];
         // The account is zero if the delivery mech is different from a priority mech, or if request does not exist
         if (account == address(0)) {
             if (mechMarketplace != address(0)) {
-                account = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestIdWithNonce).account;
+                account = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestId).account;
             }
 
             // Check if request exists in the mech marketplace
             if (account == address(0)) {
-                revert RequestIdNotFound(requestIdWithNonce);
+                revert RequestIdNotFound(requestId);
             }
 
             // Increase the total number of requests, as the request is delivered by this mech
@@ -278,18 +274,18 @@ contract AgentMech is ERC721Mech {
             numTotalRequests++;
         } else {
             // The account is non-zero if it is delivered by the priority mech
-            _cleanRequestInfo(account, requestIdWithNonce);
+            _cleanRequestInfo(account, requestId);
         }
 
         // Perform a pre-delivery of the data if it needs additional parsing
-        bytes memory requestData = _preDeliver(account, requestIdWithNonce, data);
+        bytes memory requestData = _preDeliver(account, requestId, data);
 
         // Mech marketplace delivery finalization
         if (mechMarketplace != address(0)) {
-            IMechMarketplace(mechMarketplace).deliver(requestId, requestIdWithNonce, requestData);
+            IMechMarketplace(mechMarketplace).deliver(requestId, requestData);
         }
 
-        emit Deliver(msg.sender, requestId, requestIdWithNonce, requestData);
+        emit Deliver(msg.sender, requestId, requestData);
 
         _locked = 1;
     }

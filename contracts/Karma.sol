@@ -9,6 +9,19 @@ error OwnerOnly(address sender, address owner);
 /// @dev Provided zero address.
 error ZeroAddress();
 
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
+
+/// @dev Account is unauthorized.
+/// @param account Account address.
+error UnauthorizedAccount(address account);
+
+/// @dev Wrong length of two arrays.
+/// @param numValues1 Number of values in a first array.
+/// @param numValues2 Number of values in a second array.
+error WrongArrayLength(uint256 numValues1, uint256 numValues2);
+
+/// @title Karma - Karma contract for agent mechs
 contract Karma {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
@@ -31,14 +44,17 @@ contract Karma {
     // Mapping of requester address => mech address => karma
     mapping(address => mapping(address => int256)) public mapRequesterMechKarma;
 
+    /// @dev Karma initializer.
     function initialize() external{
         if (owner != address(0)) {
-            revert();
+            revert AlreadyInitialized();
         }
 
         owner = msg.sender;
     }
 
+    /// @dev Changes the karma implementation contract address.
+    /// @param newImplementation New implementation contract address.
     function changeImplementation(address newImplementation) external {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -47,7 +63,7 @@ contract Karma {
 
         // Check for zero address
         if (newImplementation == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         // Store the karma implementation address
@@ -75,6 +91,9 @@ contract Karma {
         emit OwnerUpdated(newOwner);
     }
 
+    /// @dev Sets mech marketplace statues.
+    /// @param mechMarketplaces Mech marketplace contract addresses.
+    /// @param statuses Corresponding whitelisting statues.
     function setMechMarketplaceStatuses(address[] memory mechMarketplaces, bool[] memory statuses) external {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -82,12 +101,13 @@ contract Karma {
         }
 
         if (mechMarketplaces.length != statuses.length) {
-            revert();
+            revert WrongArrayLength(mechMarketplaces.length, statuses.length);
         }
 
+        // Traverse all the mech marketplaces and statuses
         for (uint256 i = 0; i < mechMarketplaces.length; ++i) {
             if (mechMarketplaces[i] == address(0)) {
-                revert();
+                revert ZeroAddress();
             }
 
             mapMechMarketplaces[mechMarketplaces[i]] = statuses[i];
@@ -96,10 +116,13 @@ contract Karma {
         emit SetMechMarketplaceStatuses(mechMarketplaces, statuses);
     }
 
+    /// @dev Changes agent mech karma.
+    /// @param mech Agent mech address.
+    /// @param karmaChange Karma change value.
     function changeMechKarma(address mech, int256 karmaChange) external {
         // Check for marketplace access
         if (!mapMechMarketplaces[msg.sender]) {
-            revert();
+            revert UnauthorizedAccount(msg.sender);
         }
 
         // Change mech karma
@@ -108,10 +131,14 @@ contract Karma {
         emit MechKarmaChanged(mech, karmaChange);
     }
 
+    /// @dev Changes requester -> agent mech karma.
+    /// @param requester Requester address.
+    /// @param mech Agent mech address.
+    /// @param karmaChange Karma change value.
     function changeRequesterMechKarma(address requester, address mech, int256 karmaChange) external {
         // Check for marketplace access
         if (!mapMechMarketplaces[msg.sender]) {
-            revert();
+            revert UnauthorizedAccount(msg.sender);
         }
 
         // Change requester mech karma

@@ -101,12 +101,12 @@ contract AgentMechSubscription is AgentMech {
 
     /// @dev Performs actions before the delivery of a request.
     /// @param account Request sender address.
-    /// @param requestIdWithNonce Request Id with nonce.
+    /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
     function _preDeliver(
         address account,
-        uint256 requestIdWithNonce,
+        uint256 requestId,
         bytes memory data
     ) internal override returns (bytes memory requestData) {
         // Reentrancy guard
@@ -133,7 +133,7 @@ contract AgentMechSubscription is AgentMech {
             IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
         }
 
-        emit DeliverPrice(requestIdWithNonce, deliverPrice, creditsToBurn);
+        emit DeliverPrice(requestId, deliverPrice, creditsToBurn);
 
         _locked = 1;
     }
