@@ -266,10 +266,15 @@ contract MechMarketplace {
     /// @dev Sets mech registration status.
     /// @param mech Mech address.
     /// @param status True, if registered, false otherwise.
-    function setMechRegistrationStatus(address mech, bool status) external{
-        // Check for the agent mech factory access or contract ownership
-        if (msg.sender != factory && msg.sender != owner) {
+    function setMechRegistrationStatus(address mech, bool status) external {
+        // Check for the agent mech factory access, contract ownership or mech itself (when changing its marketplace)
+        if (msg.sender != factory && msg.sender != owner && msg.sender != mech) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Prevent mech calling this function by exec() and trying to whitelist itself
+        if (msg.sender == mech && status) {
+            revert UnauthorizedAccount(msg.sender);
         }
 
         // Check that mech is a contract

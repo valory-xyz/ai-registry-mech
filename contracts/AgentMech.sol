@@ -17,6 +17,11 @@ struct MechDelivery {
 
 // Mech Marketplace interface
 interface IMechMarketplace {
+    /// @dev Sets mech registration status.
+    /// @param mech Mech address.
+    /// @param status True, if registered, false otherwise.
+    function setMechRegistrationStatus(address mech, bool status) external;
+
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
@@ -166,9 +171,13 @@ contract AgentMech is ERC721Mech {
     /// @dev Changes mech marketplace address.
     /// @param newMechMarketplace New mech marketplace address.
     function changeMechMarketplace(address newMechMarketplace) external onlyOperator {
-        // Check for zero address
-        if (newMechMarketplace == address(0)) {
-            revert ZeroAddress();
+        address currentMarketplace = mechMarketplace;
+
+        // Deregister mech from the current marketplace
+        // Note that in order to prevent malicious self-registration in all possible marketplaces,
+        // the mech needs to go through the governance whitelisting procedure if it changes the marketplace
+        if (currentMarketplace != address(0) && currentMarketplace != newMechMarketplace) {
+            IMechMarketplace(currentMarketplace).setMechRegistrationStatus(address(this), false);
         }
 
         mechMarketplace = newMechMarketplace;
