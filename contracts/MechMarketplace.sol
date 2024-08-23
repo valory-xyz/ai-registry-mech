@@ -179,8 +179,6 @@ contract MechMarketplace {
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
-    // Number of total deliveries
-    uint256 public numTotalDeliveries;
     // Reentrancy lock
     uint256 internal _locked = 1;
 
@@ -408,8 +406,6 @@ contract MechMarketplace {
 
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
-        // Increase the number of deliveries
-        numTotalDeliveries++;
 
         // Increase mech karma that delivers the request
         IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
