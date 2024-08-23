@@ -330,7 +330,7 @@ contract AgentMech is ERC721Mech {
         emit RevokeRequest(account, requestId);
     }
 
-    /// @dev Delivers a request.
+    /// @dev Delivers a request without a marketplace.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
@@ -340,13 +340,18 @@ contract AgentMech is ERC721Mech {
         }
         _locked = 2;
 
+        // Check for the marketplace existence
+        if (mechMarketplace != address(0)) {
+            revert MarketplaceExists(mechMarketplace);
+        }
+
         // Request delivery
         _deliver(requestId, data);
 
         _locked = 1;
     }
 
-    /// @dev Delivers a request.
+    /// @dev Delivers a request by a marketplace.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
@@ -358,13 +363,16 @@ contract AgentMech is ERC721Mech {
         }
         _locked = 2;
 
+        // Check for zero address
+        if (mechMarketplace == address(0)) {
+            revert ZeroAddress();
+        }
+
         // Request delivery
         bytes memory requestData = _deliver(requestId, data);
 
         // Mech marketplace delivery finalization
-        if (mechMarketplace != address(0)) {
-            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechServiceId);
-        }
+        IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechServiceId);
 
         _locked = 1;
     }
