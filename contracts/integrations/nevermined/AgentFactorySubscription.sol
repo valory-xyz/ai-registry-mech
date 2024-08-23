@@ -12,14 +12,6 @@ interface IAgentRegistry {
     function create(address agentOwner, bytes32 agentHash) external returns (uint256 agentId);
 }
 
-// Mech Marketplace interface
-interface IMechMarketplace {
-    /// @dev Sets mech registration status.
-    /// @param mech Mech address.
-    /// @param status True, if registered, false otherwise.
-    function setMechRegistrationStatus(address mech, bool status) external;
-}
-
 /// @title Agent Factory Subscription - Periphery smart contract for managing agent and mech creation with subscription
 contract AgentFactorySubscription is GenericManager {
     event CreateMech(
@@ -69,11 +61,6 @@ contract AgentFactorySubscription is GenericManager {
         // agentOwner is isOperator() for the mech
         mech = address((new AgentMechSubscription){salt: salt}(agentRegistry, agentId,
             minCreditsPerRequest, subscriptionNFT, subscriptionTokenId, mechMarketplace));
-
-        // Register mech in a marketplace, if specified
-        if (mechMarketplace != address(0)) {
-            IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
-        }
 
         emit CreateMech(mech, agentId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
     }
