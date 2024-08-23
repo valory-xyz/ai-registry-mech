@@ -79,6 +79,12 @@ contract AgentMech is ERC721Mech {
     event RevokeRequest(address indexed sender, uint256 requestId);
     event PriceUpdated(uint256 price);
 
+    enum RequestStatus {
+        DoesNotExist,
+        Requested,
+        Delivered
+    }
+
     // Agent mech version number
     string public constant VERSION = "1.1.0";
     // Domain separator type hash
@@ -197,7 +203,6 @@ contract AgentMech is ERC721Mech {
 
         // Delete the delivered element from the map
         delete mapRequestIds[requestId];
-        delete mapRequestAddresses[requestId];
     }
 
     /// @dev Registers a request.
@@ -414,6 +419,25 @@ contract AgentMech is ERC721Mech {
     /// @return Deliveried count.
     function getDeliveriedCount(address account) external view returns (uint256) {
         return mapDeliveryCounts[account];
+    }
+
+    /// @dev Gets the request Id status registered in this agent mech.
+    /// @notice If marketplace is not zero, use the same function in the mech marketplace contract.
+    /// @param requestId Request Id.
+    /// @return status Request status.
+    function getRequestStatus(uint256 requestId) external view returns (RequestStatus status) {
+        // Request exists if it was recorded in the requestId => account map
+        if (mapRequestAddresses[requestId] != address(0)) {
+            // Get the request info
+            uint256[2] memory requestIds = mapRequestIds[requestId];
+            // Check if the request Id was already delivered: previous and next request Ids are zero,
+            // and the zero's element previous request Id is not equal to the provided request Id
+            if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
+                status = RequestStatus.Delivered;
+            } else {
+                status = RequestStatus.Requested;
+            }
+        }
     }
 
     /// @dev Gets the set of undelivered request Ids with Nonce.

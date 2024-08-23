@@ -106,6 +106,11 @@ error ReentrancyGuard();
 /// @param account Account address.
 error UnauthorizedAccount(address account);
 
+/// @dev Specified service Id is not staked.
+/// @param stakingInstance Staking contract instance.
+/// @param serviceId Service Id.
+error ServiceNotStaked(address stakingInstance, uint256 serviceId);
+
 /// @dev Provided value is out of bounds.
 /// @param provided value.
 /// @param min Minimum possible value.
@@ -256,7 +261,7 @@ contract MechMarketplace {
         // Check if the mech service is staked
         IStaking.StakingState state = IStaking(mechStakingInstance).getStakingState(mechServiceId);
         if (state != IStaking.StakingState.Staked) {
-            revert();
+            revert ServiceNotStaked(mechStakingInstance, mechServiceId);
         }
 
         // Get the staked service info
@@ -313,7 +318,7 @@ contract MechMarketplace {
         // Check if the requester service is staked
         IStaking.StakingState state = IStaking(requesterStakingInstance).getStakingState(requesterServiceId);
         if (state != IStaking.StakingState.Staked) {
-            revert();
+            revert ServiceNotStaked(requesterStakingInstance, requesterServiceId);
         }
 
         // Get the staked service info
@@ -379,7 +384,6 @@ contract MechMarketplace {
             revert ZeroAddress();
         }
 
-        address account = mechDelivery.account;
         // Check that the request is not already delivered
         if (mechDelivery.deliveryMech != address(0)) {
             revert AlreadyDelivered(requestId);
@@ -410,7 +414,7 @@ contract MechMarketplace {
         // Increase mech karma that delivers the request
         IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, account, requestId, requestData);
+        emit MarketplaceDeliver(priorityMech, msg.sender, mechDelivery.account, requestId, requestData);
 
         _locked = 1;
     }
