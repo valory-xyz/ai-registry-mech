@@ -284,6 +284,7 @@ contract AgentMech is ERC721Mech {
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
         mapNonces[msg.sender]++;
 
+        // Perform a request
         _request(msg.sender, data, requestId);
     }
 
@@ -293,10 +294,12 @@ contract AgentMech is ERC721Mech {
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
     function requestMarketplace(address account, bytes memory data, uint256 requestId) external payable {
-        if (mechMarketplace != address(0) && msg.sender != mechMarketplace) {
+        // Check for marketplace access
+        if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
+        // Perform a request
         _request(account, data, requestId);
     }
 
@@ -323,7 +326,6 @@ contract AgentMech is ERC721Mech {
     }
 
     /// @dev Delivers a request.
-    /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
