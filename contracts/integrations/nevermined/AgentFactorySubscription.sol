@@ -42,21 +42,21 @@ contract AgentFactorySubscription is GenericManager {
     }
 
     /// @dev Creates agent.
-    /// @param mechMarketplace Mech marketplace address.
     /// @param agentOwner Owner of the agent.
     /// @param agentHash IPFS CID hash of the agent metadata.
     /// @param minCreditsPerRequest Minimum number of credits to pay for each request via a subscription.
     /// @param subscriptionNFT Subscription address.
     /// @param subscriptionTokenId Subscription token Id.
+    /// @param mechMarketplace Mech marketplace address.
     /// @return agentId The id of a created agent.
     /// @return mech The created mech instance address.
     function create(
-        address mechMarketplace,
         address agentOwner,
         bytes32 agentHash,
         uint256 minCreditsPerRequest,
         address subscriptionNFT,
-        uint256 subscriptionTokenId
+        uint256 subscriptionTokenId,
+        address mechMarketplace
     ) external returns (uint256 agentId, address mech)
     {
         // Check if the creation is paused
@@ -67,10 +67,13 @@ contract AgentFactorySubscription is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = address((new AgentMechSubscription){salt: salt}(mechMarketplace, agentRegistry, agentId,
-            minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
-        // Register mech in a specified marketplace
-        IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
+        mech = address((new AgentMechSubscription){salt: salt}(agentRegistry, agentId,
+            minCreditsPerRequest, subscriptionNFT, subscriptionTokenId, mechMarketplace));
+
+        // Register mech in a marketplace, if specified
+        if (mechMarketplace != address(0)) {
+            IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
+        }
 
         emit CreateMech(mech, agentId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
     }

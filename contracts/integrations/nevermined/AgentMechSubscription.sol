@@ -44,21 +44,21 @@ contract AgentMechSubscription is AgentMech {
     uint256 public subscriptionTokenId;
 
     /// @dev AgentMechSubscription constructor.
-    /// @param _mechMarketplace Mech marketplace address.
     /// @param _registry Address of the token registry contract.
     /// @param _tokenId The token ID.
     /// @param _minCreditsPerRequest Minimum number of credits to pay for each request via a subscription.
     /// @param _subscriptionNFT Subscription address.
     /// @param _subscriptionTokenId Subscription token Id.
+    /// @param _mechMarketplace Mech marketplace address.
     constructor(
-        address _mechMarketplace,
         address _registry,
         uint256 _tokenId,
         uint256 _minCreditsPerRequest,
         address _subscriptionNFT,
-        uint256 _subscriptionTokenId
+        uint256 _subscriptionTokenId,
+        address _mechMarketplace
     )
-        AgentMech(_mechMarketplace, _registry, _tokenId, _minCreditsPerRequest)
+        AgentMech(_registry, _tokenId, _minCreditsPerRequest, _mechMarketplace)
     {
         // Check for the subscription address
         if (_subscriptionNFT == address(0)) {
@@ -101,12 +101,12 @@ contract AgentMechSubscription is AgentMech {
 
     /// @dev Performs actions before the delivery of a request.
     /// @param account Request sender address.
-    /// @param requestIdWithNonce Request Id with nonce.
+    /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
     function _preDeliver(
         address account,
-        uint256 requestIdWithNonce,
+        uint256 requestId,
         bytes memory data
     ) internal override returns (bytes memory requestData) {
         // Reentrancy guard
@@ -133,7 +133,7 @@ contract AgentMechSubscription is AgentMech {
             IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
         }
 
-        emit DeliverPrice(requestIdWithNonce, deliverPrice, creditsToBurn);
+        emit DeliverPrice(requestId, deliverPrice, creditsToBurn);
 
         _locked = 1;
     }

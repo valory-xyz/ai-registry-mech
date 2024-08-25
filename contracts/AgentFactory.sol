@@ -36,17 +36,17 @@ contract AgentFactory is GenericManager {
     }
 
     /// @dev Creates agent.
-    /// @param mechMarketplace Mech marketplace address.
     /// @param agentOwner Owner of the agent.
     /// @param agentHash IPFS CID hash of the agent metadata.
     /// @param price Minimum required payment the agent accepts.
+    /// @param mechMarketplace Mech marketplace address.
     /// @return agentId The id of a created agent.
     /// @return mech The created mech instance address.
     function create(
-        address mechMarketplace,
         address agentOwner,
         bytes32 agentHash,
-        uint256 price
+        uint256 price,
+        address mechMarketplace
     ) external returns (uint256 agentId, address mech)
     {
         // Check if the creation is paused
@@ -57,9 +57,12 @@ contract AgentFactory is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = address((new AgentMech){salt: salt}(mechMarketplace, agentRegistry, agentId, price));
-        // Register mech in a specified marketplace
-        IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
+        mech = address((new AgentMech){salt: salt}(agentRegistry, agentId, price, mechMarketplace));
+
+        // Register mech in a marketplace, if specified
+        if (mechMarketplace != address(0)) {
+            IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
+        }
 
         emit CreateMech(mech, agentId, price);
     }
