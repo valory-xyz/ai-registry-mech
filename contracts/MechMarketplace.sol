@@ -395,11 +395,10 @@ contract MechMarketplace {
         // Record the actual delivery mech
         mechDelivery.deliveryMech = msg.sender;
 
-        address requester = mechDelivery.requester;
-
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
         // Increase the amount of delivered requests
+        address requester = mechDelivery.requester;
         mapDeliveryCounts[requester]++;
 
         // Increase mech karma that delivers the request
