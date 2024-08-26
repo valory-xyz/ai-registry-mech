@@ -72,7 +72,8 @@ The list of contract addresses for different chains and their full contract conf
 flowchart LR
     Deployer -- deploy --> MechMarketplace
     Deployer -- deploy --> AgentFactory
-    Deployer -- deploy --> KarmaProxy --> Karma
+    Deployer -- deploy --> KarmaProxy 
+    Deployer -- deploy --> Karma
     User -- create --> AgentFactory
     User -- request --> MechMarketplace -- requestMarketplace --> priorityMech 
     MechMarketplace -- changeRequesterMechKarma --> KarmaProxy --> Karma
