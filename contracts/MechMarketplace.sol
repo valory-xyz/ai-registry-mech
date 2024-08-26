@@ -66,6 +66,14 @@ interface IStaking {
     function getServiceInfo(uint256 requesterServiceId) external view returns (ServiceInfo memory);
 }
 
+// Staking factory interface
+interface IStakingFactory {
+    /// @dev Verifies a service staking contract instance.
+    /// @param instance Service staking proxy instance.
+    /// @return True, if verification is successful.
+    function verifyInstance(address instance) external view returns (bool);
+}
+
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
 /// @param owner Required sender address as an owner.
@@ -132,8 +140,8 @@ struct MechDelivery {
     address priorityMech;
     // Delivery mech address
     address deliveryMech;
-    // Account address sending the request
-    address account;
+    // Requester address
+    address requester;
     // Response timeout window
     uint32 responseTimeout;
 }
@@ -168,12 +176,10 @@ contract MechMarketplace {
     uint256 public immutable minResponseTimeout;
     // Maximum response time
     uint256 public immutable maxResponseTimeout;
-    // Approved mech bytecode hash
-    bytes32 public immutable mechBytecodeHash;
     // Mech karma contract address
     address public immutable karmaProxy;
-    // Agent mech factory contract address
-    address public immutable mechStakingInstance;
+    // Staking factory contract address
+    address public immutable stakingFactory;
 
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
@@ -182,31 +188,31 @@ contract MechMarketplace {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
+    // Map of request counts for corresponding addresses
+    mapping(address => uint256) public mapRequestCounts;
     // Mapping of request Id => mech delivery information
     mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
 
     /// @dev MechMarketplace constructor.
-    /// @param _mechStakingInstance Agent mech staking instance address.
+    /// @param _stakingFactory Staking factory contract address.
     /// @param _karmaProxy Karma proxy contract address.
     /// @param _minResponseTimeout Min response time in sec.
     /// @param _maxResponseTimeout Max response time in sec.
-    /// @param _agentMechBytecodeHash Approved agent mech bytecode hash.
     constructor(
-        address _mechStakingInstance,
+        address _stakingFactory,
         address _karmaProxy,
         uint256 _minResponseTimeout,
-        uint256 _maxResponseTimeout,
-        bytes32 _agentMechBytecodeHash
+        uint256 _maxResponseTimeout
     ) {
         // Check for zero address
-        if (_mechStakingInstance == address(0) || _karmaProxy == address(0)) {
+        if (_stakingFactory == address(0) || _karmaProxy == address(0)) {
             revert ZeroAddress();
         }
 
         // Check for zero values
-        if (_minResponseTimeout == 0 || _maxResponseTimeout == 0 || mechBytecodeHash == 0) {
+        if (_minResponseTimeout == 0 || _maxResponseTimeout == 0) {
             revert ZeroValue();
         }
 
@@ -220,11 +226,10 @@ contract MechMarketplace {
             revert Overflow(_maxResponseTimeout, type(uint32).max);
         }
 
-        mechStakingInstance = _mechStakingInstance;
+        stakingFactory = _stakingFactory;
         karmaProxy = _karmaProxy;
         minResponseTimeout = _minResponseTimeout;
         maxResponseTimeout = _maxResponseTimeout;
-        mechBytecodeHash = _agentMechBytecodeHash;
 
         // Record chain Id
         chainId = block.chainid;
@@ -246,34 +251,11 @@ contract MechMarketplace {
         );
     }
 
-    /// @dev Checks agent mech for contract validity.
-    /// @param mech Agent mech address.
-    /// @param mechServiceId Mech operator service Id.
-    function checkMech(address mech, uint256 mechServiceId) public view {
-        // Check that the mech address corresponds to the authorized bytecode hash
-        bytes32 mechHash = keccak256(mech.code);
-        if (mechHash != mechBytecodeHash) {
-            revert UnauthorizedAccount(mech);
-        }
-
-        // Check if the mech service is staked
-        IStaking.StakingState state = IStaking(mechStakingInstance).getStakingState(mechServiceId);
-        if (state != IStaking.StakingState.Staked) {
-            revert ServiceNotStaked(mechStakingInstance, mechServiceId);
-        }
-
-        // Get the staked service info
-        IStaking.ServiceInfo memory serviceInfo = IStaking(mechStakingInstance).getServiceInfo(mechServiceId);
-        // Check that staked service multisig is the priority mech operator
-        if (!IMech(mech).isOperator(serviceInfo.multisig)) {
-            revert UnauthorizedAccount(mech);
-        }
-    }
-
     /// @dev Registers a request.
     /// @notice The request is going to be registered by a specified priority agent mech.
     /// @param data Self-descriptive opaque data-blob.
     /// @param priorityMech Address of a priority mech.
+    /// @param priorityMechStakingInstance Address of a priority mech staking instance.
     /// @param priorityMechServiceId Priority mech operator service Id.
     /// @param responseTimeout Relative response time in sec.
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request.
@@ -282,6 +264,7 @@ contract MechMarketplace {
     function request(
         bytes memory data,
         address priorityMech,
+        address priorityMechStakingInstance,
         uint256 priorityMechServiceId,
         uint256 responseTimeout,
         address requesterStakingInstance,
@@ -311,20 +294,10 @@ contract MechMarketplace {
         }
 
         // Check agent mech
-        checkMech(priorityMech, priorityMechServiceId);
+        checkMech(priorityMech, priorityMechStakingInstance, priorityMechServiceId);
 
-        // Check if the requester service is staked
-        IStaking.StakingState state = IStaking(requesterStakingInstance).getStakingState(requesterServiceId);
-        if (state != IStaking.StakingState.Staked) {
-            revert ServiceNotStaked(requesterStakingInstance, requesterServiceId);
-        }
-
-        // Get the staked service info
-        IStaking.ServiceInfo memory serviceInfo = IStaking(requesterStakingInstance).getServiceInfo(requesterServiceId);
-        // Check staked service multisig
-        if (serviceInfo.multisig != msg.sender) {
-            revert OwnerOnly(msg.sender, serviceInfo.multisig);
-        }
+        // Check requester
+        checkRequester(msg.sender, requesterStakingInstance, requesterServiceId);
 
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
@@ -340,11 +313,13 @@ contract MechMarketplace {
         // responseTimeout from relative time to absolute time
         mechDelivery.responseTimeout = uint32(responseTimeout + block.timestamp);
         // Record request account
-        mechDelivery.account = msg.sender;
+        mechDelivery.requester = msg.sender;
 
         // Increase mech requester karma
         IKarma(karmaProxy).changeRequesterMechKarma(msg.sender, priorityMech, 1);
 
+        // Record the request count
+        mapRequestCounts[msg.sender]++;
         // Increase the number of undelivered requests
         numUndeliveredRequests++;
         // Increase the total number of requests
@@ -362,16 +337,30 @@ contract MechMarketplace {
     /// @notice This function can only be called by the agent mech delivering the request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
+    /// @param deliveryMechStakingInstance Delivery mech staking instance address.
     /// @param deliveryMechServiceId Mech operator service Id.
-    function deliverMarketplace(uint256 requestId, bytes memory requestData, uint256 deliveryMechServiceId) external {
+    function deliverMarketplace(
+        uint256 requestId,
+        bytes memory requestData,
+        address deliveryMechStakingInstance,
+        uint256 deliveryMechServiceId
+    ) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        // Check delivery agent mech
-        checkMech(msg.sender, deliveryMechServiceId);
+        // Check agent mech
+        checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
+
+        // Get the staked service info for the mech
+        IStaking.ServiceInfo memory serviceInfo =
+            IStaking(deliveryMechStakingInstance).getServiceInfo(deliveryMechServiceId);
+        // Check that staked service multisig is the priority mech operator
+        if (!IMech(msg.sender).isOperator(serviceInfo.multisig)) {
+            revert UnauthorizedAccount(msg.sender);
+        }
 
         // Get mech delivery info struct
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
@@ -410,7 +399,7 @@ contract MechMarketplace {
         // Increase mech karma that delivers the request
         IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, mechDelivery.account, requestId, requestData);
+        emit MarketplaceDeliver(priorityMech, msg.sender, mechDelivery.requester, requestId, requestData);
 
         _locked = 1;
     }
@@ -444,6 +433,54 @@ contract MechMarketplace {
                 )
             )
         ));
+    }
+
+    /// @dev Checks for staking instance contract validity.
+    /// @param stakingInstance Staking instance address.
+    /// @param serviceId Service Id.
+    function checkStakingInstance(address stakingInstance, uint256 serviceId) public view {
+        // Check that the mech staking instance is valid
+        if (!IStakingFactory(stakingFactory).verifyInstance(stakingInstance)) {
+            revert UnauthorizedAccount(stakingInstance);
+        }
+
+        // Check if the mech service is staked
+        IStaking.StakingState state = IStaking(stakingInstance).getStakingState(serviceId);
+        if (state != IStaking.StakingState.Staked) {
+            revert ServiceNotStaked(stakingInstance, serviceId);
+        }
+    }
+
+    /// @dev Checks for mech validity.
+    /// @dev mech Agent mech contract address.
+    /// @param mechStakingInstance Agent mech staking instance address.
+    /// @param mechServiceId Agent mech service Id.
+    function checkMech(address mech, address mechStakingInstance, uint256 mechServiceId) public view {
+        // Check staking instance
+        checkStakingInstance(mechStakingInstance, mechServiceId);
+
+        // Get the staked service info for the mech
+        IStaking.ServiceInfo memory serviceInfo = IStaking(mechStakingInstance).getServiceInfo(mechServiceId);
+        // Check that staked service multisig is the priority mech operator
+        if (!IMech(mech).isOperator(serviceInfo.multisig)) {
+            revert UnauthorizedAccount(mech);
+        }
+    }
+
+    /// @dev Checks for requester validity.
+    /// @dev requester Requester contract address.
+    /// @param requesterStakingInstance Requester staking instance address.
+    /// @param requesterServiceId Requester service Id.
+    function checkRequester(address requester, address requesterStakingInstance, uint256 requesterServiceId) public view {
+        // Check staking instance
+        checkStakingInstance(requesterStakingInstance, requesterServiceId);
+
+        // Get the requester staked service info
+        IStaking.ServiceInfo memory serviceInfo = IStaking(requesterStakingInstance).getServiceInfo(requesterServiceId);
+        // Check staked service multisig
+        if (serviceInfo.multisig != requester) {
+            revert OwnerOnly(requester, serviceInfo.multisig);
+        }
     }
 
     /// @dev Gets the request Id status.
