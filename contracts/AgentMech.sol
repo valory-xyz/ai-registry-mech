@@ -20,8 +20,14 @@ interface IMechMarketplace {
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
+    /// @param deliveryMechStakingInstance Delivery mech staking instance address.
     /// @param deliveryMechServiceId Mech operator service Id.
-    function deliverMarketplace(uint256 requestId, bytes memory requestData, uint256 deliveryMechServiceId) external;
+    function deliverMarketplace(
+        uint256 requestId,
+        bytes memory requestData,
+        address deliveryMechStakingInstance,
+        uint256 deliveryMechServiceId
+    ) external;
 
     /// @dev Gets mech delivery info.
     /// @param requestId Request Id.
@@ -108,11 +114,11 @@ contract AgentMech is ERC721Mech {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Map of request counts for corresponding addresses
+    // Map of request counts for corresponding addresses in this agent mech
     mapping(address => uint256) public mapRequestCounts;
-    // Map of delivery counts for corresponding addresses
+    // Map of delivery counts for corresponding addresses in this agent mech
     mapping(address => uint256) public mapDeliveryCounts;
-    // Map of undelivered requests counts for corresponding addresses
+    // Map of undelivered requests counts for corresponding addresses in this agent mech
     mapping(address => uint256) public mapUndeliveredRequestsCounts;
     // Cyclical map of request Ids
     mapping(uint256 => uint256[2]) public mapRequestIds;
@@ -174,37 +180,6 @@ contract AgentMech is ERC721Mech {
         }
     }
 
-    /// @dev Performs actions before the delivery of a request.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @return requestData Data for the request processing.
-    function _preDeliver(address, uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
-        requestData = data;
-    }
-
-    /// @dev Cleans the request info from all the relevant storage.
-    /// @param account Requester account address.
-    /// @param requestId Request Id.
-    function _cleanRequestInfo(address account, uint256 requestId) internal {
-        // Decrease the number of undelivered requests
-        mapUndeliveredRequestsCounts[account]--;
-        numUndeliveredRequests--;
-
-        // Remove delivered request Id from the request Ids map
-        uint256[2] memory requestIds = mapRequestIds[requestId];
-        // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
-        // and the zero's element previous request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
-            revert RequestIdNotFound(requestId);
-        }
-
-        // Re-link previous and next elements between themselves
-        mapRequestIds[requestIds[0]][1] = requestIds[1];
-        mapRequestIds[requestIds[1]][0] = requestIds[0];
-
-        // Delete the delivered element from the map
-        delete mapRequestIds[requestId];
-    }
-
     /// @dev Registers a request.
     /// @param account Requester account address.
     /// @param data Self-descriptive opaque data-blob.
@@ -243,6 +218,37 @@ contract AgentMech is ERC721Mech {
         numTotalRequests++;
 
         emit Request(account, requestId, data);
+    }
+
+    /// @dev Performs actions before the delivery of a request.
+    /// @param data Self-descriptive opaque data-blob.
+    /// @return requestData Data for the request processing.
+    function _preDeliver(address, uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
+        requestData = data;
+    }
+
+    /// @dev Cleans the request info from all the relevant storage.
+    /// @param account Requester account address.
+    /// @param requestId Request Id.
+    function _cleanRequestInfo(address account, uint256 requestId) internal {
+        // Decrease the number of undelivered requests
+        mapUndeliveredRequestsCounts[account]--;
+        numUndeliveredRequests--;
+
+        // Remove delivered request Id from the request Ids map
+        uint256[2] memory requestIds = mapRequestIds[requestId];
+        // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
+        // and the zero's element previous request Id is not equal to the provided request Id
+        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
+            revert RequestIdNotFound(requestId);
+        }
+
+        // Re-link previous and next elements between themselves
+        mapRequestIds[requestIds[0]][1] = requestIds[1];
+        mapRequestIds[requestIds[1]][0] = requestIds[0];
+
+        // Delete the delivered element from the map
+        delete mapRequestIds[requestId];
     }
 
     /// @dev Delivers a request.
@@ -355,8 +361,14 @@ contract AgentMech is ERC721Mech {
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
+    /// @param mechStakingInstance Mech staking instance address.
     /// @param mechServiceId Mech operator service Id.
-    function deliverMarketplace(uint256 requestId, bytes memory data, uint256 mechServiceId) external onlyOperator {
+    function deliverMarketplace(
+        uint256 requestId,
+        bytes memory data,
+        address mechStakingInstance,
+        uint256 mechServiceId
+    ) external onlyOperator {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -372,7 +384,7 @@ contract AgentMech is ERC721Mech {
         bytes memory requestData = _deliver(requestId, data);
 
         // Mech marketplace delivery finalization
-        IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechServiceId);
+        IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechStakingInstance, mechServiceId);
 
         _locked = 1;
     }
@@ -424,7 +436,7 @@ contract AgentMech is ERC721Mech {
 
     /// @dev Gets the deliveries count for a specific account.
     /// @param account Account address.
-    /// @return Deliveried count.
+    /// @return Deliveries count.
     function getDeliveriesCount(address account) external view returns (uint256) {
         return mapDeliveryCounts[account];
     }
