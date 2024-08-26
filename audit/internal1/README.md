@@ -164,6 +164,7 @@ try solved: IMech(mech).isOperator(requester)
 + maybe/ maybe not
 priorityMechStakingInstance != requesterStakingInstance ?? => to discussion
 ```
+[x] fixed
 
 #### Notices: clarification
 ```
@@ -172,3 +173,4 @@ function requestMarketplace()
 maybe change the name. It is not obvious from the name who calls whom. According to the code, it is correct that the marketplace calls the agent.
 Not sure.
 ```
+[x] fixed
