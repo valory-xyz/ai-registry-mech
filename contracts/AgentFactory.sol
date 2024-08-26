@@ -12,14 +12,6 @@ interface IAgentRegistry {
     function create(address agentOwner, bytes32 agentHash) external returns (uint256 agentId);
 }
 
-// Mech Marketplace interface
-interface IMechMarketplace {
-    /// @dev Sets mech registration status.
-    /// @param mech Mech address.
-    /// @param status True, if registered, false otherwise.
-    function setMechRegistrationStatus(address mech, bool status) external;
-}
-
 /// @title Agent Factory - Periphery smart contract for managing agent and mech creation
 contract AgentFactory is GenericManager {
     event CreateMech(address indexed mech, uint256 indexed agentId, uint256 indexed price);
@@ -58,11 +50,6 @@ contract AgentFactory is GenericManager {
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
         mech = address((new AgentMech){salt: salt}(agentRegistry, agentId, price, mechMarketplace));
-
-        // Register mech in a marketplace, if specified
-        if (mechMarketplace != address(0)) {
-            IMechMarketplace(mechMarketplace).setMechRegistrationStatus(mech, true);
-        }
 
         emit CreateMech(mech, agentId, price);
     }
