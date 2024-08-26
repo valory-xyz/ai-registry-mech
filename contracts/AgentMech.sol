@@ -299,12 +299,12 @@ contract AgentMech is ERC721Mech {
         _request(msg.sender, data, requestId);
     }
 
-    /// @dev Registers a request.
+    /// @dev Registers a request by a marketplace.
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
     /// @param account Requester account address.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
-    function requestMarketplace(address account, bytes memory data, uint256 requestId) external payable {
+    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external payable {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
@@ -363,7 +363,7 @@ contract AgentMech is ERC721Mech {
     /// @param data Self-descriptive opaque data-blob.
     /// @param mechStakingInstance Mech staking instance address.
     /// @param mechServiceId Mech operator service Id.
-    function deliverMarketplace(
+    function deliverToMarketplace(
         uint256 requestId,
         bytes memory data,
         address mechStakingInstance,

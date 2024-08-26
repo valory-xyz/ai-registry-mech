@@ -6,11 +6,11 @@ interface IMech {
     /// @dev Checks if the signer is the mech operator.
     function isOperator(address signer) external view returns (bool);
 
-    /// @dev Registers a request.
+    /// @dev Registers a request by a marketplace.
     /// @param account Requester account address.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
-    function requestMarketplace(address account, bytes memory data, uint256 requestId) external payable;
+    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external payable;
 
     /// @dev Revokes the request from the mech that does not deliver it.
     /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
@@ -282,6 +282,17 @@ contract MechMarketplace {
         if (priorityMech == address(0)) {
             revert ZeroAddress();
         }
+
+        // Check that mech staking contract is different from requester one
+        if (priorityMechStakingInstance == requesterStakingInstance) {
+            revert UnauthorizedAccount(priorityMechStakingInstance);
+        }
+
+        // Check that msg.sender is not a mech
+        if (msg.sender == priorityMech) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
         // responseTimeout bounds
         if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
             revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
@@ -290,6 +301,7 @@ contract MechMarketplace {
         if (responseTimeout + block.timestamp > type(uint32).max) {
             revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
         }
+
         // Check for non-zero data
         if (data.length == 0) {
             revert ZeroValue();
@@ -328,7 +340,7 @@ contract MechMarketplace {
         numTotalRequests++;
 
         // Process request by a specified priority mech
-        IMech(priorityMech).requestMarketplace{value: msg.value}(msg.sender, data, requestId);
+        IMech(priorityMech).requestFromMarketplace{value: msg.value}(msg.sender, data, requestId);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestId, data);
 
@@ -373,6 +385,12 @@ contract MechMarketplace {
             revert ZeroAddress();
         }
 
+        // Check that the delivery mech is not a requester
+        address requester = mechDelivery.requester;
+        if (msg.sender == requester) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
         // Check that the request is not already delivered
         if (mechDelivery.deliveryMech != address(0)) {
             revert AlreadyDelivered(requestId);
@@ -398,7 +416,6 @@ contract MechMarketplace {
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
         // Increase the amount of delivered requests
-        address requester = mechDelivery.requester;
         mapDeliveryCounts[requester]++;
 
         // Increase mech karma that delivers the request

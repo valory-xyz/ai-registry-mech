@@ -101,6 +101,7 @@ due to the fact that the main problem is desynchronization requestId on Marketpl
 2. Same problem: if mechMarketplace == address(0), account in this case MUST be msg.sender (not arbitrary account, as in case Marketplace->agentMech)
 mapRequestsCounts[account]++;
 ```
+[x] fixed
 
 #### Incorrect changeMechKarma
 ```
@@ -119,6 +120,7 @@ if (priorityMech != msg.sender) {
 to
 IKarma(karmaProxy).changeMechKarma(priorityMech, -1);
 ```
+[x] fixed
 
 ##### Update library contracts as possible
 Contracts used as libraries include those that are obviously not needed in the "product" mode. <br> 
@@ -128,3 +130,47 @@ grep -r console ./lib/mech/contracts/
 ```
 [?] Discussed before: The update may not be a very easy task. The code `./lib/mech/contracts` has changed a lot.
 
+### Re-audit. Updated 26-08-2024
+The review has been performed based on the contract code in the following repository:<br>
+`https://github.com/valory-xyz/ai-registry-mech` <br>
+commit: e8b93801287ed28551eaaa908a621cffe5a082c5 (tag: v0.3.1-pre-internal-audit) <br> 
+
+#### Medium? More checks are needed. 
+```
+by design requester != mech in both cases: request/delivery (correct me if I am wrong)
+    function request(
+        bytes memory data,
+        address priorityMech,
+        address priorityMechStakingInstance,
+        uint256 priorityMechServiceId,
+        uint256 responseTimeout,
+        address requesterStakingInstance,
+        uint256 requesterServiceId
+    ) external payable returns (uint256 requestId) {
+=>
+        if(msg.sender == priorityMech) { revert()} - expected Mech cannot request delivery to itself.
+
+function deliverMarketplace(
+        uint256 requestId,
+        bytes memory requestData,
+        address deliveryMechStakingInstance,
+        uint256 deliveryMechServiceId
+    ) external
+=>
+        if(msg.sender == mechDelivery.requester) { revert() } - de-facto Mech cannot request delivery to itself.
+
+try solved: IMech(mech).isOperator(requester) 
+
++ maybe/ maybe not
+priorityMechStakingInstance != requesterStakingInstance ?? => to discussion
+```
+[x] fixed
+
+#### Notices: clarification
+```
+AgentMech
+function requestMarketplace()
+maybe change the name. It is not obvious from the name who calls whom. According to the code, it is correct that the marketplace calls the agent.
+Not sure.
+```
+[x] fixed
