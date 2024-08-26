@@ -190,6 +190,8 @@ contract MechMarketplace {
 
     // Map of request counts for corresponding addresses
     mapping(address => uint256) public mapRequestCounts;
+    // Map of delivery counts for corresponding addresses
+    mapping(address => uint256) public mapDeliveryCounts;
     // Mapping of request Id => mech delivery information
     mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
     // Mapping of account nonces
@@ -393,13 +395,17 @@ contract MechMarketplace {
         // Record the actual delivery mech
         mechDelivery.deliveryMech = msg.sender;
 
+        address requester = mechDelivery.requester;
+
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
+        // Increase the amount of delivered requests
+        mapDeliveryCounts[requester]++;
 
         // Increase mech karma that delivers the request
         IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, mechDelivery.requester, requestId, requestData);
+        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
 
         _locked = 1;
     }
@@ -501,6 +507,20 @@ contract MechMarketplace {
                 status = RequestStatus.Delivered;
             }
         }
+    }
+
+    /// @dev Gets the requests count for a specific account.
+    /// @param account Account address.
+    /// @return Requests count.
+    function getRequestsCount(address account) external view returns (uint256) {
+        return mapRequestCounts[account];
+    }
+
+    /// @dev Gets the deliveries count for a specific account.
+    /// @param account Account address.
+    /// @return Deliveries count.
+    function getDeliveriesCount(address account) external view returns (uint256) {
+        return mapDeliveryCounts[account];
     }
 
     /// @dev Gets mech delivery info.

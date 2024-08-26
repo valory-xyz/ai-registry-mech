@@ -436,7 +436,7 @@ contract AgentMech is ERC721Mech {
 
     /// @dev Gets the deliveries count for a specific account.
     /// @param account Account address.
-    /// @return Deliveried count.
+    /// @return Deliveries count.
     function getDeliveriesCount(address account) external view returns (uint256) {
         return mapDeliveryCounts[account];
     }
