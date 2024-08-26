@@ -72,9 +72,12 @@ The list of contract addresses for different chains and their full contract conf
 flowchart LR
     Deployer -- deploy --> MechMarketplace
     Deployer -- deploy --> AgentFactory
-    User -- create --> AgentFactory -- setMechRegistrationStatus --> MechMarketplace
-    User -- request --> MechMarketplace -- request --> priorityMech
-    Operator -- deliver --> priorityMech &  AgentMech -- deliver --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
+    Deployer -- deploy --> KarmaProxy --> Karma
+    User -- create --> AgentFactory
+    User -- request --> MechMarketplace -- requestMarketplace --> priorityMech 
+    MechMarketplace -- changeRequesterMechKarma --> KarmaProxy --> Karma
+    Operator -- deliverMarketplace --> priorityMech -- deliverMarketplace --> MechMarketplace -- changeMechKarma --> KarmaProxy --> Karma
+    Operator -- deliverMarketplace --> AgentMech -- deliverMarketplace --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
 ```
 
 ## Acknowledgements
