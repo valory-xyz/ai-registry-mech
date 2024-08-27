@@ -188,10 +188,12 @@ contract MechMarketplace {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Map of request counts for corresponding addresses
+    // Map of request counts for corresponding requester
     mapping(address => uint256) public mapRequestCounts;
-    // Map of delivery counts for corresponding addresses
+    // Map of delivery counts for corresponding requester
     mapping(address => uint256) public mapDeliveryCounts;
+    // Map of delivery counts for corresponding operator
+    mapping(address => uint256) public mapOperatorDeliveryCounts;
     // Mapping of request Id => mech delivery information
     mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
     // Mapping of account nonces
@@ -365,8 +367,8 @@ contract MechMarketplace {
         }
         _locked = 2;
 
-        // Check agent mech
-        checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
+        // Check agent mech and get its operator
+        address operator = checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
 
         // Get the staked service info for the mech
         IStaking.ServiceInfo memory serviceInfo =
@@ -415,8 +417,10 @@ contract MechMarketplace {
 
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
-        // Increase the amount of delivered requests
+        // Increase the amount of requester delivered requests
         mapDeliveryCounts[requester]++;
+        // Increase the amount of operator delivered requests
+        mapOperatorDeliveryCounts[operator]++;
 
         // Increase mech karma that delivers the request
         IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
@@ -477,7 +481,8 @@ contract MechMarketplace {
     /// @dev mech Agent mech contract address.
     /// @param mechStakingInstance Agent mech staking instance address.
     /// @param mechServiceId Agent mech service Id.
-    function checkMech(address mech, address mechStakingInstance, uint256 mechServiceId) public view {
+    /// @return Service multisig address.
+    function checkMech(address mech, address mechStakingInstance, uint256 mechServiceId) public view returns (address){
         // Check staking instance
         checkStakingInstance(mechStakingInstance, mechServiceId);
 
@@ -487,6 +492,8 @@ contract MechMarketplace {
         if (!IMech(mech).isOperator(serviceInfo.multisig)) {
             revert UnauthorizedAccount(mech);
         }
+
+        return serviceInfo.multisig;
     }
 
     /// @dev Checks for requester validity.
@@ -537,6 +544,13 @@ contract MechMarketplace {
     /// @return Deliveries count.
     function getDeliveriesCount(address account) external view returns (uint256) {
         return mapDeliveryCounts[account];
+    }
+
+    /// @dev Gets deliveries count for a specific operator.
+    /// @param operator Operator address.
+    /// @return Deliveries count.
+    function getOperatorDeliveriesCount(address operator) external view returns (uint256) {
+        return mapOperatorDeliveryCounts[operator];
     }
 
     /// @dev Gets mech delivery info.
