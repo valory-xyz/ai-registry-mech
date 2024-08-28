@@ -1,0 +1,161 @@
+False positive.
+INFO:Detectors:
+Reentrancy in MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358):
+	External calls:
+	- IKarma(karmaProxy).changeRequesterMechKarma(msg.sender,priorityMech,1) (MechMarketplace-flatten.sol#345)
+	- IMech(priorityMech).request{value: msg.value}(msg.sender,data,requestId) (MechMarketplace-flatten.sol#353)
+	External calls sending eth:
+	- IMech(priorityMech).request{value: msg.value}(msg.sender,data,requestId) (MechMarketplace-flatten.sol#353)
+	State variables written after the call(s):
+	- _locked = 1 (MechMarketplace-flatten.sol#357)
+	MechMarketplace._locked (MechMarketplace-flatten.sol#139) can be used in cross function reentrancies:
+	- MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416)
+	- MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+
+False positive.
+INFO:Detectors:
+Potential vulnerable to readonly-reentrancy function (if read in other function) MechMarketplace.getMechDeliveryInfo(uint256) (MechMarketplace-flatten.sol#473-475):
+	State variables read that were written after the external call(s):
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at mapRequestIdDeliveries[requestId] (MechMarketplace-flatten.sol#474)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+Potential vulnerable to readonly-reentrancy function (if read in other function) MechMarketplace.getRequestStatus(uint256) (MechMarketplace-flatten.sol#453-468):
+	State variables read that were written after the external call(s):
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at mechDelivery = mapRequestIdDeliveries[requestId] (MechMarketplace-flatten.sol#455)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at mechDelivery.priorityMech != address(0) (MechMarketplace-flatten.sol#456)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at mechDelivery.deliveryMech == address(0) (MechMarketplace-flatten.sol#458)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at block.timestamp > mechDelivery.responseTimeout (MechMarketplace-flatten.sol#459)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at status = RequestStatus.RequestedExpired (MechMarketplace-flatten.sol#460)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at status = RequestStatus.RequestedPriority (MechMarketplace-flatten.sol#462)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at END_IF (MechMarketplace-flatten.sol#459-463)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at status = RequestStatus.Delivered (MechMarketplace-flatten.sol#465)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at END_IF (MechMarketplace-flatten.sol#458-466)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) was read at END_IF (MechMarketplace-flatten.sol#456-467)
+		 This variable was written at (after external call):
+			- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/readonly_reentrancy.md
+
+False positive.
+INFO:Detectors:
+Reentrancy in MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416):
+	External calls:
+	- IKarma(karmaProxy).changeMechKarma(msg.sender,- 1) (MechMarketplace-flatten.sol#395)
+	- IMech(priorityMech).revokeRequest(requestId) (MechMarketplace-flatten.sol#397)
+	State variables written after the call(s):
+	- mechDelivery.deliveryMech = msg.sender (MechMarketplace-flatten.sol#405)
+	MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146) can be used in cross function reentrancies:
+	- MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416)
+	- MechMarketplace.getMechDeliveryInfo(uint256) (MechMarketplace-flatten.sol#473-475)
+	- MechMarketplace.getRequestStatus(uint256) (MechMarketplace-flatten.sol#453-468)
+	- MechMarketplace.mapRequestIdDeliveries (MechMarketplace-flatten.sol#146)
+	- MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358)
+Reentrancy in MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416):
+	External calls:
+	- IKarma(karmaProxy).changeMechKarma(msg.sender,- 1) (MechMarketplace-flatten.sol#395)
+	- IMech(priorityMech).revokeRequest(requestId) (MechMarketplace-flatten.sol#397)
+	- IKarma(karmaProxy).changeMechKarma(msg.sender,1) (MechMarketplace-flatten.sol#411)
+	State variables written after the call(s):
+	- _locked = 1 (MechMarketplace-flatten.sol#415)
+	MechMarketplace._locked (MechMarketplace-flatten.sol#139) can be used in cross function reentrancies:
+	- MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416)
+	- MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+False positive.
+INFO:Detectors:
+Dubious typecast in MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358):
+	uint256 => uint32 casting occurs in mechDelivery.responseTimeout = uint32(responseTimeout + block.timestamp) (MechMarketplace-flatten.sol#340)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+False positive.
+INFO:Detectors:
+Reentrancy in MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416):
+	External calls:
+	- IKarma(karmaProxy).changeMechKarma(msg.sender,- 1) (MechMarketplace-flatten.sol#395)
+	- IMech(priorityMech).revokeRequest(requestId) (MechMarketplace-flatten.sol#397)
+	State variables written after the call(s):
+	- numUndeliveredRequests -- (MechMarketplace-flatten.sol#408)
+Reentrancy in MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358):
+	External calls:
+	- IKarma(karmaProxy).changeRequesterMechKarma(msg.sender,priorityMech,1) (MechMarketplace-flatten.sol#345)
+	State variables written after the call(s):
+	- numTotalRequests ++ (MechMarketplace-flatten.sol#350)
+	- numUndeliveredRequests ++ (MechMarketplace-flatten.sol#348)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+False positive.
+INFO:Detectors:
+Reentrancy in MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416):
+	External calls:
+	- IKarma(karmaProxy).changeMechKarma(msg.sender,- 1) (MechMarketplace-flatten.sol#395)
+	- IMech(priorityMech).revokeRequest(requestId) (MechMarketplace-flatten.sol#397)
+	- IKarma(karmaProxy).changeMechKarma(msg.sender,1) (MechMarketplace-flatten.sol#411)
+	Event emitted after the call(s):
+	- MarketplaceDeliver(priorityMech,msg.sender,account,requestId,requestData) (MechMarketplace-flatten.sol#413)
+Reentrancy in MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358):
+	External calls:
+	- IKarma(karmaProxy).changeRequesterMechKarma(msg.sender,priorityMech,1) (MechMarketplace-flatten.sol#345)
+	- IMech(priorityMech).request{value: msg.value}(msg.sender,data,requestId) (MechMarketplace-flatten.sol#353)
+	External calls sending eth:
+	- IMech(priorityMech).request{value: msg.value}(msg.sender,data,requestId) (MechMarketplace-flatten.sol#353)
+	Event emitted after the call(s):
+	- MarketplaceRequest(msg.sender,priorityMech,requestId,data) (MechMarketplace-flatten.sol#355)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+False positive.
+INFO:Detectors:
+MechMarketplace.request(bytes,address,uint256) (MechMarketplace-flatten.sol#292-358) uses timestamp for comparisons
+	Dangerous comparisons:
+	- responseTimeout + block.timestamp > type()(uint32).max (MechMarketplace-flatten.sol#320)
+MechMarketplace.deliver(uint256,bytes) (MechMarketplace-flatten.sol#364-416) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp > mechDelivery.responseTimeout (MechMarketplace-flatten.sol#393)
+MechMarketplace.getRequestStatus(uint256) (MechMarketplace-flatten.sol#453-468) uses timestamp for comparisons
+	Dangerous comparisons:
+	- mechDelivery.priorityMech != address(0) (MechMarketplace-flatten.sol#456)
+	- mechDelivery.deliveryMech == address(0) (MechMarketplace-flatten.sol#458)
+	- block.timestamp > mechDelivery.responseTimeout (MechMarketplace-flatten.sol#459)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+
+Ignore.
+INFO:Detectors:
+Variable MechMarketplace._locked (MechMarketplace-flatten.sol#139) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+Ignore.
+INFO:Detectors:
+Variable MechMarketplace.changeMinMaxResponseTimeout(uint256,uint256).newMaxResponseTimeout (MechMarketplace-flatten.sol#241) is too similar to MechMarketplace.changeMinMaxResponseTimeout(uint256,uint256).newMinResponseTimeout (MechMarketplace-flatten.sol#241)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
+
+False postive.
+INFO:Detectors:
+Function Karma.initialize() (Karma-flatten.sol#50-56) is an unprotected initializer.
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/unprotected_initialize.md
+
+Ignore.
+INFO:Detectors:
+Karma.changeImplementation(address) (Karma-flatten.sol#60-77) uses assembly
+	- INLINE ASM (Karma-flatten.sol#72-74)
+Karma.getImplementation() (Karma-flatten.sol#154-158) uses assembly
+	- INLINE ASM (Karma-flatten.sol#155-157)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
+

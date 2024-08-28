@@ -168,7 +168,7 @@ module.exports = {
                 chainId: 10,
                 urls: {
                     apiURL: "https://api-optimistic.etherscan.io/api",
-                    browserURL: "https://sepolia-optimistic.etherscan.io"
+                    browserURL: "https://optimistic.etherscan.io"
                 },
             },
             {
@@ -233,12 +233,13 @@ module.exports = {
     solidity: {
         compilers: [
             {
-                version: "0.8.23",
+                version: "0.8.25",
                 settings: {
                     optimizer: {
                         enabled: true,
                         runs: 1000000,
                     },
+                    evmVersion: "cancun",
                 },
             }
         ]

@@ -65,6 +65,22 @@ The list of contract addresses for different chains and their full contract conf
 | Optimism | tbd   | https://optimistic.etherscan.io/address/0x47135D1Cf850d7Df7f7f563F300cc7022F7978a4  | n/a   |
 | Optimism | https://optimistic.etherscan.io/address/0x75D529FAe220bC8db714F0202193726b46881B76   | n/a   | https://optimistic.etherscan.io/address/0x1BD1505B711Fb58C54ca3712e6BEf47A133892d9  |
 
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Deployer -- deploy --> MechMarketplace
+    Deployer -- deploy --> AgentFactory
+    Deployer -- deploy --> KarmaProxy 
+    Deployer -- deploy --> Karma
+    User -- create --> AgentFactory
+    User -- request --> MechMarketplace -- requestFromMarketplace --> priorityMech 
+    MechMarketplace -- changeRequesterMechKarma --> KarmaProxy --> Karma
+    MechService -- deliverToMarketplace --> priorityMech -- deliverMarketplace --> MechMarketplace -- changeMechKarma --> KarmaProxy --> Karma
+    MechService -- deliverToMarketplace --> AgentMech -- deliverMarketplace --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
+```
+
 ## Acknowledgements
 The registry mech contracts were inspired and based on the following sources:
 - [Rari-Capital Solmate](https://github.com/Rari-Capital/solmate).

@@ -1,0 +1,77 @@
+'solc --version' running
+'solc ./KarmaProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./MechMarketplace-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal1/analysis/contracts' running
+'solc --version' running
+'solc ./Karma-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal1/analysis/contracts' running
+INFO:Printers:
+##########################
+####### KarmaProxy #######
+##########################
+
+## Constructor Call Sequence
+	- KarmaProxy
+
+## Constructor Definitions
+
+### KarmaProxy
+
+     constructor(address implementation) {
+        // Check for the zero address, since the delegatecall works even with the zero one
+        if (implementation == address(0)) {
+            revert ZeroImplementationAddress();
+        }
+
+        // Store the karma implementation address
+        assembly {
+            sstore(KARMA_PROXY, implementation)
+        }
+    }
+
+INFO:Printers:
+###############################
+####### MechMarketplace #######
+###############################
+
+## Constructor Call Sequence
+	- MechMarketplace
+
+## Constructor Definitions
+
+### MechMarketplace
+
+     constructor(address _factory, address _karmaProxy, uint256 _minResponseTimeout, uint256 _maxResponseTimeout) {
+        // Check for zero address
+        if (_factory == address(0) || _karmaProxy == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero values
+        if (_minResponseTimeout == 0 || _maxResponseTimeout == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for sanity values
+        if (_minResponseTimeout > _maxResponseTimeout) {
+            revert Overflow(_minResponseTimeout, _maxResponseTimeout);
+        }
+
+        // responseTimeout limits
+        if (_maxResponseTimeout > type(uint32).max) {
+            revert Overflow(_maxResponseTimeout, type(uint32).max);
+        }
+
+        owner = msg.sender;
+        factory = _factory;
+        karmaProxy = _karmaProxy;
+        minResponseTimeout = _minResponseTimeout;
+        maxResponseTimeout = _maxResponseTimeout;
+
+        // Record chain Id
+        chainId = block.chainid;
+        // Compute domain separator
+        domainSeparator = _computeDomainSeparator();
+    }
+
+INFO:Printers:
+INFO:Slither:. analyzed (5 contracts)

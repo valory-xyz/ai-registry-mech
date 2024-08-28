@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {AgentMech} from "./AgentMech.sol";
 import {GenericManager} from "../lib/autonolas-registries/contracts/GenericManager.sol";
@@ -17,7 +17,7 @@ contract AgentFactory is GenericManager {
     event CreateMech(address indexed mech, uint256 indexed agentId, uint256 indexed price);
 
     // Agent factory version number
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.1.0";
 
     // Agent registry address
     address public immutable agentRegistry;
@@ -31,12 +31,14 @@ contract AgentFactory is GenericManager {
     /// @param agentOwner Owner of the agent.
     /// @param agentHash IPFS CID hash of the agent metadata.
     /// @param price Minimum required payment the agent accepts.
+    /// @param mechMarketplace Mech marketplace address.
     /// @return agentId The id of a created agent.
     /// @return mech The created mech instance address.
     function create(
         address agentOwner,
         bytes32 agentHash,
-        uint256 price
+        uint256 price,
+        address mechMarketplace
     ) external returns (uint256 agentId, address mech)
     {
         // Check if the creation is paused
@@ -47,22 +49,8 @@ contract AgentFactory is GenericManager {
         agentId = IAgentRegistry(agentRegistry).create(agentOwner, agentHash);
         bytes32 salt = keccak256(abi.encode(agentOwner, agentId));
         // agentOwner is isOperator() for the mech
-        mech = _createMech(salt, agentRegistry, agentId, price);
-        emit CreateMech(mech, agentId, price);
-    }
+        mech = address((new AgentMech){salt: salt}(agentRegistry, agentId, price, mechMarketplace));
 
-    /// @dev Creates the mech instance.
-    /// @param salt The generated salt.
-    /// @param _agentRegistry The agent registry address.
-    /// @param agentId The id of a created agent.
-    /// @param price Minimum required payment the agent accepts.
-    /// @return mech The created mech instance address.
-    function _createMech(
-        bytes32 salt,
-        address _agentRegistry,
-        uint256 agentId,
-        uint256 price
-    ) internal virtual returns (address mech) {
-        mech = address((new AgentMech){salt: salt}(_agentRegistry, agentId, price));
+        emit CreateMech(mech, agentId, price);
     }
 }

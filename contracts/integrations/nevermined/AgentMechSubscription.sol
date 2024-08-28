@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
-import {AgentMech} from "../../AgentMech.sol";
+import {AgentMech, ReentrancyGuard} from "../../AgentMech.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -32,9 +32,6 @@ error NoDepositAllowed(uint256 amount);
 /// @param minCreditsPerRequest Minimum number of credits per request needed.
 error NotEnoughCredits(uint256 creditsBalance, uint256 minCreditsPerRequest);
 
-/// @dev Caught reentrancy violation.
-error ReentrancyGuard();
-
 /// @title AgentMechSubscription - Smart contract for extending AgentMech with subscription
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a subscription.
 contract AgentMechSubscription is AgentMech {
@@ -45,23 +42,23 @@ contract AgentMechSubscription is AgentMech {
     address public subscriptionNFT;
     // Subscription token Id
     uint256 public subscriptionTokenId;
-    // Reentrancy lock
-    uint256 internal _locked = 1;
 
     /// @dev AgentMechSubscription constructor.
-    /// @param _token Address of the token registry contract.
+    /// @param _registry Address of the token registry contract.
     /// @param _tokenId The token ID.
     /// @param _minCreditsPerRequest Minimum number of credits to pay for each request via a subscription.
     /// @param _subscriptionNFT Subscription address.
     /// @param _subscriptionTokenId Subscription token Id.
+    /// @param _mechMarketplace Mech marketplace address.
     constructor(
-        address _token,
+        address _registry,
         uint256 _tokenId,
         uint256 _minCreditsPerRequest,
         address _subscriptionNFT,
-        uint256 _subscriptionTokenId
+        uint256 _subscriptionTokenId,
+        address _mechMarketplace
     )
-        AgentMech(_token, _tokenId, _minCreditsPerRequest)
+        AgentMech(_registry, _tokenId, _minCreditsPerRequest, _mechMarketplace)
     {
         // Check for the subscription address
         if (_subscriptionNFT == address(0)) {
@@ -103,10 +100,15 @@ contract AgentMechSubscription is AgentMech {
     }
 
     /// @dev Performs actions before the delivery of a request.
-    /// @param requestIdWithNonce Request Id with nonce.
+    /// @param account Request sender address.
+    /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(uint256 requestIdWithNonce, bytes memory data) internal override returns (bytes memory requestData) {
+    function _preDeliver(
+        address account,
+        uint256 requestId,
+        bytes memory data
+    ) internal override returns (bytes memory requestData) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -116,9 +118,6 @@ contract AgentMechSubscription is AgentMech {
         // Extract the request deliver price
         uint256 deliverPrice;
         (deliverPrice, requestData) = abi.decode(data, (uint256, bytes));
-
-        // Get the request sender address
-        address account = mapRequestAddresses[requestIdWithNonce];
 
         // Check for the number of credits available in the subscription
         uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(account, subscriptionTokenId);
@@ -134,7 +133,7 @@ contract AgentMechSubscription is AgentMech {
             IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
         }
 
-        emit DeliverPrice(requestIdWithNonce, deliverPrice, creditsToBurn);
+        emit DeliverPrice(requestId, deliverPrice, creditsToBurn);
 
         _locked = 1;
     }

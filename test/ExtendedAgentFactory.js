@@ -6,6 +6,7 @@ const { ethers } = require("hardhat");
 describe("ExtendedAgentFactory", function () {
     let agentRegistry;
     let agentFactory;
+    let mechMarketplace;
     let signers;
     const agentHash = "0x" + "5".repeat(64);
     const price = 1;
@@ -18,6 +19,11 @@ describe("ExtendedAgentFactory", function () {
         const AgentFactory = await ethers.getContractFactory("ExtendedAgentFactory");
         agentFactory = await AgentFactory.deploy(agentRegistry.address);
         await agentFactory.deployed();
+
+        const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
+        // Note, karma contract address is irrelevant for this test suite
+        mechMarketplace = await MechMarketplace.deploy(agentFactory.address, agentFactory.address, 10, 10);
+        await mechMarketplace.deployed();
 
         signers = await ethers.getSigners();
         deployer = signers[0];
@@ -41,7 +47,7 @@ describe("ExtendedAgentFactory", function () {
 
             // Try minting when paused
             await expect(
-                agentFactory.create(deployer.address, agentHash, price)
+                agentFactory.create(deployer.address, agentHash, price, mechMarketplace.address)
             ).to.be.revertedWithCustomError(agentFactory, "Paused");
 
             // Try to unpause not from the owner of the service manager
@@ -54,7 +60,7 @@ describe("ExtendedAgentFactory", function () {
 
             // Mint an agent
             await agentRegistry.changeManager(agentFactory.address);
-            await agentFactory.create(deployer.address, agentHash, price);
+            await agentFactory.create(deployer.address, agentHash, price, mechMarketplace.address);
         });
     });
     
@@ -64,19 +70,19 @@ describe("ExtendedAgentFactory", function () {
 
             // Mint an agent
             await agentRegistry.changeManager(agentFactory.address);
-            await agentFactory.create(deployer.address, agentHash, price);
+            await agentFactory.create(deployer.address, agentHash, price, mechMarketplace.address);
 
             // Try to create a mech on a non-existent agent
             await expect(
-                agentFactory.connect(account).addMech(agentRegistry.address, 2, price)
+                agentFactory.connect(account).addMech(agentRegistry.address, 2, price, mechMarketplace.address)
             ).to.be.revertedWithCustomError(agentFactory, "AgentNotFound");
 
             // Create another mech
-            await agentFactory.connect(account).addMech(agentRegistry.address, 1, price);
+            await agentFactory.connect(account).addMech(agentRegistry.address, 1, price, mechMarketplace.address);
 
             // Try to create exactly same mech
             await expect(
-                agentFactory.connect(account).addMech(agentRegistry.address, 1, price)
+                agentFactory.connect(account).addMech(agentRegistry.address, 1, price, mechMarketplace.address)
             ).to.be.revertedWithCustomError(agentFactory, "MechAlreadyExist");
         });
     });

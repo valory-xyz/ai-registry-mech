@@ -6,10 +6,13 @@ const { ethers } = require("hardhat");
 describe("AgentFactory", function () {
     let agentRegistry;
     let agentFactory;
+    let mechMarketplace;
     let signers;
     const agentHash = "0x" + "5".repeat(64);
     const price = 1;
     beforeEach(async function () {
+        signers = await ethers.getSigners();
+
         const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
         agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/");
         await agentRegistry.deployed();
@@ -18,7 +21,10 @@ describe("AgentFactory", function () {
         agentFactory = await AgentFactory.deploy(agentRegistry.address);
         await agentFactory.deployed();
 
-        signers = await ethers.getSigners();
+        const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
+        // Note, karma contract address is irrelevant for this test suite
+        mechMarketplace = await MechMarketplace.deploy(agentFactory.address, agentFactory.address, 10, 10);
+        await mechMarketplace.deployed();
     });
 
     context("Initialization", async function () {
@@ -39,7 +45,7 @@ describe("AgentFactory", function () {
 
             // Try minting when paused
             await expect(
-                agentFactory.create(user.address, agentHash, price)
+                agentFactory.create(user.address, agentHash, price, mechMarketplace.address)
             ).to.be.revertedWithCustomError(agentFactory, "Paused");
 
             // Try to unpause not from the owner of the service manager
@@ -52,7 +58,7 @@ describe("AgentFactory", function () {
 
             // Mint an agent
             await agentRegistry.changeManager(agentFactory.address);
-            await agentFactory.create(user.address, agentHash, price);
+            await agentFactory.create(user.address, agentHash, price, mechMarketplace.address);
         });
     });
 });
