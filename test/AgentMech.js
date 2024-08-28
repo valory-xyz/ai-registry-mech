@@ -238,7 +238,6 @@ describe("AgentMech", function () {
             // Register the info for the delivery service mech
             await serviceStakingMech.setServiceInfo(serviceId + 1, deployer.address);
 
-
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Get the non-existent request status
@@ -302,7 +301,8 @@ describe("AgentMech", function () {
             expect(uRequestIds.length).to.equal(0);
 
             // Create a first request
-            await mechMarketplace.request(datas[0], agentMech.address, minResponseTimeout, {value: price});
+            await mechMarketplace.request(datas[0], agentMech.address, serviceStakingMech.address, serviceId,
+                serviceStakingRequester.address, serviceId, minResponseTimeout, {value: price});
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -310,7 +310,7 @@ describe("AgentMech", function () {
             expect(uRequestIds[0]).to.equal(requestIds[0]);
 
             // Deliver a request
-            await agentMech.deliver(requestIds[0], data);
+            await agentMech.deliverToMarketplace(requestIds[0], data, serviceStakingMech.address, serviceId);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -324,7 +324,8 @@ describe("AgentMech", function () {
 
             // Stack all requests
             for (let i = 0; i < numRequests; i++) {
-                await mechMarketplace.request(datas[i], agentMech.address, minResponseTimeout, {value: price});
+                await mechMarketplace.request(datas[i], agentMech.address, serviceStakingMech.address, serviceId,
+                    serviceStakingRequester.address, serviceId, minResponseTimeout, {value: price});
             }
 
             // Check request Ids
@@ -337,7 +338,7 @@ describe("AgentMech", function () {
 
             // Deliver all requests
             for (let i = 0; i < numRequests; i++) {
-                await agentMech.deliver(requestIds[i], datas[i]);
+                await agentMech.deliverToMarketplace(requestIds[i], datas[i], serviceStakingMech.address, serviceId);
             }
 
             // Check request Ids
@@ -348,11 +349,12 @@ describe("AgentMech", function () {
             for (let i = 0; i < numRequests; i++) {
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], agentMech.address, minResponseTimeout, {value: price});
+                await mechMarketplace.request(datas[i], agentMech.address, serviceStakingMech.address, serviceId,
+                    serviceStakingRequester.address, serviceId, minResponseTimeout, {value: price});
             }
 
             // Deliver the first request
-            await agentMech.deliver(requestIds[0], datas[0]);
+            await agentMech.deliverToMarketplace(requestIds[0], datas[0], serviceStakingMech.address, serviceId);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -363,7 +365,8 @@ describe("AgentMech", function () {
             }
 
             // Deliver the last request
-            await agentMech.deliver(requestIds[numRequests - 1], datas[numRequests - 1]);
+            await agentMech.deliverToMarketplace(requestIds[numRequests - 1], datas[numRequests - 1],
+                serviceStakingMech.address, serviceId);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -374,7 +377,7 @@ describe("AgentMech", function () {
 
             // Deliver the middle request
             const middle = Math.floor(numRequests / 2);
-            await agentMech.deliver(requestIds[middle], datas[middle]);
+            await agentMech.deliverToMarketplace(requestIds[middle], datas[middle], serviceStakingMech.address, serviceId);
 
             // Check request Ids
             uRequestIds = await agentMech.getUndeliveredRequestIds(0, 0);
@@ -399,13 +402,14 @@ describe("AgentMech", function () {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], agentMech.address, minResponseTimeout, {value: price});
+                await mechMarketplace.request(datas[i], agentMech.address, serviceStakingMech.address, serviceId,
+                    serviceStakingRequester.address, serviceId, minResponseTimeout, {value: price});
             }
 
             // Deliver even requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 != 0) {
-                    await agentMech.deliver(requestIds[i], datas[i]);
+                    await agentMech.deliverToMarketplace(requestIds[i], datas[i], serviceStakingMech.address, serviceId);
                 }
             }
 
@@ -420,7 +424,7 @@ describe("AgentMech", function () {
             // Deliver the rest of requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 == 0) {
-                    await agentMech.deliver(requestIds[i], datas[i]);
+                    await agentMech.deliverToMarketplace(requestIds[i], datas[i], serviceStakingMech.address, serviceId);
                 }
             }
 
@@ -441,7 +445,8 @@ describe("AgentMech", function () {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], agentMech.address, minResponseTimeout, {value: price});
+                await mechMarketplace.request(datas[i], agentMech.address, serviceStakingMech.address, serviceId,
+                    serviceStakingRequester.address, serviceId, minResponseTimeout, {value: price});
             }
 
             // Check request Ids for just part of the batch
@@ -478,7 +483,7 @@ describe("AgentMech", function () {
 
             // Deliver all requests
             for (let i = 0; i < numRequests; i++) {
-                await agentMech.deliver(requestIds[i], datas[i]);
+                await agentMech.deliverToMarketplace(requestIds[i], datas[i], serviceStakingMech.address, serviceId);
             }
         });
     });
