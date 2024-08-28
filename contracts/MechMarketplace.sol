@@ -57,13 +57,14 @@ interface IStaking {
     }
 
     /// @dev Gets the service staking state.
-    /// @param requesterServiceId.
+    /// @param serviceId Service Id.
     /// @return stakingState Staking state of the service.
-    function getStakingState(uint256 requesterServiceId) external view returns (StakingState stakingState);
+    function getStakingState(uint256 serviceId) external view returns (StakingState stakingState);
+
     /// @dev Gets staked service info.
-    /// @param requesterServiceId Service Id.
+    /// @param serviceId Service Id.
     /// @return sInfo Struct object with the corresponding service info.
-    function getServiceInfo(uint256 requesterServiceId) external view returns (ServiceInfo memory);
+    function getServiceInfo(uint256 serviceId) external view returns (ServiceInfo memory);
 }
 
 // Staking factory interface
@@ -261,18 +262,18 @@ contract MechMarketplace {
     /// @param priorityMech Address of a priority mech.
     /// @param priorityMechStakingInstance Address of a priority mech staking instance.
     /// @param priorityMechServiceId Priority mech service Id.
-    /// @param responseTimeout Relative response time in sec.
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request.
     /// @param requesterServiceId Corresponding service Id in the staking contract.
+    /// @param responseTimeout Relative response time in sec.
     /// @return requestId Request Id.
     function request(
         bytes memory data,
         address priorityMech,
         address priorityMechStakingInstance,
         uint256 priorityMechServiceId,
-        uint256 responseTimeout,
         address requesterStakingInstance,
-        uint256 requesterServiceId
+        uint256 requesterServiceId,
+        uint256 responseTimeout
     ) external payable returns (uint256 requestId) {
         // Reentrancy guard
         if (_locked > 1) {
@@ -281,7 +282,8 @@ contract MechMarketplace {
         _locked = 2;
 
         // Check for zero address
-        if (priorityMech == address(0)) {
+        if (priorityMech == address(0) || priorityMechStakingInstance == address(0) ||
+            requesterStakingInstance == address(0)) {
             revert ZeroAddress();
         }
 
