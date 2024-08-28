@@ -77,8 +77,8 @@ flowchart LR
     User -- create --> AgentFactory
     User -- request --> MechMarketplace -- requestFromMarketplace --> priorityMech 
     MechMarketplace -- changeRequesterMechKarma --> KarmaProxy --> Karma
-    Operator -- deliverToMarketplace --> priorityMech -- deliverMarketplace --> MechMarketplace -- changeMechKarma --> KarmaProxy --> Karma
-    Operator -- deliverToMarketplace --> AgentMech -- deliverMarketplace --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
+    MechService -- deliverToMarketplace --> priorityMech -- deliverMarketplace --> MechMarketplace -- changeMechKarma --> KarmaProxy --> Karma
+    MechService -- deliverToMarketplace --> AgentMech -- deliverMarketplace --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
 ```
 
 ## Acknowledgements

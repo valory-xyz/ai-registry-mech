@@ -192,8 +192,8 @@ contract MechMarketplace {
     mapping(address => uint256) public mapRequestCounts;
     // Map of delivery counts for corresponding requester
     mapping(address => uint256) public mapDeliveryCounts;
-    // Map of delivery counts for corresponding operator
-    mapping(address => uint256) public mapOperatorDeliveryCounts;
+    // Map of delivery counts for corresponding mech service multisig
+    mapping(address => uint256) public mapMechServiceDeliveryCounts;
     // Mapping of request Id => mech delivery information
     mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
     // Mapping of account nonces
@@ -260,7 +260,7 @@ contract MechMarketplace {
     /// @param data Self-descriptive opaque data-blob.
     /// @param priorityMech Address of a priority mech.
     /// @param priorityMechStakingInstance Address of a priority mech staking instance.
-    /// @param priorityMechServiceId Priority mech operator service Id.
+    /// @param priorityMechServiceId Priority mech service Id.
     /// @param responseTimeout Relative response time in sec.
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request.
     /// @param requesterServiceId Corresponding service Id in the staking contract.
@@ -354,7 +354,7 @@ contract MechMarketplace {
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
     /// @param deliveryMechStakingInstance Delivery mech staking instance address.
-    /// @param deliveryMechServiceId Mech operator service Id.
+    /// @param deliveryMechServiceId Mech service Id.
     function deliverMarketplace(
         uint256 requestId,
         bytes memory requestData,
@@ -367,13 +367,13 @@ contract MechMarketplace {
         }
         _locked = 2;
 
-        // Check agent mech and get its operator
-        address operator = checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
+        // Check agent mech and get its mech service multisig
+        address mechService = checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
 
         // Get the staked service info for the mech
         IStaking.ServiceInfo memory serviceInfo =
             IStaking(deliveryMechStakingInstance).getServiceInfo(deliveryMechServiceId);
-        // Check that staked service multisig is the priority mech operator
+        // Check that staked service multisig is the priority mech mech service
         if (!IMech(msg.sender).isOperator(serviceInfo.multisig)) {
             revert UnauthorizedAccount(msg.sender);
         }
@@ -419,8 +419,8 @@ contract MechMarketplace {
         numUndeliveredRequests--;
         // Increase the amount of requester delivered requests
         mapDeliveryCounts[requester]++;
-        // Increase the amount of operator delivered requests
-        mapOperatorDeliveryCounts[operator]++;
+        // Increase the amount of mech service multisig delivered requests
+        mapMechServiceDeliveryCounts[mechService]++;
 
         // Increase mech karma that delivers the request
         IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
@@ -488,7 +488,7 @@ contract MechMarketplace {
 
         // Get the staked service info for the mech
         IStaking.ServiceInfo memory serviceInfo = IStaking(mechStakingInstance).getServiceInfo(mechServiceId);
-        // Check that staked service multisig is the priority mech operator
+        // Check that staked service multisig is the priority mech service multisig
         if (!IMech(mech).isOperator(serviceInfo.multisig)) {
             revert UnauthorizedAccount(mech);
         }
@@ -546,11 +546,11 @@ contract MechMarketplace {
         return mapDeliveryCounts[account];
     }
 
-    /// @dev Gets deliveries count for a specific operator.
-    /// @param operator Operator address.
+    /// @dev Gets deliveries count for a specific mech service multisig.
+    /// @param mechService Agent mech service multisig address.
     /// @return Deliveries count.
-    function getOperatorDeliveriesCount(address operator) external view returns (uint256) {
-        return mapOperatorDeliveryCounts[operator];
+    function getMechServiceDeliveriesCount(address mechService) external view returns (uint256) {
+        return mapMechServiceDeliveryCounts[mechService];
     }
 
     /// @dev Gets mech delivery info.
