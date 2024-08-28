@@ -49,7 +49,7 @@ async function main() {
     console.log("5. EOA to deploy Karma Proxy");
     console.log("You are signing the following transaction: KarmaProxy.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    KarmaProxy = await ethers.getContractFactory("KarmaProxy");
+    const KarmaProxy = await ethers.getContractFactory("KarmaProxy");
     const karmaProxy = await KarmaProxy.connect(EOA).deploy(karmaAddress, proxyData, { gasPrice });
     const result = await karmaProxy.deployed();
 

@@ -48,7 +48,7 @@ async function main() {
     console.log("6. EOA to deploy Mech Marketplace");
     console.log("You are signing the following transaction: MechMarketplace.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    MechMarketplace = await ethers.getContractFactory("MechMarketplace");
+    const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
     const mechMarketplace = await MechMarketplace.connect(EOA).deploy(stakingFactoryAddress, karmaProxyAddress,
         minResponseTimeout, maxResponseTimeout, { gasPrice });
     // In case when gas calculation is not working correctly on Arbitrum

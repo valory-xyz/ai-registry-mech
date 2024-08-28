@@ -10,3 +10,5 @@ b6c9805f166fd0ed38e011de044cca3fa467b38d:scripts/deployment/globals_gnosis_mainn
 30ab2c5cf0ca96e17f2a9db0603e9810fd93a7af:scripts/deployment/globals_arbitrum_sepolia.json:generic-api-key:2
 30ab2c5cf0ca96e17f2a9db0603e9810fd93a7af:scripts/deployment/globals_gnosis_mainnet.json:generic-api-key:2
 30ab2c5cf0ca96e17f2a9db0603e9810fd93a7af:scripts/deployment/globals_polygon_mumbai.json:generic-api-key:2
+a0437ed546d7fea06f2225198370ac9baa17b185:scripts/deployment/globals_gnosis_mainnet.json:generic-api-key:1
+a0437ed546d7fea06f2225198370ac9baa17b185:scripts/deployment/globals_gnosis_mainnet.json:generic-api-key:2
