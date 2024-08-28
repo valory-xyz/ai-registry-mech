@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.25;
 
 import {GenericRegistry} from "../lib/autonolas-registries/contracts/GenericRegistry.sol";
 import {ERC721} from "../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.sol";
@@ -8,11 +8,11 @@ import {ERC721} from "../lib/autonolas-registries/lib/solmate/src/tokens/ERC721.
 /// @param sender Sender address.
 /// @param owner Required sender address as an owner.
 /// @param agentId Agent Id.
-    error OperatorOnly(address sender, address owner, uint256 agentId);
+error OperatorOnly(address sender, address owner, uint256 agentId);
 
 /// @dev Agent does not exist.
 /// @param agentId Agent Id.
-    error AgentNotFound(uint256 agentId);
+error AgentNotFound(uint256 agentId);
 
 /// @title Agent Registry - Smart contract for registering agents
 contract AgentRegistry is GenericRegistry {
@@ -30,7 +30,7 @@ contract AgentRegistry is GenericRegistry {
     /// @param _symbol Agent registry contract symbol.
     /// @param _baseURI Agent registry token base URI.
     constructor(string memory _name, string memory _symbol, string memory _baseURI)
-    ERC721(_name, _symbol)
+        ERC721(_name, _symbol)
     {
         baseURI = _baseURI;
         owner = msg.sender;
