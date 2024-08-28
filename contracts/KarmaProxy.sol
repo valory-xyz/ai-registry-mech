@@ -4,6 +4,12 @@ pragma solidity ^0.8.25;
 /// @dev Zero implementation address.
 error ZeroImplementationAddress();
 
+/// @dev Zero karma data.
+error ZeroKarmaData();
+
+/// @dev Proxy initialization failed.
+error InitializationFailed();
+
 /*
 * This is a Karma proxy contract.
 * Proxy implementation is created based on the Universal Upgradeable Proxy Standard (UUPS) EIP-1822.
@@ -24,15 +30,26 @@ contract KarmaProxy {
 
     /// @dev KarmaProxy constructor.
     /// @param implementation Karma implementation address.
-    constructor(address implementation) {
+    /// @param karmaData Karma initialization data.
+    constructor(address implementation, bytes memory karmaData) {
         // Check for the zero address, since the delegatecall works even with the zero one
         if (implementation == address(0)) {
             revert ZeroImplementationAddress();
         }
 
+        // Check for the zero data
+        if (karmaData.length == 0) {
+            revert ZeroKarmaData();
+        }
+
         // Store the karma implementation address
         assembly {
             sstore(KARMA_PROXY, implementation)
+        }
+        // Initialize proxy tokenomics storage
+        (bool success, ) = implementation.delegatecall(karmaData);
+        if (!success) {
+            revert InitializationFailed();
         }
     }
 

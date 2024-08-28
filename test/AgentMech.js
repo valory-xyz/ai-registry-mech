@@ -38,13 +38,13 @@ describe("AgentMech", function () {
         const karmaImplementation = await Karma.deploy();
         await karmaImplementation.deployed();
 
+        // Initialize karma
+        const proxyData = karmaImplementation.interface.encodeFunctionData("initialize", []);
         const KarmaProxy = await ethers.getContractFactory("KarmaProxy");
-        const karmaProxy = await KarmaProxy.deploy(karmaImplementation.address);
+        const karmaProxy = await KarmaProxy.deploy(karmaImplementation.address, proxyData);
         await karmaProxy.deployed();
 
-        // Initilize karma
         karma = await ethers.getContractAt("Karma", karmaProxy.address);
-        await karma.initialize();
 
         const ServiceStakingMech = await ethers.getContractFactory("MockServiceStaking");
         serviceStakingMech = await ServiceStakingMech.deploy();
