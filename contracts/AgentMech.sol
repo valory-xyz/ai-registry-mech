@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.27;
 
 import {ERC721Mech} from "../lib/gnosis-mech/contracts/ERC721Mech.sol";
 
@@ -9,8 +9,8 @@ struct MechDelivery {
     address priorityMech;
     // Delivery mech address
     address deliveryMech;
-    // Account address sending the request
-    address account;
+    // Requester address
+    address requester;
     // Response timeout window
     uint32 responseTimeout;
 }
@@ -258,10 +258,19 @@ contract AgentMech is ERC721Mech {
     function _deliver(uint256 requestId, bytes memory data) internal returns (bytes memory requestData) {
         // Get an account to deliver request to
         address account = mapRequestAddresses[requestId];
+
+        // Get the mech delivery info from the mech marketplace
+        MechDelivery memory mechDelivery = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestId);
+
+        // Instantly return if the request has been delivered
+        if (mechDelivery.deliveryMech != address(0)) {
+            return requestData;
+        }
+
         // The account is zero if the delivery mech is different from a priority mech, or if request does not exist
         if (account == address(0)) {
             if (mechMarketplace != address(0)) {
-                account = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestId).account;
+                account = mechDelivery.requester;
             }
 
             // Check if request exists in the mech marketplace or locally in the mech
@@ -383,8 +392,11 @@ contract AgentMech is ERC721Mech {
         // Request delivery
         bytes memory requestData = _deliver(requestId, data);
 
-        // Mech marketplace delivery finalization
-        IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechStakingInstance, mechServiceId);
+        // Mech marketplace delivery finalization if the request was not delivered already
+        if (requestData.length > 0) {
+            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechStakingInstance,
+                mechServiceId);
+        }
 
         _locked = 1;
     }

@@ -221,6 +221,9 @@ describe("AgentMech", function () {
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
 
+            // Try to deliver the same request again
+            await agentMech.deliverToMarketplace(requestId, data, serviceStakingMech.address, serviceId);
+
             // Check mech karma
             let mechKarma = await karma.mapMechKarma(agentMech.address);
             expect(mechKarma).to.equal(1);
