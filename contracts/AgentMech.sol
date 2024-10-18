@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.28;
 
 import {ERC721Mech} from "../lib/gnosis-mech/contracts/ERC721Mech.sol";
 
