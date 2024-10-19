@@ -52,7 +52,7 @@ The list of contract addresses for different chains and their full contract conf
 
 | Network | AI Agent Registry    | AgentFactory    | AgentFactorySubscription   | MechMarketplace   |
 | :---:   | :---: | :---: | :---: | :---: |
-| Gnosis | https://gnosisscan.io/address/0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA   | https://gnosisscan.io/address/0x25c980328762a03F70c2649ef4Be691b811B690A   | n/a   | https://gnosisscan.io/address/0x4554fE75c1f5576c1d7F765B2A036c199Adae329  |
+| Gnosis | https://gnosisscan.io/address/0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA   | https://gnosisscan.io/address/0x6D8CbEbCAD7397c63347D44448147Db05E7d17B0   | n/a   | https://gnosisscan.io/address/0x4554fE75c1f5576c1d7F765B2A036c199Adae329  |
 | Gnosis | https://gnosisscan.io/address/0xaed729d4f4b895d8ca84ba022675bb0c44d2cd52   | n/a   | https://gnosisscan.io/address/0x910Ca843Cad6C050Faf3f84387879b2928D40370   | n/a   |
 | Arbitrum | tbd   | https://arbiscan.io/address/0x4a46537dd58e524d4df68275946b022ea6623f71   | n/a   | n/a   |
 | Arbitrum | https://arbiscan.io/address/0xa4799b083e0068732456ef45ff9fe5c683658327   | n/a   | https://arbiscan.io/address/0xd8bcc126ff31d2582018715d5291a508530587b0   | n/a   |
