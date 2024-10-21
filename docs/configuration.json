@@ -73,7 +73,7 @@
       {
         "name": "AgentFactory",
         "artifact": "abis/0.8.28/AgentFactory.json",
-        "address": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA"
+        "address": "0x6D8CbEbCAD7397c63347D44448147Db05E7d17B0"
       },
       {
         "name": "AgentMech",
