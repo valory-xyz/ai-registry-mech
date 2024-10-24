@@ -10,9 +10,9 @@ if (agentType === "subscription") {
         parsedData.agentRegistryAddress,
         parsedData.agentIdSubscription,
         parsedData.minCreditsPerRequest,
-        mechMarketplaceAddress,
         parsedData.subscriptionNFTAddress,
-        parsedData.subscriptionTokenId
+        parsedData.subscriptionTokenId,
+        parsedData.mechMarketplaceAddress
     ];
 } else {
     module.exports = [
