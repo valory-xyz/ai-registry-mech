@@ -10,6 +10,7 @@ if (agentType === "subscription") {
         parsedData.agentRegistryAddress,
         parsedData.agentIdSubscription,
         parsedData.minCreditsPerRequest,
+        mechMarketplaceAddress,
         parsedData.subscriptionNFTAddress,
         parsedData.subscriptionTokenId
     ];
@@ -17,6 +18,7 @@ if (agentType === "subscription") {
     module.exports = [
         parsedData.agentRegistryAddress,
         parsedData.agentId,
-        parsedData.price
+        parsedData.price,
+        parsedData.mechMarketplaceAddress
     ];
 }
