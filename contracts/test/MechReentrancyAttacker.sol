@@ -11,7 +11,7 @@ interface IAgentRegistry {
     function create(address unitOwner, bytes32 unitHash) external returns (uint256 unitId);
 }
 
-contract ReentrancyAttacker is ERC721TokenReceiver {
+contract MechReentrancyAttacker is ERC721TokenReceiver {
     // Agent Registry
     address public immutable agentRegistry;
 

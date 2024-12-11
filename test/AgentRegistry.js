@@ -17,7 +17,7 @@ describe("AgentRegistry", function () {
         agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/");
         await agentRegistry.deployed();
 
-        const ReentrancyAttacker = await ethers.getContractFactory("ReentrancyAttacker");
+        const ReentrancyAttacker = await ethers.getContractFactory("MechReentrancyAttacker");
         reentrancyAttacker = await ReentrancyAttacker.deploy(agentRegistry.address);
         await reentrancyAttacker.deployed();
 

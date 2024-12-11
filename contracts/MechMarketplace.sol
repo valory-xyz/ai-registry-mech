@@ -323,7 +323,7 @@ contract MechMarketplace {
         }
 
         // Check that mech staking contract is different from requester one
-        if (priorityMechStakingInstance == requesterStakingInstance) {
+        if (priorityMechStakingInstance == requesterStakingInstance && priorityMechStakingInstance != address(0)) {
             revert UnauthorizedAccount(priorityMechStakingInstance);
         }
 
@@ -572,6 +572,7 @@ contract MechMarketplace {
         address requesterStakingInstance,
         uint256 requesterServiceId
     ) public view {
+        // Check for requester service
         if (requesterServiceId > 0) {
             address multisig = checkServiceAndGetMultisig(requesterStakingInstance, requesterServiceId);
 
@@ -579,6 +580,9 @@ contract MechMarketplace {
             if (multisig != requester) {
                 revert OwnerOnly(requester, multisig);
             }
+        } else if (requesterStakingInstance != address(0)) {
+            // Check for inconsistency between zero service Id and non-zero staking instance
+            revert ZeroValue();
         }
     }
 

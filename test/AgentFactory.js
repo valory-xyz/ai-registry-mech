@@ -22,8 +22,9 @@ describe("AgentFactory", function () {
         await agentFactory.deployed();
 
         const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
-        // Note, karma contract address is irrelevant for this test suite
-        mechMarketplace = await MechMarketplace.deploy(agentFactory.address, agentFactory.address, 10, 10);
+        // Note, service registry and karma contract address is irrelevant for this test suite
+        mechMarketplace = await MechMarketplace.deploy(agentFactory.address, agentFactory.address,
+            agentFactory.address, 10, 10);
         await mechMarketplace.deployed();
     });
 

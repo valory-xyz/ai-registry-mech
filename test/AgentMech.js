@@ -70,6 +70,9 @@ describe("AgentMech", function () {
         await agentRegistry.create(deployer.address, agentHash);
         await agentRegistry.create(deployer.address, agentHash);
 
+        // Pseudo-create a service
+        await serviceRegistry.setServiceOwner(serviceId, deployer.address);
+
         // Pseudo-stake mech and requester services
         await serviceStakingMech.setServiceInfo(serviceId, deployer.address);
         await serviceStakingRequester.setServiceInfo(serviceId, deployer.address);
@@ -107,16 +110,6 @@ describe("AgentMech", function () {
                 mechMarketplace.request("0x", AddressZero, AddressZero, 0, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
 
-            // Try to request with the zero staking contract address
-            await expect(
-                mechMarketplace.request("0x", agentRegistry.address, AddressZero, 0, AddressZero, 0, 0)
-            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
-
-            // Try to request to a mech with an zero requester staking contract address
-            await expect(
-                mechMarketplace.request("0x", agentRegistry.address, serviceStakingMech.address, 0, AddressZero, 0, 0)
-            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
-
             // Response time is out of bounds
             await expect(
                 mechMarketplace.request("0x", agentRegistry.address, serviceStakingMech.address, 0,
@@ -145,23 +138,35 @@ describe("AgentMech", function () {
                     serviceStakingRequester.address, 0, minResponseTimeout)
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
 
-            // Try to request to a mech with an incorrect mech address
+            // Try to request to a mech with a zero service Id
             await expect(
                 mechMarketplace.request(data, agentRegistry.address, serviceStakingMech.address, 0,
                     serviceStakingRequester.address, 0, minResponseTimeout)
-            ).to.be.revertedWithCustomError(mechMarketplace, "ServiceNotStaked");
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
+
+            // Try to request to a mech with an incorrect mech and staking instance address
+            await expect(
+                mechMarketplace.request(data, agentRegistry.address, serviceStakingMech.address, serviceId,
+                    serviceStakingRequester.address, 0, minResponseTimeout)
+            ).to.be.reverted;
 
             // Try to request to a mech with an incorrect mech service Id
             await expect(
-                mechMarketplace.request(data, agentMech.address, serviceStakingMech.address, 0,
+                mechMarketplace.request(data, agentMech.address, serviceStakingMech.address, serviceId + 1,
                     serviceStakingRequester.address, 0, minResponseTimeout)
-            ).to.be.revertedWithCustomError(mechMarketplace, "ServiceNotStaked");
+            ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
 
             // Try to request to a mech with an incorrect requester service Id
             await expect(
                 mechMarketplace.request(data, agentMech.address, serviceStakingMech.address, serviceId,
                     serviceStakingRequester.address, 0, minResponseTimeout)
-            ).to.be.revertedWithCustomError(mechMarketplace, "ServiceNotStaked");
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
+
+            // Try to request to a mech with an incorrect requester service Id
+            await expect(
+                mechMarketplace.request(data, agentMech.address, serviceStakingMech.address, serviceId,
+                    serviceStakingRequester.address, 0, minResponseTimeout)
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
 
             // Try to supply less value when requesting
             await expect(
