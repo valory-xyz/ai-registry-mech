@@ -146,6 +146,11 @@ error UnauthorizedAccount(address account);
 /// @param serviceId Service Id.
 error ServiceNotStaked(address stakingInstance, uint256 serviceId);
 
+/// @dev Wrong state of a service.
+/// @param state Service state.
+/// @param serviceId Service Id.
+error WrongServiceState(uint256 state, uint256 serviceId);
+
 /// @dev Provided value is out of bounds.
 /// @param provided value.
 /// @param min Minimum possible value.
@@ -506,7 +511,7 @@ contract MechMarketplace {
             IService.ServiceState state;
             (, multisig, , , , , state) = IService(serviceRegistry).mapServices(serviceId);
             if (state != IService.ServiceState.Deployed) {
-                revert();
+                revert WrongServiceState(uint256(state), serviceId);
             }
         } else {
             // Check staking instance
