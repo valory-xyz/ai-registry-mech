@@ -77,8 +77,8 @@
       },
       {
         "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x77af31de935740567cf4ff1986d04b2c964a786a"
+        "artifact": "abis/0.8.28/AgentMech.json",
+        "address": "0x552cEA7Bc33CbBEb9f1D90c1D11D2C6daefFd053"
       },
       {
         "name": "AgentFactorySubscription",

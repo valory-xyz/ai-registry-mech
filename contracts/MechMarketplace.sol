@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IServiceRegistry} from "../lib/autonolas-registries/audits/internal/analysis/reentrancyPoC/ReentrancyAttacker.sol";
+
 // Agent Mech interface
 interface IMech {
     /// @dev Checks if the signer is the mech operator.
@@ -30,6 +32,30 @@ interface IKarma {
     /// @param mech Agent mech address.
     /// @param karmaChange Karma change value.
     function changeRequesterMechKarma(address requester, address mech, int256 karmaChange) external;
+}
+
+// Service Registry interface
+interface IService {
+    enum ServiceState {
+        NonExistent,
+        PreRegistration,
+        ActiveRegistration,
+        FinishedRegistration,
+        Deployed,
+        TerminatedBonded
+    }
+
+    /// @dev Gets the service instance from the map of services.
+    /// @param serviceId Service Id.
+    /// @return securityDeposit Registration activation deposit.
+    /// @return multisig Service multisig address.
+    /// @return configHash IPFS hashes pointing to the config metadata.
+    /// @return threshold Agent instance signers threshold.
+    /// @return maxNumAgentInstances Total number of agent instances.
+    /// @return numAgentInstances Actual number of agent instances.
+    /// @return state Service state.
+    function mapServices(uint256 serviceId) external view returns (uint96 securityDeposit, address multisig,
+        bytes32 configHash, uint32 threshold, uint32 maxNumAgentInstances, uint32 numAgentInstances, ServiceState state);
 }
 
 // Staking interface
@@ -181,6 +207,8 @@ contract MechMarketplace {
     address public immutable karmaProxy;
     // Staking factory contract address
     address public immutable stakingFactory;
+    // Service registry contract address
+    address public immutable serviceRegistry;
 
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
@@ -201,18 +229,20 @@ contract MechMarketplace {
     mapping(address => uint256) public mapNonces;
 
     /// @dev MechMarketplace constructor.
+    /// @param _serviceRegistry Service registry contract address.
     /// @param _stakingFactory Staking factory contract address.
     /// @param _karmaProxy Karma proxy contract address.
     /// @param _minResponseTimeout Min response time in sec.
     /// @param _maxResponseTimeout Max response time in sec.
     constructor(
+        address _serviceRegistry,
         address _stakingFactory,
         address _karmaProxy,
         uint256 _minResponseTimeout,
         uint256 _maxResponseTimeout
     ) {
         // Check for zero address
-        if (_stakingFactory == address(0) || _karmaProxy == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karmaProxy == address(0)) {
             revert ZeroAddress();
         }
 
@@ -231,6 +261,7 @@ contract MechMarketplace {
             revert Overflow(_maxResponseTimeout, type(uint32).max);
         }
 
+        serviceRegistry = _serviceRegistry;
         stakingFactory = _stakingFactory;
         karmaProxy = _karmaProxy;
         minResponseTimeout = _minResponseTimeout;
@@ -260,10 +291,10 @@ contract MechMarketplace {
     /// @notice The request is going to be registered by a specified priority agent mech.
     /// @param data Self-descriptive opaque data-blob.
     /// @param priorityMech Address of a priority mech.
-    /// @param priorityMechStakingInstance Address of a priority mech staking instance.
+    /// @param priorityMechStakingInstance Address of a priority mech staking instance (optional).
     /// @param priorityMechServiceId Priority mech service Id.
-    /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request.
-    /// @param requesterServiceId Corresponding service Id in the staking contract.
+    /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request (optional).
+    /// @param requesterServiceId Corresponding service Id in the staking contract (optional).
     /// @param responseTimeout Relative response time in sec.
     /// @return requestId Request Id.
     function request(
@@ -282,8 +313,7 @@ contract MechMarketplace {
         _locked = 2;
 
         // Check for zero address
-        if (priorityMech == address(0) || priorityMechStakingInstance == address(0) ||
-            requesterStakingInstance == address(0)) {
+        if (priorityMech == address(0)) {
             revert ZeroAddress();
         }
 
@@ -355,7 +385,7 @@ contract MechMarketplace {
     /// @notice This function can only be called by the agent mech delivering the request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
-    /// @param deliveryMechStakingInstance Delivery mech staking instance address.
+    /// @param deliveryMechStakingInstance Delivery mech staking instance address (optional).
     /// @param deliveryMechServiceId Mech service Id.
     function deliverMarketplace(
         uint256 requestId,
@@ -463,6 +493,31 @@ contract MechMarketplace {
         ));
     }
 
+    /// @dev Checks for service validity and optionally for service staking correctness.
+    /// @param stakingInstance Staking instance address.
+    /// @param serviceId Service Id.
+    /// @return multisig Service multisig address.
+    function checkServiceAndGetMultisig(
+        address stakingInstance,
+        uint256 serviceId
+    ) public view returns (address multisig) {
+        // Check mech service Id
+        if (stakingInstance == address(0)) {
+            IService.ServiceState state;
+            (, multisig, , , , , state) = IService(serviceRegistry).mapServices(serviceId);
+            if (state != IService.ServiceState.Deployed) {
+                revert();
+            }
+        } else {
+            // Check staking instance
+            checkStakingInstance(stakingInstance, serviceId);
+
+            // Get the staked service info for the mech
+            IStaking.ServiceInfo memory serviceInfo = IStaking(stakingInstance).getServiceInfo(serviceId);
+            multisig = serviceInfo.multisig;
+        }
+    }
+
     /// @dev Checks for staking instance contract validity.
     /// @param stakingInstance Staking instance address.
     /// @param serviceId Service Id.
@@ -483,34 +538,42 @@ contract MechMarketplace {
     /// @dev mech Agent mech contract address.
     /// @param mechStakingInstance Agent mech staking instance address.
     /// @param mechServiceId Agent mech service Id.
-    /// @return Service multisig address.
-    function checkMech(address mech, address mechStakingInstance, uint256 mechServiceId) public view returns (address){
-        // Check staking instance
-        checkStakingInstance(mechStakingInstance, mechServiceId);
-
-        // Get the staked service info for the mech
-        IStaking.ServiceInfo memory serviceInfo = IStaking(mechStakingInstance).getServiceInfo(mechServiceId);
-        // Check that staked service multisig is the priority mech service multisig
-        if (!IMech(mech).isOperator(serviceInfo.multisig)) {
-            revert UnauthorizedAccount(mech);
+    /// @return multisig Service multisig address.
+    function checkMech(
+        address mech,
+        address mechStakingInstance,
+        uint256 mechServiceId
+    ) public view returns (address multisig) {
+        // Check for zero value
+        if (mechServiceId == 0) {
+            revert ZeroValue();
         }
 
-        return serviceInfo.multisig;
+        // Check mech service Id and staking instance, if applicable
+        multisig = checkServiceAndGetMultisig(mechStakingInstance, mechServiceId);
+
+        // Check that service multisig is the priority mech service multisig
+        if (!IMech(mech).isOperator(multisig)) {
+            revert UnauthorizedAccount(mech);
+        }
     }
 
     /// @dev Checks for requester validity.
     /// @dev requester Requester contract address.
     /// @param requesterStakingInstance Requester staking instance address.
     /// @param requesterServiceId Requester service Id.
-    function checkRequester(address requester, address requesterStakingInstance, uint256 requesterServiceId) public view {
-        // Check staking instance
-        checkStakingInstance(requesterStakingInstance, requesterServiceId);
+    function checkRequester(
+        address requester,
+        address requesterStakingInstance,
+        uint256 requesterServiceId
+    ) public view {
+        if (requesterServiceId > 0) {
+            address multisig = checkServiceAndGetMultisig(requesterStakingInstance, requesterServiceId);
 
-        // Get the requester staked service info
-        IStaking.ServiceInfo memory serviceInfo = IStaking(requesterStakingInstance).getServiceInfo(requesterServiceId);
-        // Check staked service multisig
-        if (serviceInfo.multisig != requester) {
-            revert OwnerOnly(requester, serviceInfo.multisig);
+            // Check staked service multisig
+            if (multisig != requester) {
+                revert OwnerOnly(requester, multisig);
+            }
         }
     }
 

@@ -20,7 +20,7 @@ interface IMechMarketplace {
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
-    /// @param deliveryMechStakingInstance Delivery mech staking instance address.
+    /// @param deliveryMechStakingInstance Delivery mech staking instance address (optional).
     /// @param deliveryMechServiceId Mech operator service Id.
     function deliverMarketplace(
         uint256 requestId,
@@ -370,7 +370,7 @@ contract AgentMech is ERC721Mech {
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
-    /// @param mechStakingInstance Mech staking instance address.
+    /// @param mechStakingInstance Mech staking instance address (optional).
     /// @param mechServiceId Mech operator service Id.
     function deliverToMarketplace(
         uint256 requestId,
