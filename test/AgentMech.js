@@ -46,6 +46,10 @@ describe("AgentMech", function () {
 
         karma = await ethers.getContractAt("Karma", karmaProxy.address);
 
+        const ServiceRegistry = await ethers.getContractFactory("MockServiceRegistry");
+        const serviceRegistry = await ServiceRegistry.deploy();
+        await serviceRegistry.deployed();
+
         const ServiceStakingMech = await ethers.getContractFactory("MockServiceStaking");
         serviceStakingMech = await ServiceStakingMech.deploy();
         await serviceStakingMech.deployed();
@@ -54,8 +58,8 @@ describe("AgentMech", function () {
         await serviceStakingMech.deployed();
 
         const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
-        mechMarketplace = await MechMarketplace.deploy(serviceStakingMech.address, karma.address, minResponseTimeout,
-            maxResponceTimeout);
+        mechMarketplace = await MechMarketplace.deploy(serviceRegistry.address, serviceStakingMech.address,
+            karma.address, minResponseTimeout, maxResponceTimeout);
         await mechMarketplace.deployed();
 
         // Whitelist marketplace in the karma proxy
