@@ -1,170 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.28;
 
-import {IServiceRegistry} from "../lib/autonolas-registries/audits/internal/analysis/reentrancyPoC/ReentrancyAttacker.sol";
-
-// Agent Mech interface
-interface IMech {
-    /// @dev Checks if the signer is the mech operator.
-    function isOperator(address signer) external view returns (bool);
-
-    /// @dev Registers a request by a marketplace.
-    /// @param account Requester account address.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @param requestId Request Id.
-    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external payable;
-
-    /// @dev Revokes the request from the mech that does not deliver it.
-    /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
-    /// @param requestId Request Id.
-    function revokeRequest(uint256 requestId) external;
-}
-
-// Karma interface
-interface IKarma {
-    /// @dev Changes agent mech karma.
-    /// @param mech Agent mech address.
-    /// @param karmaChange Karma change value.
-    function changeMechKarma(address mech, int256 karmaChange) external;
-
-    /// @dev Changes requester -> agent mech karma.
-    /// @param requester Requester address.
-    /// @param mech Agent mech address.
-    /// @param karmaChange Karma change value.
-    function changeRequesterMechKarma(address requester, address mech, int256 karmaChange) external;
-}
-
-// Service Registry interface
-interface IService {
-    enum ServiceState {
-        NonExistent,
-        PreRegistration,
-        ActiveRegistration,
-        FinishedRegistration,
-        Deployed,
-        TerminatedBonded
-    }
-
-    /// @dev Gets the service instance from the map of services.
-    /// @param serviceId Service Id.
-    /// @return securityDeposit Registration activation deposit.
-    /// @return multisig Service multisig address.
-    /// @return configHash IPFS hashes pointing to the config metadata.
-    /// @return threshold Agent instance signers threshold.
-    /// @return maxNumAgentInstances Total number of agent instances.
-    /// @return numAgentInstances Actual number of agent instances.
-    /// @return state Service state.
-    function mapServices(uint256 serviceId) external view returns (uint96 securityDeposit, address multisig,
-        bytes32 configHash, uint32 threshold, uint32 maxNumAgentInstances, uint32 numAgentInstances, ServiceState state);
-}
-
-// Staking interface
-interface IStaking {
-    enum StakingState {
-        Unstaked,
-        Staked,
-        Evicted
-    }
-
-    // Service Info struct
-    struct ServiceInfo {
-        // Service multisig address
-        address multisig;
-        // Service owner
-        address owner;
-        // Service multisig nonces
-        uint256[] nonces;
-        // Staking start time
-        uint256 tsStart;
-        // Accumulated service staking reward
-        uint256 reward;
-        // Accumulated inactivity that might lead to the service eviction
-        uint256 inactivity;
-    }
-
-    /// @dev Gets the service staking state.
-    /// @param serviceId Service Id.
-    /// @return stakingState Staking state of the service.
-    function getStakingState(uint256 serviceId) external view returns (StakingState stakingState);
-
-    /// @dev Gets staked service info.
-    /// @param serviceId Service Id.
-    /// @return sInfo Struct object with the corresponding service info.
-    function getServiceInfo(uint256 serviceId) external view returns (ServiceInfo memory);
-}
-
-// Staking factory interface
-interface IStakingFactory {
-    /// @dev Verifies a service staking contract instance.
-    /// @param instance Service staking proxy instance.
-    /// @return True, if verification is successful.
-    function verifyInstance(address instance) external view returns (bool);
-}
-
-/// @dev Only `owner` has a privilege, but the `sender` was provided.
-/// @param sender Sender address.
-/// @param owner Required sender address as an owner.
-error OwnerOnly(address sender, address owner);
-
-/// @dev Provided zero address.
-error ZeroAddress();
-
-/// @dev Provided zero value.
-error ZeroValue();
-
-/// @dev Agent does not exist.
-/// @param agentId Agent Id.
-error AgentNotFound(uint256 agentId);
-
-/// @dev Not enough value paid.
-/// @param provided Provided amount.
-/// @param expected Expected amount.
-error NotEnoughPaid(uint256 provided, uint256 expected);
-
-/// @dev Request Id not found.
-/// @param requestId Request Id.
-error RequestIdNotFound(uint256 requestId);
-
-/// @dev Value overflow.
-/// @param provided Overflow value.
-/// @param max Maximum possible value.
-error Overflow(uint256 provided, uint256 max);
-
-/// @dev Provided account is not a contract.
-/// @param account Account address.
-error NotContract(address account);
-
-/// @dev Caught reentrancy violation.
-error ReentrancyGuard();
-
-/// @dev Account is unauthorized.
-/// @param account Account address.
-error UnauthorizedAccount(address account);
-
-/// @dev Specified service Id is not staked.
-/// @param stakingInstance Staking contract instance.
-/// @param serviceId Service Id.
-error ServiceNotStaked(address stakingInstance, uint256 serviceId);
-
-/// @dev Wrong state of a service.
-/// @param state Service state.
-/// @param serviceId Service Id.
-error WrongServiceState(uint256 state, uint256 serviceId);
-
-/// @dev Provided value is out of bounds.
-/// @param provided value.
-/// @param min Minimum possible value.
-/// @param max Maximum possible value.
-error OutOfBounds(uint256 provided, uint256 min, uint256 max);
-
-/// @dev The request is already delivered.
-/// @param requestId Request Id.
-error AlreadyDelivered(uint256 requestId);
-
-/// @dev Priority mech response timeout is not yet met.
-/// @param expected Expected timestamp.
-/// @param current Current timestamp.
-error PriorityMechResponseTimeout(uint256 expected, uint256 current);
+import {IErrorsMarketplace} from "./interfaces/IErrorsMarketplace.sol";
+import {IKarma} from "./interfaces/IKarma.sol";
+import {IMech} from "./interfaces/IMech.sol";
+import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
+import {IStaking, IStakingFactory} from "./interfaces/IStaking.sol";
 
 // Mech delivery info struct
 struct MechDelivery {
@@ -179,7 +20,7 @@ struct MechDelivery {
 }
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
-contract MechMarketplace {
+contract MechMarketplace is IErrorsMarketplace {
     event OwnerUpdated(address indexed owner);
     event FactoryUpdated(address indexed factory);
     event MinMaxResponseTimeoutUpdated(uint256 minResponseTimeout, uint256 maxResponseTimeout);
@@ -508,9 +349,9 @@ contract MechMarketplace {
     ) public view returns (address multisig) {
         // Check mech service Id
         if (stakingInstance == address(0)) {
-            IService.ServiceState state;
-            (, multisig, , , , , state) = IService(serviceRegistry).mapServices(serviceId);
-            if (state != IService.ServiceState.Deployed) {
+            IServiceRegistry.ServiceState state;
+            (, multisig, , , , , state) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+            if (state != IServiceRegistry.ServiceState.Deployed) {
                 revert WrongServiceState(uint256(state), serviceId);
             }
         } else {
