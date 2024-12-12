@@ -13,10 +13,6 @@ describe("AgentFactory", function () {
     beforeEach(async function () {
         signers = await ethers.getSigners();
 
-        const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
-        agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/");
-        await agentRegistry.deployed();
-
         const AgentFactory = await ethers.getContractFactory("AgentFactory");
         agentFactory = await AgentFactory.deploy(agentRegistry.address);
         await agentFactory.deployed();

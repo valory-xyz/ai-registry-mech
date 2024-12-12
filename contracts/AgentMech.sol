@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ERC721Mech} from "../lib/gnosis-mech/contracts/ERC721Mech.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
+import {ImmutableStorage} from "../lib/gnosis-mech/contracts/base/ImmutableStorage.sol";
+import {IServiceRegistry} from "../lib/autonolas-registries/audits/internal/analysis/reentrancyPoC/ReentrancyAttacker.sol";
 
 // Mech delivery info struct
 struct MechDelivery {
@@ -33,6 +36,30 @@ interface IMechMarketplace {
     /// @param requestId Request Id.
     /// @return Mech delivery info.
     function getMechDeliveryInfo(uint256 requestId) external returns (MechDelivery memory);
+}
+
+// Service Registry interface
+interface IService {
+    enum ServiceState {
+        NonExistent,
+        PreRegistration,
+        ActiveRegistration,
+        FinishedRegistration,
+        Deployed,
+        TerminatedBonded
+    }
+
+    /// @dev Gets the service instance from the map of services.
+    /// @param serviceId Service Id.
+    /// @return securityDeposit Registration activation deposit.
+    /// @return multisig Service multisig address.
+    /// @return configHash IPFS hashes pointing to the config metadata.
+    /// @return threshold Agent instance signers threshold.
+    /// @return maxNumAgentInstances Total number of agent instances.
+    /// @return numAgentInstances Actual number of agent instances.
+    /// @return state Service state.
+    function mapServices(uint256 serviceId) external view returns (uint96 securityDeposit, address multisig,
+        bytes32 configHash, uint32 threshold, uint32 maxNumAgentInstances, uint32 numAgentInstances, ServiceState state);
 }
 
 // Token interface
@@ -76,9 +103,57 @@ error Overflow(uint256 provided, uint256 max);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
-/// @title AgentMech - Smart contract for extending ERC721Mech
+/// @dev Wrong state of a service.
+/// @param state Service state.
+/// @param serviceId Service Id.
+error WrongServiceState(uint256 state, uint256 serviceId);
+
+/**
+ * @dev A Mech that is operated by the multisig of an Olas service
+ */
+contract OlasMech is Mech, ImmutableStorage {
+    /// @param _token Address of the registry contract
+    /// @param _tokenId The token ID
+    constructor(address _token, uint256 _tokenId) {
+        bytes memory initParams = abi.encode(_token, _tokenId);
+        address multisig;
+        IService.ServiceState state;
+        (, multisig, , , , , state) = IService(_token).mapServices(_tokenId);
+        if (state != IService.ServiceState.Deployed) {
+            revert WrongServiceState(uint256(state), _tokenId);
+        }
+        setUp(initParams);
+    }
+
+    function setUp(bytes memory initParams) public override {
+        require(readImmutable().length == 0, "Already initialized");
+        writeImmutable(initParams);
+    }
+
+    function token() public view returns (IERC721) {
+        address _token = abi.decode(readImmutable(), (address));
+        return IERC721(_token);
+    }
+
+    function tokenId() public view returns (uint256) {
+        (, uint256 _tokenId) = abi.decode(readImmutable(), (address, uint256));
+        return _tokenId;
+    }
+
+    function isOperator(address signer) public view override returns (bool) {
+        (address _token, uint256 _tokenId) = abi.decode(
+            readImmutable(),
+            (address, uint256)
+        );
+        address multisig;
+        (, multisig, , , , , ) = IService(_token).mapServices(_tokenId);
+        return multisig == signer;
+    }
+}
+
+/// @title AgentMech - Smart contract for extending OlasMech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
-contract AgentMech is ERC721Mech {
+contract AgentMech is OlasMech {
     event MechMarketplaceUpdated(address indexed mechMarketplace);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
@@ -133,7 +208,7 @@ contract AgentMech is ERC721Mech {
     /// @param _price The minimum required price.
     /// @param _mechMarketplace Mech marketplace address.
     constructor(address _token, uint256 _tokenId, uint256 _price, address _mechMarketplace)
-        ERC721Mech(_token, _tokenId)
+        OlasMech(_token, _tokenId)
     {
         // Check for zero address
         if (_token == address(0)) {
@@ -293,6 +368,7 @@ contract AgentMech is ERC721Mech {
     }
 
     /// @dev Registers a request without a marketplace.
+    /// @notice Interface provided for backwards compatibility only.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestId Request Id.
     function request(bytes memory data) external payable returns (uint256 requestId) {
@@ -346,6 +422,7 @@ contract AgentMech is ERC721Mech {
     }
 
     /// @dev Delivers a request without a marketplace.
+    /// @notice Interface provided for backwards compatibility only.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function deliver(uint256 requestId, bytes memory data) external onlyOperator {
@@ -401,6 +478,7 @@ contract AgentMech is ERC721Mech {
         _locked = 1;
     }
 
+    /// TODO: We need the same system to work with Nevermined pricing.
     /// @dev Sets the new price.
     /// @param newPrice New mimimum required price.
     function setPrice(uint256 newPrice) external onlyOperator {

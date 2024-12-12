@@ -293,7 +293,7 @@ contract MechMarketplace {
     }
 
     /// @dev Registers a request.
-    /// @notice The request is going to be registered by a specified priority agent mech.
+    /// @notice The request is going to be registered for a specified priority agent mech.
     /// @param data Self-descriptive opaque data-blob.
     /// @param priorityMech Address of a priority mech.
     /// @param priorityMechStakingInstance Address of a priority mech staking instance (optional).
