@@ -8,6 +8,17 @@ import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 import {IStaking, IStakingFactory} from "./interfaces/IStaking.sol";
 
+interface IMechFactory {
+    /// @dev Registers service as a mech.
+    /// @param mechMarketplace Mech marketplace address.
+    /// @param serviceRegistry Service registry address.
+    /// @param serviceId Service id.
+    /// @param payload Mech creation payload.
+    /// @return mech The created mech instance address.
+    function createMech(address mechMarketplace, address serviceRegistry, uint256 serviceId, bytes memory payload)
+        external returns (address mech);
+}
+
 // Mech delivery info struct
 struct MechDelivery {
     // Priority mech address
@@ -22,7 +33,7 @@ struct MechDelivery {
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
 contract MechMarketplace is IErrorsMarketplace {
-    event CreateMech(address indexed mech, uint256 indexed agentId, uint256 indexed price);
+    event CreateMech(address indexed mech, uint256 indexed serviceId);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data);
@@ -35,7 +46,7 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     // Contract version number
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.1.0";
     // Domain separator type hash
     bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -133,17 +144,12 @@ contract MechMarketplace is IErrorsMarketplace {
 
     /// @dev Registers service as a mech.
     /// @param serviceId Service id.
-    /// @param price Minimum required payment the agent accepts.
+    /// @param mechFactory Mech factory address.
     /// @return mech The created mech instance address.
-    function create(uint256 serviceId, uint256 price) external returns (address mech) {
-        // Get service multisig address
-        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+    function create(uint256 serviceId, address mechFactory, bytes memory payload) external returns (address mech) {
+        mech = IMechFactory(mechFactory).createMech(address(this), serviceRegistry, serviceId, payload);
 
-        bytes32 salt = keccak256(abi.encode(multisig, serviceId));
-        // multisig is isOperator() for the mech
-        mech = address((new AgentMech){salt: salt}(serviceRegistry, serviceId, price, address(this)));
-
-        emit CreateMech(mech, serviceId, price);
+        emit CreateMech(mech, serviceId);
     }
 
     /// @dev Registers a request.
