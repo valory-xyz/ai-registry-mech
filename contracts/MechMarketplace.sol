@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {AgentMech} from "./AgentMech.sol";
 import {IErrorsMarketplace} from "./interfaces/IErrorsMarketplace.sol";
 import {IKarma} from "./interfaces/IKarma.sol";
 import {IMech} from "./interfaces/IMech.sol";
@@ -21,10 +22,7 @@ struct MechDelivery {
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
 contract MechMarketplace is IErrorsMarketplace {
-    event OwnerUpdated(address indexed owner);
-    event FactoryUpdated(address indexed factory);
-    event MinMaxResponseTimeoutUpdated(uint256 minResponseTimeout, uint256 maxResponseTimeout);
-    event MechRegistrationStatusChanged(address indexed mech, bool status);
+    event CreateMech(address indexed mech, uint256 indexed agentId, uint256 indexed price);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data);
@@ -131,6 +129,21 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
+    }
+
+    /// @dev Registers service as a mech.
+    /// @param serviceId Service id.
+    /// @param price Minimum required payment the agent accepts.
+    /// @return mech The created mech instance address.
+    function create(uint256 serviceId, uint256 price) external returns (address mech) {
+        // Get service multisig address
+        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+
+        bytes32 salt = keccak256(abi.encode(multisig, serviceId));
+        // multisig is isOperator() for the mech
+        mech = address((new AgentMech){salt: salt}(serviceRegistry, serviceId, price, address(this)));
+
+        emit CreateMech(mech, serviceId, price);
     }
 
     /// @dev Registers a request.
