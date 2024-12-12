@@ -24,7 +24,7 @@ contract MechFactorySubscription {
         bytes memory payload
     ) external returns (address mech) {
         // Check payload length
-        if (payload.length != 32) {
+        if (payload.length != 96) {
             revert();
         }
 
