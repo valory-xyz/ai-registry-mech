@@ -196,6 +196,11 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(msg.sender);
         }
 
+        address checkMarketplace = IMech(priorityMech).mechMarketplace();
+        if (checkMarketplace != address(this)) {
+            revert UnauthorizedAccount(checkMarketplace);
+        }
+
         // responseTimeout bounds
         if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
             revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);

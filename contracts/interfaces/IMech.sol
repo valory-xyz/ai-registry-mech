@@ -16,4 +16,8 @@ interface IMech {
     /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
     /// @param requestId Request Id.
     function revokeRequest(uint256 requestId) external;
+
+    /// @dev Gets mech marketplace address.
+    /// @return marketplace Mech Marketplace address.
+    function mechMarketplace() external view returns (address marketplace);
 }
