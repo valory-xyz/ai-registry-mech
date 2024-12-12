@@ -148,6 +148,11 @@ contract MechMarketplace is IErrorsMarketplace {
     function create(uint256 serviceId, address mechFactory, bytes memory payload) external returns (address mech) {
         mech = IMechFactory(mechFactory).createMech(address(this), serviceRegistry, serviceId, payload);
 
+        // This should never be the case
+        if (mech == address(0)) {
+            revert ZeroAddress();
+        }
+
         emit CreateMech(mech, serviceId);
     }
 
