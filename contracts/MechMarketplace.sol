@@ -196,11 +196,6 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        address checkMarketplace = IMech(priorityMech).mechMarketplace();
-        if (checkMarketplace != address(this)) {
-            revert UnauthorizedAccount(checkMarketplace);
-        }
-
         // responseTimeout bounds
         if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
             revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
@@ -421,6 +416,12 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check for zero value
         if (mechServiceId == 0) {
             revert ZeroValue();
+        }
+
+        // Check marketplace address
+        address checkMarketplace = IMech(mech).mechMarketplace();
+        if (checkMarketplace != address(this)) {
+            revert UnauthorizedAccount(checkMarketplace);
         }
 
         // Check mech service Id and staking instance, if applicable
