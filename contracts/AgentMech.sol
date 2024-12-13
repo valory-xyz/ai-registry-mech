@@ -1,84 +1,80 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ERC721Mech} from "../lib/gnosis-mech/contracts/ERC721Mech.sol";
+import {IErrorsMech} from "./interfaces/IErrorsMech.sol";
+import {IMechMarketplace} from "./interfaces/IMechMarketplace.sol";
+import {ImmutableStorage} from "../lib/gnosis-mech/contracts/base/ImmutableStorage.sol";
+import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
+import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
 
-// Mech delivery info struct
-struct MechDelivery {
-    // Priority mech address
-    address priorityMech;
-    // Delivery mech address
-    address deliveryMech;
-    // Requester address
-    address requester;
-    // Response timeout window
-    uint32 responseTimeout;
-}
-
-// Mech Marketplace interface
-interface IMechMarketplace {
-    /// @dev Delivers a request.
-    /// @param requestId Request id.
-    /// @param requestData Self-descriptive opaque data-blob.
-    /// @param deliveryMechStakingInstance Delivery mech staking instance address (optional).
-    /// @param deliveryMechServiceId Mech operator service Id.
-    function deliverMarketplace(
-        uint256 requestId,
-        bytes memory requestData,
-        address deliveryMechStakingInstance,
-        uint256 deliveryMechServiceId
-    ) external;
-
-    /// @dev Gets mech delivery info.
-    /// @param requestId Request Id.
-    /// @return Mech delivery info.
-    function getMechDeliveryInfo(uint256 requestId) external returns (MechDelivery memory);
-}
-
-// Token interface
-interface IToken {
+// ERC721 interface
+interface IERC721 {
     /// @dev Gets the owner of the `tokenId` token.
     /// @param tokenId Token Id that must exist.
     /// @return tokenOwner Token owner.
     function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
 }
 
-/// @dev Provided zero address.
-error ZeroAddress();
+/// @dev A Mech that is operated by the multisig of an Olas service
+contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
+    /// @param _serviceRegistry Address of the registry contract.
+    /// @param _serviceId Service Id.
+    constructor(address _serviceRegistry, uint256 _serviceId) {
+        // Check for zero address
+        if (_serviceRegistry == address(0)) {
+            revert ZeroAddress();
+        }
 
-/// @dev Only `marketplace` has a privilege, but the `sender` was provided.
-/// @param sender Sender address.
-/// @param manager Required sender address as a manager.
-error MarketplaceOnly(address sender, address manager);
+        // Check for zero value
+        if (_serviceId == 0) {
+            revert ZeroValue();
+        }
 
-/// @dev Mech marketplace exists.
-/// @param mechMarketplace Mech marketplace address.
-error MarketplaceExists(address mechMarketplace);
+        bytes memory initParams = abi.encode(_serviceRegistry, _serviceId);
+        (, address multisig, , , , , IServiceRegistry.ServiceState state) =
+            IServiceRegistry(_serviceRegistry).mapServices(_serviceId);
 
-/// @dev Agent does not exist.
-/// @param agentId Agent Id.
-error AgentNotFound(uint256 agentId);
+        // Check for zero address
+        if (multisig == address(0)) {
+            revert ZeroAddress();
+        }
 
-/// @dev Not enough value paid.
-/// @param provided Provided amount.
-/// @param expected Expected amount.
-error NotEnoughPaid(uint256 provided, uint256 expected);
+        // Check for correct service state
+        if (state != IServiceRegistry.ServiceState.Deployed) {
+            revert WrongServiceState(uint256(state), _serviceId);
+        }
+        setUp(initParams);
+    }
 
-/// @dev Request Id not found.
-/// @param requestId Request Id.
-error RequestIdNotFound(uint256 requestId);
+    function setUp(bytes memory initParams) public override {
+        require(readImmutable().length == 0, "Already initialized");
+        writeImmutable(initParams);
+    }
 
-/// @dev Value overflow.
-/// @param provided Overflow value.
-/// @param max Maximum possible value.
-error Overflow(uint256 provided, uint256 max);
+    function token() public view returns (IERC721) {
+        address serviceRegistry = abi.decode(readImmutable(), (address));
+        return IERC721(serviceRegistry);
+    }
 
-/// @dev Caught reentrancy violation.
-error ReentrancyGuard();
+    function tokenId() public view returns (uint256) {
+        (, uint256 serviceId) = abi.decode(readImmutable(), (address, uint256));
+        return serviceId;
+    }
 
-/// @title AgentMech - Smart contract for extending ERC721Mech
+    function isOperator(address signer) public view override returns (bool) {
+        (address serviceRegistry, uint256 serviceId) = abi.decode(
+            readImmutable(),
+            (address, uint256)
+        );
+
+        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+        return multisig == signer;
+    }
+}
+
+/// @title AgentMech - Smart contract for extending OlasMech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
-contract AgentMech is ERC721Mech {
+contract AgentMech is OlasMech {
     event MechMarketplaceUpdated(address indexed mechMarketplace);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
@@ -128,22 +124,22 @@ contract AgentMech is ERC721Mech {
     mapping(address => uint256) public mapNonces;
 
     /// @dev AgentMech constructor.
-    /// @param _token Address of the token contract.
-    /// @param _tokenId The token ID.
+    /// @param _serviceRegistry Address of the token contract.
+    /// @param _serviceId Service Id.
     /// @param _price The minimum required price.
     /// @param _mechMarketplace Mech marketplace address.
-    constructor(address _token, uint256 _tokenId, uint256 _price, address _mechMarketplace)
-        ERC721Mech(_token, _tokenId)
+    constructor(address _serviceRegistry, uint256 _serviceId, uint256 _price, address _mechMarketplace)
+        OlasMech(_serviceRegistry, _serviceId)
     {
         // Check for zero address
-        if (_token == address(0)) {
+        if(_mechMarketplace == address(0)) {
             revert ZeroAddress();
         }
 
         // Check for the token to have the owner
-        address tokenOwner = IToken(_token).ownerOf(_tokenId);
+        address tokenOwner = IERC721(_serviceRegistry).ownerOf(_serviceId);
         if (tokenOwner == address(0)) {
-            revert AgentNotFound(_tokenId);
+            revert AgentNotFound(_serviceId);
         }
 
         // Record the mech marketplace
@@ -260,7 +256,7 @@ contract AgentMech is ERC721Mech {
         address account = mapRequestAddresses[requestId];
 
         // Get the mech delivery info from the mech marketplace
-        MechDelivery memory mechDelivery = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestId);
+        IMechMarketplace.MechDelivery memory mechDelivery = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestId);
 
         // Instantly return if the request has been delivered
         if (mechDelivery.deliveryMech != address(0)) {
@@ -290,22 +286,6 @@ contract AgentMech is ERC721Mech {
         numTotalDeliveries++;
 
         emit Deliver(msg.sender, requestId, requestData);
-    }
-
-    /// @dev Registers a request without a marketplace.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @return requestId Request Id.
-    function request(bytes memory data) external payable returns (uint256 requestId) {
-        if (mechMarketplace != address(0)) {
-            revert MarketplaceExists(mechMarketplace);
-        }
-
-        // Get the local request Id
-        requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
-        mapNonces[msg.sender]++;
-
-        // Perform a request
-        _request(msg.sender, data, requestId);
     }
 
     /// @dev Registers a request by a marketplace.
@@ -345,27 +325,6 @@ contract AgentMech is ERC721Mech {
         emit RevokeRequest(account, requestId);
     }
 
-    /// @dev Delivers a request without a marketplace.
-    /// @param requestId Request id.
-    /// @param data Self-descriptive opaque data-blob.
-    function deliver(uint256 requestId, bytes memory data) external onlyOperator {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Check for the marketplace existence
-        if (mechMarketplace != address(0)) {
-            revert MarketplaceExists(mechMarketplace);
-        }
-
-        // Request delivery
-        _deliver(requestId, data);
-
-        _locked = 1;
-    }
-
     /// @dev Delivers a request by a marketplace.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
@@ -401,6 +360,7 @@ contract AgentMech is ERC721Mech {
         _locked = 1;
     }
 
+    /// TODO: We need the same system to work with Nevermined pricing.
     /// @dev Sets the new price.
     /// @param newPrice New mimimum required price.
     function setPrice(uint256 newPrice) external onlyOperator {
