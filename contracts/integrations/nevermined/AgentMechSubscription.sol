@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.28;
 
-import {AgentMech, ReentrancyGuard} from "../../AgentMech.sol";
+import {AgentMech} from "../../AgentMech.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.

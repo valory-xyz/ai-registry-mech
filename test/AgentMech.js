@@ -6,7 +6,7 @@ const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("AgentMech", function () {
     let AgentMech;
-    let agentRegistry;
+    let serviceRegistry;
     let mechMarketplace;
     let karma;
     let serviceStakingMech;
@@ -15,7 +15,6 @@ describe("AgentMech", function () {
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
     const agentHash = "0x" + "5".repeat(64);
-    const unitId = 1;
     const price = 1;
     const data = "0x00";
     const minResponseTimeout = 10;
@@ -23,15 +22,10 @@ describe("AgentMech", function () {
     const serviceId = 1;
 
     beforeEach(async function () {
-        AgentMech = await ethers.getContractFactory("AgentMech");
-
-        // Get the agent registry contract
-        const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
-        agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/");
-        await agentRegistry.deployed();
-
         signers = await ethers.getSigners();
         deployer = signers[0];
+
+        AgentMech = await ethers.getContractFactory("AgentMech");
 
         // Karma implementation and proxy
         const Karma = await ethers.getContractFactory("Karma");
@@ -47,7 +41,7 @@ describe("AgentMech", function () {
         karma = await ethers.getContractAt("Karma", karmaProxy.address);
 
         const ServiceRegistry = await ethers.getContractFactory("MockServiceRegistry");
-        const serviceRegistry = await ServiceRegistry.deploy();
+        serviceRegistry = await ServiceRegistry.deploy();
         await serviceRegistry.deployed();
 
         const ServiceStakingMech = await ethers.getContractFactory("MockServiceStaking");
@@ -65,13 +59,9 @@ describe("AgentMech", function () {
         // Whitelist marketplace in the karma proxy
         await karma.setMechMarketplaceStatuses([mechMarketplace.address], [true]);
 
-        // Mint two agents
-        await agentRegistry.changeManager(deployer.address);
-        await agentRegistry.create(deployer.address, agentHash);
-        await agentRegistry.create(deployer.address, agentHash);
-
-        // Pseudo-create a service
+        // Pseudo-create two services
         await serviceRegistry.setServiceOwner(serviceId, deployer.address);
+        await serviceRegistry.setServiceOwner(serviceId + 1, deployer.address);
 
         // Pseudo-stake mech and requester services
         await serviceStakingMech.setServiceInfo(serviceId, deployer.address);
@@ -82,23 +72,29 @@ describe("AgentMech", function () {
         it("Checking for arguments passed to the constructor", async function () {
             // Zero addresses
             await expect(
-                AgentMech.deploy(AddressZero, unitId, price, AddressZero)
+                AgentMech.deploy(AddressZero, 0, 0, AddressZero)
             ).to.be.revertedWithCustomError(AgentMech, "ZeroAddress");
 
+            // Zero service Id
             await expect(
-                AgentMech.deploy(AddressZero, unitId, price, mechMarketplace.address)
+                AgentMech.deploy(serviceRegistry.address, 0, price, AddressZero)
+            ).to.be.revertedWithCustomError(AgentMech, "ZeroValue");
+
+            // Zero mech marketplace
+            await expect(
+                AgentMech.deploy(serviceRegistry.address, serviceId, price, AddressZero)
             ).to.be.revertedWithCustomError(AgentMech, "ZeroAddress");
 
             // Agent Id does not exist
             await expect(
-                AgentMech.deploy(agentRegistry.address, unitId + 2, price, mechMarketplace.address)
+                AgentMech.deploy(serviceRegistry.address, serviceId + 2, price, mechMarketplace.address)
             ).to.be.reverted;
         });
     });
 
     context("Request", async function () {
         it("Creating an agent mech and doing a request", async function () {
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
+            const agentMech = await AgentMech.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
 
             // Try to post a request directly to the mech
             await expect(
@@ -112,17 +108,17 @@ describe("AgentMech", function () {
 
             // Response time is out of bounds
             await expect(
-                mechMarketplace.request("0x", agentRegistry.address, serviceStakingMech.address, 0,
+                mechMarketplace.request("0x", serviceRegistry.address, serviceStakingMech.address, 0,
                     serviceStakingRequester.address, 0, 0)
             ).to.be.revertedWithCustomError(mechMarketplace, "OutOfBounds");
 
             // Response time is out of bounds
             await expect(
-                mechMarketplace.request("0x", agentRegistry.address, serviceStakingMech.address, 0,
+                mechMarketplace.request("0x", serviceRegistry.address, serviceStakingMech.address, 0,
                     serviceStakingRequester.address, 0, minResponseTimeout - 1)
             ).to.be.revertedWithCustomError(mechMarketplace, "OutOfBounds");
             await expect(
-                mechMarketplace.request("0x", agentRegistry.address, serviceStakingMech.address, 0,
+                mechMarketplace.request("0x", serviceRegistry.address, serviceStakingMech.address, 0,
                     serviceStakingRequester.address, 0, maxResponceTimeout + 1)
             ).to.be.revertedWithCustomError(mechMarketplace, "OutOfBounds");
             // Change max response timeout close to type(uint32).max
@@ -134,19 +130,19 @@ describe("AgentMech", function () {
 
             // Try to request to a mech with an empty data
             await expect(
-                mechMarketplace.request("0x", agentRegistry.address, serviceStakingMech.address, 0,
+                mechMarketplace.request("0x", serviceRegistry.address, serviceStakingMech.address, 0,
                     serviceStakingRequester.address, 0, minResponseTimeout)
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
 
             // Try to request to a mech with a zero service Id
             await expect(
-                mechMarketplace.request(data, agentRegistry.address, serviceStakingMech.address, 0,
+                mechMarketplace.request(data, serviceRegistry.address, serviceStakingMech.address, 0,
                     serviceStakingRequester.address, 0, minResponseTimeout)
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
 
             // Try to request to a mech with an incorrect mech and staking instance address
             await expect(
-                mechMarketplace.request(data, agentRegistry.address, serviceStakingMech.address, serviceId,
+                mechMarketplace.request(data, serviceRegistry.address, serviceStakingMech.address, serviceId,
                     serviceStakingRequester.address, 0, minResponseTimeout)
             ).to.be.reverted;
 
@@ -188,7 +184,7 @@ describe("AgentMech", function () {
 
     context("Deliver", async function () {
         it("Delivering a request by a priority mech", async function () {
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
+            const agentMech = await AgentMech.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Get the non-existent request status
@@ -245,8 +241,8 @@ describe("AgentMech", function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            const priorityMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
-            const deliveryMech = await AgentMech.deploy(agentRegistry.address, unitId + 1, price, mechMarketplace.address);
+            const priorityMech = await AgentMech.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
+            const deliveryMech = await AgentMech.deploy(serviceRegistry.address, serviceId + 1, price, mechMarketplace.address);
             // Register the info for the delivery service mech
             await serviceStakingMech.setServiceInfo(serviceId + 1, deployer.address);
 
@@ -294,7 +290,7 @@ describe("AgentMech", function () {
         });
 
         it("Getting undelivered requests info", async function () {
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
+            const agentMech = await AgentMech.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
 
             const numRequests = 5;
             const datas = new Array();
@@ -403,7 +399,7 @@ describe("AgentMech", function () {
         });
 
         it("Getting undelivered requests info for even and odd requests", async function () {
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
+            const agentMech = await AgentMech.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
 
             const numRequests = 9;
             const datas = new Array();
@@ -446,7 +442,7 @@ describe("AgentMech", function () {
         });
 
         it("Getting undelivered requests info for a specified part of a batch", async function () {
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
+            const agentMech = await AgentMech.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
 
             const numRequests = 10;
             const datas = new Array();
@@ -502,7 +498,7 @@ describe("AgentMech", function () {
 
     context("Changing parameters", async function () {
         it("Set another minimum price", async function () {
-            const agentMech = await AgentMech.deploy(agentRegistry.address, unitId, price, mechMarketplace.address);
+            const agentMech = await AgentMech.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
             await agentMech.setPrice(price + 1);
 
             // Try to set price not by the operator (agent owner)
