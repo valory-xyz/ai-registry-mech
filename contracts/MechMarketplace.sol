@@ -7,15 +7,9 @@ import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 import {IStaking, IStakingFactory} from "./interfaces/IStaking.sol";
 
-interface IMechFactory {
-    /// @dev Registers service as a mech.
-    /// @param mechMarketplace Mech marketplace address.
-    /// @param serviceRegistry Service registry address.
-    /// @param serviceId Service id.
-    /// @param payload Mech creation payload.
-    /// @return mech The created mech instance address.
-    function createMech(address mechMarketplace, address serviceRegistry, uint256 serviceId, bytes memory payload)
-        external returns (address mech);
+interface IMechManager {
+    function increaseRequestsCounts(address requester) external;
+    function increaseDeliveryCounts(address requester, address agentMech, address mechServiceMultisig) external;
 }
 
 // Mech delivery info struct
@@ -31,8 +25,10 @@ struct MechDelivery {
 }
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Silvere Gangloff - <silvere.gangloff@valory.xyz>
 contract MechMarketplace is IErrorsMarketplace {
-    event CreateMech(address indexed mech, uint256 indexed serviceId);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data);
@@ -58,7 +54,9 @@ contract MechMarketplace is IErrorsMarketplace {
     // Maximum response time
     uint256 public immutable maxResponseTimeout;
     // Mech karma contract address
-    address public immutable karmaProxy;
+    address public immutable karma;
+    // Mech manager contract address
+    address public immutable mechManager;
     // Staking factory contract address
     address public immutable stakingFactory;
     // Service registry contract address
@@ -71,6 +69,8 @@ contract MechMarketplace is IErrorsMarketplace {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
+    // Map of request payments
+    mapping(uint256 => uint256) public mapRequestIdPayments;
     // Map of request counts for corresponding requester
     mapping(address => uint256) public mapRequestCounts;
     // Map of delivery counts for corresponding requester
@@ -85,18 +85,21 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev MechMarketplace constructor.
     /// @param _serviceRegistry Service registry contract address.
     /// @param _stakingFactory Staking factory contract address.
-    /// @param _karmaProxy Karma proxy contract address.
+    /// @param _karma Karma proxy contract address.
     /// @param _minResponseTimeout Min response time in sec.
     /// @param _maxResponseTimeout Max response time in sec.
     constructor(
         address _serviceRegistry,
         address _stakingFactory,
-        address _karmaProxy,
+        address _karma,
+        address _mechManager,
         uint256 _minResponseTimeout,
         uint256 _maxResponseTimeout
     ) {
         // Check for zero address
-        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karmaProxy == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0) ||
+            _mechManager == address(0))
+        {
             revert ZeroAddress();
         }
 
@@ -117,7 +120,8 @@ contract MechMarketplace is IErrorsMarketplace {
 
         serviceRegistry = _serviceRegistry;
         stakingFactory = _stakingFactory;
-        karmaProxy = _karmaProxy;
+        karma = _karma;
+        mechManager = _mechManager;
         minResponseTimeout = _minResponseTimeout;
         maxResponseTimeout = _maxResponseTimeout;
 
@@ -139,21 +143,6 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
-    }
-
-    /// @dev Registers service as a mech.
-    /// @param serviceId Service id.
-    /// @param mechFactory Mech factory address.
-    /// @return mech The created mech instance address.
-    function create(uint256 serviceId, address mechFactory, bytes memory payload) external returns (address mech) {
-        mech = IMechFactory(mechFactory).createMech(address(this), serviceRegistry, serviceId, payload);
-
-        // This should never be the case
-        if (mech == address(0)) {
-            revert ZeroAddress();
-        }
-
-        emit CreateMech(mech, serviceId);
     }
 
     /// @dev Registers a request.
@@ -233,7 +222,7 @@ contract MechMarketplace is IErrorsMarketplace {
         mechDelivery.requester = msg.sender;
 
         // Increase mech requester karma
-        IKarma(karmaProxy).changeRequesterMechKarma(msg.sender, priorityMech, 1);
+        IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, 1);
 
         // Record the request count
         mapRequestCounts[msg.sender]++;
@@ -242,8 +231,18 @@ contract MechMarketplace is IErrorsMarketplace {
         // Increase the total number of requests
         numTotalRequests++;
 
+        // Must never happen
+        if (mapRequestIdPayments[requestId] > 0) {
+            revert RequestPaid(requestId);
+        }
+        // Record request payment
+        mapRequestIdPayments[requestId] = msg.value;
+
+        // Record request counts in global sets
+        IMechManager(mechManager).increaseRequestsCounts(msg.sender);
+
         // Process request by a specified priority mech
-        IMech(priorityMech).requestFromMarketplace{value: msg.value}(msg.sender, data, requestId);
+        IMech(priorityMech).requestFromMarketplace(msg.sender, msg.value, data, requestId);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestId, data);
 
@@ -269,7 +268,7 @@ contract MechMarketplace is IErrorsMarketplace {
         _locked = 2;
 
         // Check agent mech and get its mech service multisig
-        address mechService = checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
+        address mechServiceMultisig = checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
 
         // Get the staked service info for the mech
         IStaking.ServiceInfo memory serviceInfo =
@@ -304,7 +303,7 @@ contract MechMarketplace is IErrorsMarketplace {
             // Within the defined response time only a chosen priority mech is able to deliver
             if (block.timestamp > mechDelivery.responseTimeout) {
                 // Decrease priority mech karma as the mech did not deliver
-                IKarma(karmaProxy).changeMechKarma(priorityMech, -1);
+                IKarma(karma).changeMechKarma(priorityMech, -1);
                 // Revoke request from the priority mech
                 IMech(priorityMech).revokeRequest(requestId);
             } else {
@@ -321,10 +320,13 @@ contract MechMarketplace is IErrorsMarketplace {
         // Increase the amount of requester delivered requests
         mapDeliveryCounts[requester]++;
         // Increase the amount of mech service multisig delivered requests
-        mapMechServiceDeliveryCounts[mechService]++;
+        mapMechServiceDeliveryCounts[mechServiceMultisig]++;
+
+        // Record request counts in global sets
+        IMechManager(mechManager).increaseDeliveryCounts(requester, msg.sender, mechServiceMultisig);
 
         // Increase mech karma that delivers the request
-        IKarma(karmaProxy).changeMechKarma(msg.sender, 1);
+        IKarma(karma).changeMechKarma(msg.sender, 1);
 
         emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
 
@@ -353,6 +355,7 @@ contract MechMarketplace is IErrorsMarketplace {
                 getDomainSeparator(),
                 keccak256(
                     abi.encode(
+                        block.timestamp,
                         account,
                         data,
                         nonce
@@ -418,10 +421,10 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroValue();
         }
 
-        // Check marketplace address
-        address checkMarketplace = IMech(mech).mechMarketplace();
-        if (checkMarketplace != address(this)) {
-            revert UnauthorizedAccount(checkMarketplace);
+        // Check mech validity
+        bool status = IMech(mech).checkMechValidity(mech);
+        if (!status) {
+            revert UnauthorizedAccount(mech);
         }
 
         // Check mech service Id and staking instance, if applicable
@@ -491,10 +494,10 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     /// @dev Gets deliveries count for a specific mech service multisig.
-    /// @param mechService Agent mech service multisig address.
+    /// @param mechServiceMultisig Agent mech service multisig address.
     /// @return Deliveries count.
-    function getMechServiceDeliveriesCount(address mechService) external view returns (uint256) {
-        return mapMechServiceDeliveryCounts[mechService];
+    function getMechServiceDeliveriesCount(address mechServiceMultisig) external view returns (uint256) {
+        return mapMechServiceDeliveryCounts[mechServiceMultisig];
     }
 
     /// @dev Gets mech delivery info.

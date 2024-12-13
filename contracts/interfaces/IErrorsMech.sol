@@ -8,10 +8,9 @@ interface IErrorsMech {
     /// @dev Provided zero value.
     error ZeroValue();
 
-    /// @dev Only `marketplace` has a privilege, but the `sender` was provided.
-    /// @param sender Sender address.
-    /// @param manager Required sender address as a manager.
-    error MarketplaceOnly(address sender, address manager);
+    /// @dev Mech marketplace is not authorized.
+    /// @param mechMarketplace Mech marketplace address.
+    error MarketplaceNotAuthorized(address mechMarketplace);
 
     /// @dev Mech marketplace exists.
     /// @param mechMarketplace Mech marketplace address.

@@ -15,6 +15,14 @@ interface IERC721 {
     function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
 }
 
+// Mech manager interface
+interface IMechManager {
+    /// @dev Gets the status of mech marketplace.
+    /// @param mechMarketplace Mech marketplace address.
+    /// @return status True, if the marketplace is whitelisted.
+    function mapMechMarketplaces(address mechMarketplace) external view returns (bool status);
+}
+
 /// @dev A Mech that is operated by the multisig of an Olas service
 contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param _serviceRegistry Address of the registry contract.
@@ -75,7 +83,6 @@ contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 /// @title AgentMech - Smart contract for extending OlasMech
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
 contract AgentMech is OlasMech {
-    event MechMarketplaceUpdated(address indexed mechMarketplace);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestId);
@@ -96,6 +103,8 @@ contract AgentMech is OlasMech {
     bytes32 public immutable domainSeparator;
     // Original chain Id
     uint256 public immutable chainId;
+    // Mech Manager address
+    address public immutable mechManager;
 
     // Minimum required price
     uint256 public price;
@@ -105,8 +114,6 @@ contract AgentMech is OlasMech {
     uint256 public numTotalRequests;
     // Number of total deliveries by this mech
     uint256 public numTotalDeliveries;
-    // Mech marketplace address
-    address public mechMarketplace;
     // Reentrancy lock
     uint256 internal _locked = 1;
 
@@ -124,26 +131,20 @@ contract AgentMech is OlasMech {
     mapping(address => uint256) public mapNonces;
 
     /// @dev AgentMech constructor.
+    /// @param _mechManager Mech manager address.
     /// @param _serviceRegistry Address of the token contract.
     /// @param _serviceId Service Id.
     /// @param _price The minimum required price.
-    /// @param _mechMarketplace Mech marketplace address.
-    constructor(address _serviceRegistry, uint256 _serviceId, uint256 _price, address _mechMarketplace)
+    constructor(address _mechManager, address _serviceRegistry, uint256 _serviceId, uint256 _price)
         OlasMech(_serviceRegistry, _serviceId)
     {
-        // Check for zero address
-        if(_mechMarketplace == address(0)) {
-            revert ZeroAddress();
-        }
-
         // Check for the token to have the owner
         address tokenOwner = IERC721(_serviceRegistry).ownerOf(_serviceId);
         if (tokenOwner == address(0)) {
             revert AgentNotFound(_serviceId);
         }
 
-        // Record the mech marketplace
-        mechMarketplace = _mechMarketplace;
+        mechManager = _mechManager;
         // Record the price
         price = _price;
 
@@ -178,15 +179,17 @@ contract AgentMech is OlasMech {
 
     /// @dev Registers a request.
     /// @param account Requester account address.
+    /// @param payment Supplied request payment.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
     function _request(
         address account,
+        uint256 payment,
         bytes memory data,
         uint256 requestId
     ) internal {
         // Check the request payment
-        _preRequest(msg.value, requestId, data);
+        _preRequest(payment, requestId, data);
 
         // Increase the requests count supplied by the sender
         mapRequestCounts[account]++;
@@ -249,9 +252,10 @@ contract AgentMech is OlasMech {
 
     /// @dev Delivers a request.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
+    /// @param mechMarketplace Mech marketplace address.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
-    function _deliver(uint256 requestId, bytes memory data) internal returns (bytes memory requestData) {
+    function _deliver(address mechMarketplace, uint256 requestId, bytes memory data) internal returns (bytes memory requestData) {
         // Get an account to deliver request to
         address account = mapRequestAddresses[requestId];
 
@@ -291,16 +295,18 @@ contract AgentMech is OlasMech {
     /// @dev Registers a request by a marketplace.
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
     /// @param account Requester account address.
+    /// @param payment Supplied request payment.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
-    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external payable {
+    function requestFromMarketplace(address account, uint256 payment, bytes memory data, uint256 requestId) external {
+        // TODO Shall the mech marketplace be checked for being whitelisted by mechManager? Now it's enforced
         // Check for marketplace access
-        if (msg.sender != mechMarketplace) {
-            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        if (!IMechManager(mechManager).mapMechMarketplaces(msg.sender)) {
+            revert MarketplaceNotAuthorized(msg.sender);
         }
 
         // Perform a request
-        _request(account, data, requestId);
+        _request(account, payment, data, requestId);
     }
 
     /// @dev Revokes the request from the mech that does not deliver it.
@@ -308,9 +314,8 @@ contract AgentMech is OlasMech {
     /// @param requestId Request Id.
     function revokeRequest(uint256 requestId) external {
         // Check for marketplace access
-        // Note if mechMarketplace is zero, this function must never be called
-        if (msg.sender != mechMarketplace) {
-            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        if (!IMechManager(mechManager).mapMechMarketplaces(msg.sender)) {
+            revert MarketplaceNotAuthorized(msg.sender);
         }
 
         address account = mapRequestAddresses[requestId];
@@ -327,11 +332,13 @@ contract AgentMech is OlasMech {
 
     /// @dev Delivers a request by a marketplace.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
+    /// @param mechMarketplace Mech marketplace address.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     /// @param mechStakingInstance Mech staking instance address (optional).
     /// @param mechServiceId Mech operator service Id.
     function deliverToMarketplace(
+        address mechMarketplace,
         uint256 requestId,
         bytes memory data,
         address mechStakingInstance,
@@ -343,13 +350,13 @@ contract AgentMech is OlasMech {
         }
         _locked = 2;
 
-        // Check for zero address
-        if (mechMarketplace == address(0)) {
-            revert ZeroAddress();
+        // Check for marketplace access
+        if (!IMechManager(mechManager).mapMechMarketplaces(mechMarketplace)) {
+            revert MarketplaceNotAuthorized(mechMarketplace);
         }
 
         // Request delivery
-        bytes memory requestData = _deliver(requestId, data);
+        bytes memory requestData = _deliver(mechMarketplace, requestId, data);
 
         // Mech marketplace delivery finalization if the request was not delivered already
         if (requestData.length > 0) {

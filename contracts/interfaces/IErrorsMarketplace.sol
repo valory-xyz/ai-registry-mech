@@ -62,6 +62,10 @@ interface IErrorsMarketplace {
     /// @param requestId Request Id.
     error AlreadyDelivered(uint256 requestId);
 
+    /// @dev The request is already paid for.
+    /// @param requestId Request Id.
+    error RequestPaid(uint256 requestId);
+
     /// @dev Priority mech response timeout is not yet met.
     /// @param expected Expected timestamp.
     /// @param current Current timestamp.
