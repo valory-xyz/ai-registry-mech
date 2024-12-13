@@ -10,6 +10,8 @@ import {IStaking, IStakingFactory} from "./interfaces/IStaking.sol";
 interface IMechManager {
     function increaseRequestsCounts(address requester) external;
     function increaseDeliveryCounts(address requester, address agentMech, address mechServiceMultisig) external;
+    // Universal mech marketplace fee
+    function fee() external returns (uint256);
 }
 
 // Mech delivery info struct
@@ -32,6 +34,7 @@ contract MechMarketplace is IErrorsMarketplace {
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data);
+    event DeliveryPayment(uint256 indexed requestId, address indexed deliveryMech, uint256 payment, uint256 fee);
 
     enum RequestStatus {
         DoesNotExist,
@@ -62,6 +65,8 @@ contract MechMarketplace is IErrorsMarketplace {
     // Service registry contract address
     address public immutable serviceRegistry;
 
+    // Collected fees
+    uint256 public collectedFees;
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
     // Number of total requests
@@ -143,6 +148,39 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
+    }
+
+    /// @dev Processes payment for request delivery.
+    /// @param deliveryMech Delivery agent mech address.
+    /// @param requestId Request id.
+    function _processPayment(address deliveryMech, uint256 requestId) internal virtual {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Get request Id payment
+        uint256 payment = mapRequestIdPayments[requestId];
+
+        // Process payment
+        if (payment > 0) {
+            uint256 fee = IMechManager(mechManager).fee();
+            payment = payment - (payment * fee) / 100;
+
+            // Transfer payment
+            (bool success, ) = deliveryMech.call{value: msg.value}("");
+            if (!success) {
+                revert TransferFailed(address(0), address(this), deliveryMech, payment);
+            }
+
+            // Update collected fees
+            collectedFees += fee;
+
+            emit DeliveryPayment(requestId, deliveryMech, payment, fee);
+        }
+
+        _locked = 1;
     }
 
     /// @dev Registers a request.
@@ -328,9 +366,19 @@ contract MechMarketplace is IErrorsMarketplace {
         // Increase mech karma that delivers the request
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
+        // Process payment
+        _processPayment(msg.sender, requestId);
+
         emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
 
         _locked = 1;
+    }
+
+    // TODO: send to BBB, wrap first or manage on BBB side?
+    function drain() external {
+        if (collectedFees == 0) {
+            revert ZeroValue();
+        }
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.

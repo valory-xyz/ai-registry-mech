@@ -70,4 +70,11 @@ interface IErrorsMarketplace {
     /// @param expected Expected timestamp.
     /// @param current Current timestamp.
     error PriorityMechResponseTimeout(uint256 expected, uint256 current);
+
+    /// @dev Failure of a transfer.
+    /// @param token Address of a token.
+    /// @param from Address `from`.
+    /// @param to Address `to`.
+    /// @param amount Amount value.
+    error TransferFailed(address token, address from, address to, uint256 amount);
 }
