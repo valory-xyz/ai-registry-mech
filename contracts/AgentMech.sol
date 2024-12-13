@@ -288,23 +288,6 @@ contract AgentMech is OlasMech {
         emit Deliver(msg.sender, requestId, requestData);
     }
 
-    /// @dev Registers a request without a marketplace.
-    /// @notice Interface provided for backwards compatibility only.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @return requestId Request Id.
-    function request(bytes memory data) external payable returns (uint256 requestId) {
-        if (mechMarketplace != address(0)) {
-            revert MarketplaceExists(mechMarketplace);
-        }
-
-        // Get the local request Id
-        requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
-        mapNonces[msg.sender]++;
-
-        // Perform a request
-        _request(msg.sender, data, requestId);
-    }
-
     /// @dev Registers a request by a marketplace.
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
     /// @param account Requester account address.
@@ -340,28 +323,6 @@ contract AgentMech is OlasMech {
         _cleanRequestInfo(account, requestId);
 
         emit RevokeRequest(account, requestId);
-    }
-
-    /// @dev Delivers a request without a marketplace.
-    /// @notice Interface provided for backwards compatibility only.
-    /// @param requestId Request id.
-    /// @param data Self-descriptive opaque data-blob.
-    function deliver(uint256 requestId, bytes memory data) external onlyOperator {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Check for the marketplace existence
-        if (mechMarketplace != address(0)) {
-            revert MarketplaceExists(mechMarketplace);
-        }
-
-        // Request delivery
-        _deliver(requestId, data);
-
-        _locked = 1;
     }
 
     /// @dev Delivers a request by a marketplace.
