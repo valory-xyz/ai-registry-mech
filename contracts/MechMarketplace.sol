@@ -18,6 +18,18 @@ interface IMechFactory {
         external returns (address mech);
 }
 
+interface IToken {
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+interface IWrappedToken {
+    function deposit() external payable;
+}
+
 // Mech delivery info struct
 struct MechDelivery {
     // Priority mech address
@@ -45,6 +57,7 @@ contract MechMarketplace is IErrorsMarketplace {
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data);
     event DeliveryPayment(uint256 indexed requestId, address indexed deliveryMech, uint256 payment, uint256 fee);
+    event Drained(uint256 collectedFees);
 
     enum RequestStatus {
         DoesNotExist,
@@ -74,6 +87,10 @@ contract MechMarketplace is IErrorsMarketplace {
     address public immutable stakingFactory;
     // Service registry contract address
     address public immutable serviceRegistry;
+    // Wrapped native token address
+    address public immutable wrappedNativeToken;
+    // Buy back burner address
+    address public immutable buyBackBurner;
 
     // TODO: if the fee is defined here, needs its changing function
     // Universal mech marketplace fee (max of 10_000 == 100%)
@@ -84,6 +101,8 @@ contract MechMarketplace is IErrorsMarketplace {
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
+    // Number of created mechs
+    uint256 public numMechs;
     // Reentrancy lock
     uint256 internal _locked = 1;
 
@@ -106,22 +125,31 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => address) public mapAgentMechFactories;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
+    // Set of mechs created by this marketplace
+    address[] public setMechs;
 
+
+    // TODO: able to change min/max ResponseTimeout?
     /// @dev MechMarketplace constructor.
     /// @param _serviceRegistry Service registry contract address.
     /// @param _stakingFactory Staking factory contract address.
     /// @param _karma Karma proxy contract address.
+    /// @param _wrappedNativeToken Wrapped native token address.
+    /// @param _buyBackBurner Buy back burner address.
     /// @param _minResponseTimeout Min response time in sec.
     /// @param _maxResponseTimeout Max response time in sec.
     constructor(
         address _serviceRegistry,
         address _stakingFactory,
         address _karma,
+        address _wrappedNativeToken,
+        address _buyBackBurner,
         uint256 _minResponseTimeout,
         uint256 _maxResponseTimeout
     ) {
         // Check for zero address
-        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0) ||
+            _wrappedNativeToken == address(0) || _buyBackBurner == address(0)) {
             revert ZeroAddress();
         }
 
@@ -143,6 +171,8 @@ contract MechMarketplace is IErrorsMarketplace {
         serviceRegistry = _serviceRegistry;
         stakingFactory = _stakingFactory;
         karma = _karma;
+        wrappedNativeToken = _wrappedNativeToken;
+        buyBackBurner = _buyBackBurner;
         minResponseTimeout = _minResponseTimeout;
         maxResponseTimeout = _maxResponseTimeout;
 
@@ -174,6 +204,10 @@ contract MechMarketplace is IErrorsMarketplace {
 
         owner = msg.sender;
         fee = _fee;
+    }
+
+    function _wrap(uint256 amount) internal virtual {
+        IWrappedToken(wrappedNativeToken).deposit{value: amount}();
     }
 
     /// @dev Changes contract owner address.
@@ -233,6 +267,10 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Record factory that created agent mech
         mapAgentMechFactories[mech] = mechFactory;
+        // Add mech address into the global set
+        setMechs.push(mech);
+        // Adjust the global mech counter
+        numMechs = setMechs.length;
 
         emit CreateMech(mech, serviceId);
     }
@@ -443,7 +481,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
     /// @dev Processes payment for request delivery.
     /// @param requestId Request id.
-    function processPayment(uint256 requestId) external {
+    function processPayment(uint256 requestId) external virtual {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -470,6 +508,8 @@ contract MechMarketplace is IErrorsMarketplace {
                 revert TransferFailed(address(0), address(this), msg.sender, payment);
             }
 
+            _wrap(localCollectedFee);
+
             // Update collected fees
             collectedFees += localCollectedFee;
 
@@ -479,11 +519,29 @@ contract MechMarketplace is IErrorsMarketplace {
         _locked = 1;
     }
 
-    // TODO: send to BBB, wrap first or manage on BBB side?
+    /// @dev Drains collected fees by sending them to a Buy back burner contract.
     function drain() external {
-        if (collectedFees == 0) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        uint256 localCollectedFees = collectedFees;
+
+        // Check for zero value
+        if (localCollectedFees == 0) {
             revert ZeroValue();
         }
+
+        collectedFees = 0;
+
+        // Transfer to Buy back burner
+        IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
+
+        emit Drained(localCollectedFees);
+
+        _locked = 1;
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
