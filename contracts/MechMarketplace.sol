@@ -50,13 +50,15 @@ struct MechDelivery {
 /// @author Silvere Gangloff - <silvere.gangloff@valory.xyz>
 contract MechMarketplace is IErrorsMarketplace {
     event CreateMech(address indexed mech, uint256 indexed serviceId);
-    event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
+    event ImplementationUpdated(address indexed implementation);
+    event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
-        uint256 requestId, bytes data);
-    event DeliveryPayment(uint256 indexed requestId, address indexed deliveryMech, uint256 payment, uint256 fee);
+        uint256 requestId, bytes data, uint256 mechPayment, uint256 marketplaceFee);
+    event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 payment, uint256 fee);
+    event Withdraw(address indexed mech, uint256 amount);
     event Drained(uint256 collectedFees);
 
     enum RequestStatus {
@@ -77,10 +79,6 @@ contract MechMarketplace is IErrorsMarketplace {
     bytes32 public immutable domainSeparator;
     // Original chain Id
     uint256 public immutable chainId;
-    // Minimum response time
-    uint256 public immutable minResponseTimeout;
-    // Maximum response time
-    uint256 public immutable maxResponseTimeout;
     // Mech karma contract address
     address public immutable karma;
     // Staking factory contract address
@@ -91,10 +89,13 @@ contract MechMarketplace is IErrorsMarketplace {
     address public immutable wrappedNativeToken;
     // Buy back burner address
     address public immutable buyBackBurner;
-
-    // TODO: if the fee is defined here, needs its changing function
+    
     // Universal mech marketplace fee (max of 10_000 == 100%)
     uint256 public fee;
+    // Minimum response time
+    uint256 public minResponseTimeout;
+    // Maximum response time
+    uint256 public maxResponseTimeout;
     // Collected fees
     uint256 public collectedFees;
     // Number of undelivered requests
@@ -113,7 +114,7 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => uint256) public mapRequestCounts;
     // Map of delivery counts for corresponding requester
     mapping(address => uint256) public mapDeliveryCounts;
-    // Map of delivery counts for agent mech
+    // Map of delivery counts for mechs
     mapping(address => uint256) public mapAgentMechDeliveryCounts;
     // Map of delivery counts for corresponding mech service multisig
     mapping(address => uint256) public mapMechServiceDeliveryCounts;
@@ -121,8 +122,10 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
     // Mapping of whitelisted mech factories
     mapping(address => bool) public mapMechFactories;
-    // Map of agent mech => its creating factory
+    // Map of mech => its creating factory
     mapping(address => address) public mapAgentMechFactories;
+    // Map of mech => its current balance
+    mapping(address => uint256) public mapMechBalances;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
     // Set of mechs created by this marketplace
@@ -136,6 +139,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param _karma Karma proxy contract address.
     /// @param _wrappedNativeToken Wrapped native token address.
     /// @param _buyBackBurner Buy back burner address.
+    /// @param _fee Marketplace fee.
     /// @param _minResponseTimeout Min response time in sec.
     /// @param _maxResponseTimeout Max response time in sec.
     constructor(
@@ -144,6 +148,7 @@ contract MechMarketplace is IErrorsMarketplace {
         address _karma,
         address _wrappedNativeToken,
         address _buyBackBurner,
+        uint256 _fee,
         uint256 _minResponseTimeout,
         uint256 _maxResponseTimeout
     ) {
@@ -154,8 +159,13 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Check for zero values
-        if (_minResponseTimeout == 0 || _maxResponseTimeout == 0) {
+        if (_fee == 0 || _minResponseTimeout == 0 || _maxResponseTimeout == 0) {
             revert ZeroValue();
+        }
+
+        // Check for fee value
+        if (_fee > 10_000) {
+            revert Overflow(_fee, 10_000);
         }
 
         // Check for sanity values
@@ -194,6 +204,29 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
+    }
+
+    /// @dev Calculates payment for request delivery.
+    /// @param mech Delivery mech address.
+    /// @param payment Payment amount.
+    function _calculatePayment(
+        address mech,
+        uint256 payment
+    ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
+        // This must never be zero
+        if (payment > 0) {
+            // Process payment
+            marketplaceFee = (payment * fee) / 10_000;
+            mechPayment = payment - marketplaceFee;
+
+            // Check for zero value
+            if (mechPayment == 0) {
+                revert ZeroValue();
+            }
+
+            // Record payment into mech balance
+            mapMechBalances[mech] += mechPayment;
+        }
     }
 
     /// @dev MechMarketplace initializer.
@@ -249,6 +282,43 @@ contract MechMarketplace is IErrorsMarketplace {
         emit ImplementationUpdated(newImplementation);
     }
 
+    function changeMarketplaceParams(
+        uint256 newFee,
+        uint256 newMinResponseTimeout,
+        uint256 newMaxResponseTimeout
+    ) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for zero values
+        if (newFee == 0 || newMinResponseTimeout == 0 || newMaxResponseTimeout == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for fee value
+        if (newFee > 10_000) {
+            revert Overflow(newFee, 10_000);
+        }
+
+        // Check for sanity values
+        if (newMinResponseTimeout > newMaxResponseTimeout) {
+            revert Overflow(newMinResponseTimeout, newMaxResponseTimeout);
+        }
+
+        // responseTimeout limits
+        if (newMaxResponseTimeout > type(uint32).max) {
+            revert Overflow(newMaxResponseTimeout, type(uint32).max);
+        }
+
+        fee = newFee;
+        minResponseTimeout = newMinResponseTimeout;
+        maxResponseTimeout = newMaxResponseTimeout;
+
+        emit MarketplaceParamsUpdated(newFee, newMinResponseTimeout, newMaxResponseTimeout);
+    }
+
     /// @dev Registers service as a mech.
     /// @param serviceId Service id.
     /// @param mechFactory Mech factory address.
@@ -266,7 +336,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroAddress();
         }
 
-        // Record factory that created agent mech
+        // Record factory that created a mech
         mapAgentMechFactories[mech] = mechFactory;
         // Add mech address into the global set
         setMechs.push(mech);
@@ -301,8 +371,9 @@ contract MechMarketplace is IErrorsMarketplace {
         emit SetMechFactoryStatuses(mechFactories, statuses);
     }
 
+    // TODO: leave optional fields or remove?
     /// @dev Registers a request.
-    /// @notice The request is going to be registered for a specified priority agent mech.
+    /// @notice The request is going to be registered for a specified priority mech.
     /// @param data Self-descriptive opaque data-blob.
     /// @param priorityMech Address of a priority mech.
     /// @param priorityMechStakingInstance Address of a priority mech staking instance (optional).
@@ -355,7 +426,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroValue();
         }
 
-        // Check agent mech
+        // Check priority mech
         checkMech(priorityMech, priorityMechStakingInstance, priorityMechServiceId);
 
         // Check requester
@@ -398,7 +469,7 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     /// @dev Delivers a request.
-    /// @notice This function can only be called by the agent mech delivering the request.
+    /// @notice This function can only be called by the mech delivering the request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
     /// @param deliveryMechStakingInstance Delivery mech staking instance address (optional).
@@ -415,16 +486,8 @@ contract MechMarketplace is IErrorsMarketplace {
         }
         _locked = 2;
 
-        // Check agent mech and get its mech service multisig
+        // Check delivery mech and get its service multisig
         address mechServiceMultisig = checkMech(msg.sender, deliveryMechStakingInstance, deliveryMechServiceId);
-
-        // Get the staked service info for the mech
-        IStaking.ServiceInfo memory serviceInfo =
-            IStaking(deliveryMechStakingInstance).getServiceInfo(deliveryMechServiceId);
-        // Check that staked service multisig is the priority mech mech service
-        if (!IMech(msg.sender).isOperator(serviceInfo.multisig)) {
-            revert UnauthorizedAccount(msg.sender);
-        }
 
         // Get mech delivery info struct
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
@@ -467,7 +530,7 @@ contract MechMarketplace is IErrorsMarketplace {
         numUndeliveredRequests--;
         // Increase the amount of requester delivered requests
         mapDeliveryCounts[requester]++;
-        // Increase the amount of agent mech delivery counts
+        // Increase the amount of mech delivery counts
         mapAgentMechDeliveryCounts[msg.sender]++;
         // Increase the amount of mech service multisig delivered requests
         mapMechServiceDeliveryCounts[mechServiceMultisig]++;
@@ -475,48 +538,36 @@ contract MechMarketplace is IErrorsMarketplace {
         // Increase mech karma that delivers the request
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
+        // Process payment
+        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, mechDelivery.payment);
+
+        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData, mechPayment, marketplaceFee);
 
         _locked = 1;
     }
 
-    /// @dev Processes payment for request delivery.
-    /// @param requestId Request id.
-    function processPayment(uint256 requestId) external virtual {
+    /// @dev Withdraws funds for a specific mech.
+    function withdraw() external virtual {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        // Check that request was delivered by msg.sender
-        MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
-        if (msg.sender != mechDelivery.deliveryMech) {
+        // Get mech balance
+        uint256 balance = mapMechBalances[msg.sender];
+        if (balance == 0) {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        // Get request Id payment
-        uint256 payment = mechDelivery.payment;
-
-        // Process payment
-        if (payment > 0) {
-            uint256 localCollectedFee = (payment * fee) / 10_000;
-            payment = payment - localCollectedFee;
-
-            // Transfer payment
-            // solhint-disable-next-line avoid-low-level-calls
-            (bool success, ) = msg.sender.call{value: payment}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), msg.sender, payment);
-            }
-
-            _wrap(localCollectedFee);
-
-            // Update collected fees
-            collectedFees += localCollectedFee;
-
-            emit DeliveryPayment(requestId, msg.sender, payment, localCollectedFee);
+        // Transfer balance
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, ) = msg.sender.call{value: balance}("");
+        if (!success) {
+            revert TransferFailed(address(0), address(this), msg.sender, balance);
         }
+
+        emit Withdraw(msg.sender, balance);
 
         _locked = 1;
     }
@@ -537,6 +588,9 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         collectedFees = 0;
+
+        // Wrap native tokens
+        _wrap(localCollectedFees);
 
         // Transfer to Buy back burner
         IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
@@ -706,7 +760,7 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     // TODO Check if needed
-    /// @dev Gets deliveries count for a specific agent mech.
+    /// @dev Gets deliveries count for a specific mech.
     /// @param agentMech Agent mech address.
     /// @return Deliveries count.
     function getAgentMechDeliveriesCount(address agentMech) external view returns (uint256) {
