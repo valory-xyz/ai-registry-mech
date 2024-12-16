@@ -95,7 +95,7 @@ contract AgentMech is OlasMech {
     bytes32 public immutable domainSeparator;
     // Original chain Id
     uint256 public immutable chainId;
-    // Mech marketplace address.
+    // Mech marketplace address
     address public immutable mechMarketplace;
 
     // Minimum required price

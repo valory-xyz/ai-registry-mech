@@ -73,6 +73,7 @@ contract MechMarketplace is IErrorsMarketplace {
     // Service registry contract address
     address public immutable serviceRegistry;
 
+    // TODO: if the fee is defined here, needs its changing function
     // Universal mech marketplace fee (max of 10_000 == 100%)
     uint256 public fee;
     // Collected fees
@@ -163,39 +164,6 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
-    }
-
-    /// @dev Processes payment for request delivery.
-    /// @param deliveryMech Delivery agent mech address.
-    /// @param requestId Request id.
-    function _processPayment(address deliveryMech, uint256 requestId) internal virtual {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get request Id payment
-        uint256 payment = mapRequestIdPayments[requestId];
-
-        // Process payment
-        if (payment > 0) {
-            uint256 localCollectedFee = (payment * fee) / 10_000;
-            payment = payment - localCollectedFee;
-
-            // Transfer payment
-            (bool success, ) = deliveryMech.call{value: msg.value}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), deliveryMech, payment);
-            }
-
-            // Update collected fees
-            collectedFees += localCollectedFee;
-
-            emit DeliveryPayment(requestId, deliveryMech, payment, localCollectedFee);
-        }
-
-        _locked = 1;
     }
 
     /// @dev MechMarketplace initializer.
@@ -473,10 +441,45 @@ contract MechMarketplace is IErrorsMarketplace {
         // Increase mech karma that delivers the request
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
-        // Process payment
-        _processPayment(msg.sender, requestId);
-
         emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
+
+        _locked = 1;
+    }
+
+    /// @dev Processes payment for request delivery.
+    /// @param requestId Request id.
+    function processPayment(uint256 requestId) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check that request was delivered by msg.sender
+        MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
+        if (msg.sender != mechDelivery.deliveryMech) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        // Get request Id payment
+        uint256 payment = mapRequestIdPayments[requestId];
+
+        // Process payment
+        if (payment > 0) {
+            uint256 localCollectedFee = (payment * fee) / 10_000;
+            payment = payment - localCollectedFee;
+
+            // Transfer payment
+            (bool success, ) = msg.sender.call{value: payment}("");
+            if (!success) {
+                revert TransferFailed(address(0), address(this), msg.sender, payment);
+            }
+
+            // Update collected fees
+            collectedFees += localCollectedFee;
+
+            emit DeliveryPayment(requestId, msg.sender, payment, localCollectedFee);
+        }
 
         _locked = 1;
     }
