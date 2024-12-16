@@ -73,7 +73,7 @@ contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 }
 
 /// @title AgentMech - Smart contract for extending OlasMech
-/// @dev A Mech that is operated by the holder of an ERC721 non-fungible token.
+/// @dev An OlasMech that accepts a fixed price payment for services.
 contract AgentMech is OlasMech {
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
