@@ -27,7 +27,9 @@ struct MechDelivery {
     // Requester address
     address requester;
     // Response timeout window
-    uint32 responseTimeout;
+    uint256 responseTimeout;
+    // Payment amount
+    uint256 payment;
 }
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
@@ -88,8 +90,6 @@ contract MechMarketplace is IErrorsMarketplace {
     // Contract owner
     address public owner;
 
-    // Map of request payments
-    mapping(uint256 => uint256) public mapRequestIdPayments;
     // Map of request counts for corresponding requester
     mapping(address => uint256) public mapRequestCounts;
     // Map of delivery counts for corresponding requester
@@ -334,9 +334,11 @@ contract MechMarketplace is IErrorsMarketplace {
         // Record priorityMech and response timeout
         mechDelivery.priorityMech = priorityMech;
         // responseTimeout from relative time to absolute time
-        mechDelivery.responseTimeout = uint32(responseTimeout + block.timestamp);
+        mechDelivery.responseTimeout = responseTimeout + block.timestamp;
         // Record request account
         mechDelivery.requester = msg.sender;
+        // Record payment for request
+        mechDelivery.payment = msg.value;
 
         // Increase mech requester karma
         IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, 1);
@@ -347,13 +349,6 @@ contract MechMarketplace is IErrorsMarketplace {
         numUndeliveredRequests++;
         // Increase the total number of requests
         numTotalRequests++;
-
-        // Must never happen
-        if (mapRequestIdPayments[requestId] > 0) {
-            revert RequestPaid(requestId);
-        }
-        // Record request payment
-        mapRequestIdPayments[requestId] = msg.value;
 
         // Process request by a specified priority mech
         IMech(priorityMech).requestFromMarketplace(msg.sender, msg.value, data, requestId);
@@ -462,7 +457,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Get request Id payment
-        uint256 payment = mapRequestIdPayments[requestId];
+        uint256 payment = mechDelivery.payment;
 
         // Process payment
         if (payment > 0) {
@@ -579,9 +574,8 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroValue();
         }
 
-        // Check mech validity
-        bool status = IMech(mech).checkMechValidity(mech);
-        if (!status) {
+        // Check mech validity as it must be created and recorded via this marketplace
+        if (mapAgentMechFactories[mech] == address(0)) {
             revert UnauthorizedAccount(mech);
         }
 
@@ -592,16 +586,6 @@ contract MechMarketplace is IErrorsMarketplace {
         if (!IMech(mech).isOperator(multisig)) {
             revert UnauthorizedAccount(mech);
         }
-    }
-
-    // TODO Check if relevant
-    /// @dev Validates agent mech.
-    /// @param agentMech Agent mech address.
-    /// @return status True, if the mech is valid.
-    function checkMechValidity(address agentMech) external view returns (bool status) {
-        // TODO: shall we also check the status of the factory?
-        // TODO: if yes, what if the factory was de-whitelisted? all the mechs then become invalid
-        status = mapAgentMechFactories[agentMech] != address(0);
     }
 
     /// @dev Checks for requester validity.
