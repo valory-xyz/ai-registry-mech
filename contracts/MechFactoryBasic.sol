@@ -34,7 +34,7 @@ contract MechFactoryBasic {
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new AgentMech){salt: salt}(serviceRegistry, serviceId, price, mechMarketplace));
+        mech = address((new AgentMech){salt: salt}(mechMarketplace, serviceRegistry, serviceId, price));
 
         emit CreateBasicMech(mech, serviceId, price);
     }

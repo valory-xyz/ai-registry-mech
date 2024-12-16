@@ -36,8 +36,8 @@ contract MechFactorySubscription {
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new AgentMechSubscription){salt: salt}(serviceRegistry, serviceId, minCreditsPerRequest,
-            subscriptionNFT, subscriptionTokenId, mechMarketplace));
+        mech = address((new AgentMechSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
+            minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
 
         emit CreateSubscriptionMech(mech, serviceId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
     }

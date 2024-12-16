@@ -8,16 +8,13 @@ interface IMech {
 
     /// @dev Registers a request by a marketplace.
     /// @param account Requester account address.
+    /// @param payment Supplied request payment.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
-    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external payable;
+    function requestFromMarketplace(address account, uint256 payment, bytes memory data, uint256 requestId) external;
 
     /// @dev Revokes the request from the mech that does not deliver it.
     /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
     /// @param requestId Request Id.
     function revokeRequest(uint256 requestId) external;
-
-    /// @dev Gets mech marketplace address.
-    /// @return marketplace Mech Marketplace address.
-    function mechMarketplace() external view returns (address marketplace);
 }

@@ -13,9 +13,13 @@ interface IErrorsMarketplace {
     /// @dev Provided zero value.
     error ZeroValue();
 
-    /// @dev Agent does not exist.
-    /// @param agentId Agent Id.
-    error AgentNotFound(uint256 agentId);
+    /// @dev The contract is already initialized.
+    error AlreadyInitialized();
+
+    /// @dev Wrong length of two arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
     /// @dev Not enough value paid.
     /// @param provided Provided amount.
@@ -62,8 +66,19 @@ interface IErrorsMarketplace {
     /// @param requestId Request Id.
     error AlreadyDelivered(uint256 requestId);
 
+    /// @dev The request is already paid for.
+    /// @param requestId Request Id.
+    error RequestPaid(uint256 requestId);
+
     /// @dev Priority mech response timeout is not yet met.
     /// @param expected Expected timestamp.
     /// @param current Current timestamp.
     error PriorityMechResponseTimeout(uint256 expected, uint256 current);
+
+    /// @dev Failure of a transfer.
+    /// @param token Address of a token.
+    /// @param from Address `from`.
+    /// @param to Address `to`.
+    /// @param amount Amount value.
+    error TransferFailed(address token, address from, address to, uint256 amount);
 }
