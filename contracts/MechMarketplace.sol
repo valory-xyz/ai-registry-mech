@@ -241,6 +241,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Store the mechMarketplace implementation address
+        // solhint-disable-next-line avoid-low-level-calls
         assembly {
             sstore(MECH_MARKETPLACE_PROXY, newImplementation)
         }
@@ -503,6 +504,7 @@ contract MechMarketplace is IErrorsMarketplace {
             payment = payment - localCollectedFee;
 
             // Transfer payment
+            // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = msg.sender.call{value: payment}("");
             if (!success) {
                 revert TransferFailed(address(0), address(this), msg.sender, payment);

@@ -65,4 +65,13 @@ contract MechMarketplaceProxy {
             return(0, returndatasize())
         }
     }
+
+    /// @dev Gets the implementation address.
+    /// @return implementation Implementation address.
+    function getImplementation() external view returns (address implementation) {
+        // solhint-disable-next-line avoid-low-level-calls
+        assembly {
+            implementation := sload(MECH_MARKETPLACE_PROXY)
+        }
+    }
 }

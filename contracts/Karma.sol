@@ -67,6 +67,7 @@ contract Karma {
         }
 
         // Store the karma implementation address
+        // solhint-disable-next-line avoid-low-level-calls
         assembly {
             sstore(KARMA_PROXY, newImplementation)
         }
@@ -150,6 +151,7 @@ contract Karma {
     /// @dev Gets the implementation address.
     /// @return implementation Implementation address.
     function getImplementation() external view returns (address implementation) {
+        // solhint-disable-next-line avoid-low-level-calls
         assembly {
             implementation := sload(KARMA_PROXY)
         }
