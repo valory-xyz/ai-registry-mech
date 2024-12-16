@@ -3,12 +3,6 @@ pragma solidity ^0.8.28;
 
 import {OlasMech} from "./OlasMech.sol";
 
-//import {IErrorsMech} from "./interfaces/IErrorsMech.sol";
-//import {IMechMarketplace} from "./interfaces/IMechMarketplace.sol";
-//import {ImmutableStorage} from "../lib/gnosis-mech/contracts/base/ImmutableStorage.sol";
-//import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
-//import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
-
 /// @title MechFixedPrice - Smart contract for OlasMech that accepts a fixed price payment for services.
 contract MechFixedPrice is OlasMech {
     event PriceUpdated(uint256 price);
