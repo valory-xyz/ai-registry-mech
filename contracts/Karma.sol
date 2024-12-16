@@ -37,7 +37,6 @@ contract Karma {
     // Contract owner
     address public owner;
 
-    // TODO This must be fetched from mech manager and be removed / inaccessible from here
     // Mapping of whitelisted marketplaces
     mapping(address => bool) public mapMechMarketplaces;
     // Mapping of mech address => karma
