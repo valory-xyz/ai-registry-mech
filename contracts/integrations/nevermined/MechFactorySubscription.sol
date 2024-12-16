@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {AgentMechSubscription} from "./AgentMechSubscription.sol";
+import {MechNeverminedSubscription} from "./MechNeverminedSubscription.sol";
 
 /// @title Mech Factory Subscription - Periphery smart contract for managing subscription mech creation
 contract MechFactorySubscription {
@@ -36,7 +36,7 @@ contract MechFactorySubscription {
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new AgentMechSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
+        mech = address((new MechNeverminedSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
             minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
 
         emit CreateSubscriptionMech(mech, serviceId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
