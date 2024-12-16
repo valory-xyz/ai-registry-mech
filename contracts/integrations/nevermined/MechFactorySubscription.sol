@@ -12,13 +12,13 @@ contract MechFactorySubscription {
     string public constant VERSION = "0.1.0";
 
     /// @dev Registers service as a mech.
-    /// @param mechManager Mech manager address.
+    /// @param mechMarketplace Mech marketplace address.
     /// @param serviceRegistry Service registry address.
     /// @param serviceId Service id.
     /// @param payload Mech creation payload.
     /// @return mech The created mech instance address.
     function createMech(
-        address mechManager,
+        address mechMarketplace,
         address serviceRegistry,
         uint256 serviceId,
         bytes memory payload
@@ -36,7 +36,7 @@ contract MechFactorySubscription {
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new AgentMechSubscription){salt: salt}(mechManager, serviceRegistry, serviceId,
+        mech = address((new AgentMechSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
             minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
 
         emit CreateSubscriptionMech(mech, serviceId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);

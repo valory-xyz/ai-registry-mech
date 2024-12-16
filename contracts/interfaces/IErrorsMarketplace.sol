@@ -13,9 +13,13 @@ interface IErrorsMarketplace {
     /// @dev Provided zero value.
     error ZeroValue();
 
-    /// @dev Agent does not exist.
-    /// @param agentId Agent Id.
-    error AgentNotFound(uint256 agentId);
+    /// @dev The contract is already initialized.
+    error AlreadyInitialized();
+
+    /// @dev Wrong length of two arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
     /// @dev Not enough value paid.
     /// @param provided Provided amount.

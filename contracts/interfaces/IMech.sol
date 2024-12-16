@@ -17,9 +17,4 @@ interface IMech {
     /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
     /// @param requestId Request Id.
     function revokeRequest(uint256 requestId) external;
-
-    /// @dev Validates agent mech.
-    /// @param agentMech Agent mech address.
-    /// @return status True, if the mech is valid.
-    function checkMechValidity(address agentMech) external view returns (bool status);
 }

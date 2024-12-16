@@ -4,49 +4,49 @@ pragma solidity ^0.8.28;
 /// @dev Zero implementation address.
 error ZeroImplementationAddress();
 
-/// @dev Zero mechManager data.
-error ZeroMechManagerData();
+/// @dev Zero initialization data.
+error ZeroData();
 
 /// @dev Proxy initialization failed.
 error InitializationFailed();
 
 /*
-* This is a MechManager proxy contract.
+* This is a MechMarketplace proxy contract.
 * Proxy implementation is created based on the Universal Upgradeable Proxy Standard (UUPS) EIP-1822.
 * The implementation address must be located in a unique storage slot of the proxy contract.
 * The upgrade logic must be located in the implementation contract.
-* Special mechManager implementation address slot is produced by hashing the "MECH_MANAGER_PROXY"
+* Special mechMarketplace implementation address slot is produced by hashing the "MECH_MARKETPLACE_PROXY"
 * string in order to make the slot unique.
 * The fallback() implementation for all the delegatecall-s is inspired by the Gnosis Safe set of contracts.
 */
 
-/// @title MechManagerProxy - Smart contract for mech manager proxy
+/// @title MechMarketplaceProxy - Smart contract for mech marketplace proxy
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
-contract MechManagerProxy {
-    // Code position in storage is keccak256("MECH_MANAGER_PROXY") = "0x4d988168e3618e8ed79943415869916bdedf776fc6197c43f9336905a622dab2"
-    bytes32 public constant MECH_MANAGER_PROXY = 0x4d988168e3618e8ed79943415869916bdedf776fc6197c43f9336905a622dab2;
+contract MechMarketplaceProxy {
+    // Code position in storage is keccak256("MECH_MARKETPLACE_PROXY") = "0xe6194b93a7bff0a54130ed8cd277223408a77f3e48bb5104a9db96d334f962ca"
+    bytes32 public constant MECH_MARKETPLACE_PROXY = 0xe6194b93a7bff0a54130ed8cd277223408a77f3e48bb5104a9db96d334f962ca;
 
-    /// @dev MechManagerProxy constructor.
-    /// @param implementation MechManager implementation address.
-    /// @param mechManagerData MechManager initialization data.
-    constructor(address implementation, bytes memory mechManagerData) {
+    /// @dev MechMarketplaceProxy constructor.
+    /// @param implementation MechMarketplace implementation address.
+    /// @param mechMarketplaceData MechMarketplace initialization data.
+    constructor(address implementation, bytes memory mechMarketplaceData) {
         // Check for the zero address, since the delegatecall works even with the zero one
         if (implementation == address(0)) {
             revert ZeroImplementationAddress();
         }
 
         // Check for the zero data
-        if (mechManagerData.length == 0) {
-            revert ZeroMechManagerData();
+        if (mechMarketplaceData.length == 0) {
+            revert ZeroData();
         }
 
-        // Store the mechManager implementation address
+        // Store the mechMarketplace implementation address
         assembly {
-            sstore(MECH_MANAGER_PROXY, implementation)
+            sstore(MECH_MARKETPLACE_PROXY, implementation)
         }
         // Initialize proxy tokenomics storage
-        (bool success, ) = implementation.delegatecall(mechManagerData);
+        (bool success, ) = implementation.delegatecall(mechMarketplaceData);
         if (!success) {
             revert InitializationFailed();
         }
@@ -55,7 +55,7 @@ contract MechManagerProxy {
     /// @dev Delegatecall to all the incoming data.
     fallback() external {
         assembly {
-            let implementation := sload(MECH_MANAGER_PROXY)
+            let implementation := sload(MECH_MARKETPLACE_PROXY)
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), implementation, 0, calldatasize(), 0, 0)
             returndatacopy(0, 0, returndatasize())
@@ -63,6 +63,15 @@ contract MechManagerProxy {
                 revert(0, returndatasize())
             }
             return(0, returndatasize())
+        }
+    }
+
+    /// @dev Gets the implementation address.
+    /// @return implementation Implementation address.
+    function getImplementation() external view returns (address implementation) {
+        // solhint-disable-next-line avoid-low-level-calls
+        assembly {
+            implementation := sload(MECH_MARKETPLACE_PROXY)
         }
     }
 }
