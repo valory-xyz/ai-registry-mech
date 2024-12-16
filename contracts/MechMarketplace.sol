@@ -89,7 +89,7 @@ contract MechMarketplace is IErrorsMarketplace {
     address public immutable wrappedNativeToken;
     // Buy back burner address
     address public immutable buyBackBurner;
-    
+
     // Universal mech marketplace fee (max of 10_000 == 100%)
     uint256 public fee;
     // Minimum response time

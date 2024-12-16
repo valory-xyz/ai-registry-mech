@@ -3,6 +3,11 @@ pragma solidity ^0.8.28;
 
 import {MechNeverminedSubscription} from "./MechNeverminedSubscription.sol";
 
+/// @dev Incorrect data length.
+/// @param provided Provided data length.
+/// @param expected Expected data length.
+error IncorrectDataLength(uint256 provided, uint256 expected);
+
 /// @title Mech Factory Subscription - Periphery smart contract for managing subscription mech creation
 contract MechFactorySubscription {
     event CreateSubscriptionMech(address indexed mech, uint256 indexed serviceId, uint256 minCreditsPerRequest,
@@ -25,7 +30,7 @@ contract MechFactorySubscription {
     ) external returns (address mech) {
         // Check payload length
         if (payload.length != 96) {
-            revert();
+            revert IncorrectDataLength(payload.length, 96);
         }
 
         // Decode subscription parameters

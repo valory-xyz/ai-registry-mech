@@ -3,6 +3,11 @@ pragma solidity ^0.8.28;
 
 import {MechFixedPrice} from "./MechFixedPrice.sol";
 
+/// @dev Incorrect data length.
+/// @param provided Provided data length.
+/// @param expected Expected data length.
+error IncorrectDataLength(uint256 provided, uint256 expected);
+
 /// @title Mech Factory Basic - Periphery smart contract for managing basic mech creation
 contract MechFactoryFixedPrice {
     event CreateBasicMech(address indexed mech, uint256 indexed serviceId, uint256 indexed price);
@@ -24,7 +29,7 @@ contract MechFactoryFixedPrice {
     ) external returns (address mech) {
         // Check payload length
         if (payload.length != 32) {
-            revert();
+            revert IncorrectDataLength(payload.length, 32);
         }
 
         // Decode price
