@@ -132,25 +132,18 @@ contract MechMarketplace is IErrorsMarketplace {
     address[] public setMechs;
 
 
-    // TODO: able to change min/max ResponseTimeout?
     /// @dev MechMarketplace constructor.
     /// @param _serviceRegistry Service registry contract address.
     /// @param _stakingFactory Staking factory contract address.
     /// @param _karma Karma proxy contract address.
     /// @param _wrappedNativeToken Wrapped native token address.
     /// @param _buyBackBurner Buy back burner address.
-    /// @param _fee Marketplace fee.
-    /// @param _minResponseTimeout Min response time in sec.
-    /// @param _maxResponseTimeout Max response time in sec.
     constructor(
         address _serviceRegistry,
         address _stakingFactory,
         address _karma,
         address _wrappedNativeToken,
-        address _buyBackBurner,
-        uint256 _fee,
-        uint256 _minResponseTimeout,
-        uint256 _maxResponseTimeout
+        address _buyBackBurner
     ) {
         // Check for zero address
         if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0) ||
@@ -158,33 +151,11 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroAddress();
         }
 
-        // Check for zero values
-        if (_fee == 0 || _minResponseTimeout == 0 || _maxResponseTimeout == 0) {
-            revert ZeroValue();
-        }
-
-        // Check for fee value
-        if (_fee > 10_000) {
-            revert Overflow(_fee, 10_000);
-        }
-
-        // Check for sanity values
-        if (_minResponseTimeout > _maxResponseTimeout) {
-            revert Overflow(_minResponseTimeout, _maxResponseTimeout);
-        }
-
-        // responseTimeout limits
-        if (_maxResponseTimeout > type(uint32).max) {
-            revert Overflow(_maxResponseTimeout, type(uint32).max);
-        }
-
         serviceRegistry = _serviceRegistry;
         stakingFactory = _stakingFactory;
         karma = _karma;
         wrappedNativeToken = _wrappedNativeToken;
         buyBackBurner = _buyBackBurner;
-        minResponseTimeout = _minResponseTimeout;
-        maxResponseTimeout = _maxResponseTimeout;
 
         // Record chain Id
         chainId = block.chainid;
@@ -226,17 +197,58 @@ contract MechMarketplace is IErrorsMarketplace {
 
             // Record payment into mech balance
             mapMechBalances[mech] += mechPayment;
+
+            // Record collected fee
+            collectedFees += marketplaceFee;
         }
     }
 
+    /// @dev Changes marketplace params.
+    /// @param newFee New marketplace fee.
+    /// @param newMinResponseTimeout New min response time in sec.
+    /// @param newMaxResponseTimeout New max response time in sec.
+    function _changeMarketplaceParams(
+        uint256 newFee,
+        uint256 newMinResponseTimeout,
+        uint256 newMaxResponseTimeout
+    ) internal {
+        // Check for zero values
+        if (newFee == 0 || newMinResponseTimeout == 0 || newMaxResponseTimeout == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for fee value
+        if (newFee > 10_000) {
+            revert Overflow(newFee, 10_000);
+        }
+
+        // Check for sanity values
+        if (newMinResponseTimeout > newMaxResponseTimeout) {
+            revert Overflow(newMinResponseTimeout, newMaxResponseTimeout);
+        }
+
+        // responseTimeout limits
+        if (newMaxResponseTimeout > type(uint32).max) {
+            revert Overflow(newMaxResponseTimeout, type(uint32).max);
+        }
+
+        fee = newFee;
+        minResponseTimeout = newMinResponseTimeout;
+        maxResponseTimeout = newMaxResponseTimeout;
+    }
+
     /// @dev MechMarketplace initializer.
-    function initialize(uint256 _fee) external{
+    /// @param _fee Marketplace fee.
+    /// @param _minResponseTimeout Min response time in sec.
+    /// @param _maxResponseTimeout Max response time in sec.
+    function initialize(uint256 _fee, uint256 _minResponseTimeout, uint256 _maxResponseTimeout) external {
         if (owner != address(0)) {
             revert AlreadyInitialized();
         }
 
+        _changeMarketplaceParams(_fee, _minResponseTimeout, _maxResponseTimeout);
+
         owner = msg.sender;
-        fee = _fee;
     }
 
     function _wrap(uint256 amount) internal virtual {
@@ -282,6 +294,10 @@ contract MechMarketplace is IErrorsMarketplace {
         emit ImplementationUpdated(newImplementation);
     }
 
+    /// @dev Changes marketplace params.
+    /// @param newFee New marketplace fee.
+    /// @param newMinResponseTimeout New min response time in sec.
+    /// @param newMaxResponseTimeout New max response time in sec.
     function changeMarketplaceParams(
         uint256 newFee,
         uint256 newMinResponseTimeout,
@@ -292,29 +308,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Check for zero values
-        if (newFee == 0 || newMinResponseTimeout == 0 || newMaxResponseTimeout == 0) {
-            revert ZeroValue();
-        }
-
-        // Check for fee value
-        if (newFee > 10_000) {
-            revert Overflow(newFee, 10_000);
-        }
-
-        // Check for sanity values
-        if (newMinResponseTimeout > newMaxResponseTimeout) {
-            revert Overflow(newMinResponseTimeout, newMaxResponseTimeout);
-        }
-
-        // responseTimeout limits
-        if (newMaxResponseTimeout > type(uint32).max) {
-            revert Overflow(newMaxResponseTimeout, type(uint32).max);
-        }
-
-        fee = newFee;
-        minResponseTimeout = newMinResponseTimeout;
-        maxResponseTimeout = newMaxResponseTimeout;
+        _changeMarketplaceParams(newFee, newMinResponseTimeout, newMaxResponseTimeout);
 
         emit MarketplaceParamsUpdated(newFee, newMinResponseTimeout, newMaxResponseTimeout);
     }
@@ -622,7 +616,7 @@ contract MechMarketplace is IErrorsMarketplace {
                 getDomainSeparator(),
                 keccak256(
                     abi.encode(
-                        block.timestamp,
+                        address(this),
                         account,
                         data,
                         nonce

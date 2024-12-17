@@ -19,7 +19,7 @@ contract MechFixedPrice is OlasMech {
         OlasMech(_mechMarketplace, _serviceRegistry, _serviceId)
     {
         // Check for zero value
-        if (price == 0) {
+        if (_price == 0) {
             revert ZeroValue();
         }
 
