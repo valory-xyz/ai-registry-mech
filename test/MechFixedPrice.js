@@ -45,7 +45,7 @@ describe("MechFixedPrice", function () {
         serviceRegistry = await ServiceRegistry.deploy();
         await serviceRegistry.deployed();
 
-        // Get two test mechs
+        // Get two mock staking
         const ServiceStakingMech = await ethers.getContractFactory("MockServiceStaking");
         serviceStakingMech = await ServiceStakingMech.deploy();
         await serviceStakingMech.deployed();
