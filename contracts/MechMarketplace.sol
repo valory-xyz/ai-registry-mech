@@ -197,6 +197,9 @@ contract MechMarketplace is IErrorsMarketplace {
 
             // Record payment into mech balance
             mapMechBalances[mech] += mechPayment;
+
+            // Record collected fee
+            collectedFees += marketplaceFee;
         }
     }
 
