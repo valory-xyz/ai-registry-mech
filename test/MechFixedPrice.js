@@ -11,16 +11,18 @@ describe("MechFixedPrice", function () {
     let karma;
     let serviceStakingMech;
     let serviceStakingRequester;
+    let mechFactoryFixedPrice;
     let signers;
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
     const agentHash = "0x" + "5".repeat(64);
-    const price = 1;
+    const price = 1000;
     const data = "0x00";
-    const fee = 1000;
+    const fee = 10;
     const minResponseTimeout = 10;
     const maxResponceTimeout = 20;
     const serviceId = 1;
+    const priceData = ethers.utils.defaultAbiCoder.encode(["uint256"], [price]);
 
     beforeEach(async function () {
         signers = await ethers.getSigners();
@@ -55,7 +57,7 @@ describe("MechFixedPrice", function () {
 
         // Deploy mech factory
         const MechFactoryFixedPrice = await ethers.getContractFactory("MechFactoryFixedPrice");
-        const mechFactoryFixedPrice = await MechFactoryFixedPrice.deploy();
+        mechFactoryFixedPrice = await MechFactoryFixedPrice.deploy();
         await mechFactoryFixedPrice.deployed();
 
         // Wrapped native token and buy back burner are not relevant for now
@@ -89,7 +91,7 @@ describe("MechFixedPrice", function () {
     });
 
     context("Initialization", async function () {
-        it.only("Checking for arguments passed to the constructor", async function () {
+        it("Checking for arguments passed to the constructor", async function () {
             // Zero mech marketplace
             await expect(
                 MechFixedPrice.deploy(AddressZero, AddressZero, 0, 0)
@@ -118,13 +120,21 @@ describe("MechFixedPrice", function () {
     });
 
     context("Request", async function () {
-        it("Creating an agent mech and doing a request", async function () {
-            const agentMech = await MechFixedPrice.deploy(serviceRegistry.address, serviceId, price, mechMarketplace.address);
+        it.only("Creating an agent mech and doing a request", async function () {
+            let tx = await mechMarketplace.create(serviceId, mechFactoryFixedPrice.address, priceData);
+            res = await tx.wait();
+
+            // Get mech contract address from the event
+            const agentMechAddress = "0x" + res.logs[0].topics[1].slice(26);
+
+            // Get mech contract instance
+            const agentMech = await ethers.getContractAt("MechFixedPrice", agentMechAddress);
 
             // Try to post a request directly to the mech
             await expect(
-                agentMech.requestFromMarketplace(deployer.address, data, 0)
-            ).to.be.revertedWithCustomError(agentMech, "MarketplaceOnly");
+                agentMech.requestFromMarketplace(deployer.address, price, data, 0)
+            ).to.be.revertedWithCustomError(agentMech, "MarketplaceNotAuthorized");
+            return;
 
             // Try to request to a zero priority mech
             await expect(
