@@ -616,7 +616,7 @@ contract MechMarketplace is IErrorsMarketplace {
                 getDomainSeparator(),
                 keccak256(
                     abi.encode(
-                        block.timestamp,
+                        address(this),
                         account,
                         data,
                         nonce
