@@ -134,7 +134,6 @@ describe("MechFixedPrice", function () {
             await expect(
                 agentMech.requestFromMarketplace(deployer.address, price, data, 0)
             ).to.be.revertedWithCustomError(agentMech, "MarketplaceNotAuthorized");
-            return;
 
             // Try to request to a zero priority mech
             await expect(

@@ -55,7 +55,7 @@ contract MechMarketplaceProxy {
     }
 
     /// @dev Delegatecall to all the incoming data.
-    fallback() external {
+    fallback() external payable {
         // solhint-disable-next-line avoid-low-level-calls
         assembly {
             let implementation := sload(MECH_MARKETPLACE_PROXY)
