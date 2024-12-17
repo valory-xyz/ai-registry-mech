@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {AgentMech} from "./AgentMech.sol";
+import {MechFixedPrice} from "./MechFixedPrice.sol";
+
+/// @dev Incorrect data length.
+/// @param provided Provided data length.
+/// @param expected Expected data length.
+error IncorrectDataLength(uint256 provided, uint256 expected);
 
 /// @title Mech Factory Basic - Periphery smart contract for managing basic mech creation
-contract MechFactoryBasic {
+contract MechFactoryFixedPrice {
     event CreateBasicMech(address indexed mech, uint256 indexed serviceId, uint256 indexed price);
 
     // Agent factory version number
@@ -24,7 +29,7 @@ contract MechFactoryBasic {
     ) external returns (address mech) {
         // Check payload length
         if (payload.length != 32) {
-            revert();
+            revert IncorrectDataLength(payload.length, 32);
         }
 
         // Decode price
@@ -34,7 +39,7 @@ contract MechFactoryBasic {
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new AgentMech){salt: salt}(mechMarketplace, serviceRegistry, serviceId, price));
+        mech = address((new MechFixedPrice){salt: salt}(mechMarketplace, serviceRegistry, serviceId, price));
 
         emit CreateBasicMech(mech, serviceId, price);
     }

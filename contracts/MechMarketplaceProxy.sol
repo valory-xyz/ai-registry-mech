@@ -42,9 +42,11 @@ contract MechMarketplaceProxy {
         }
 
         // Store the mechMarketplace implementation address
+        // solhint-disable-next-line avoid-low-level-calls
         assembly {
             sstore(MECH_MARKETPLACE_PROXY, implementation)
         }
+
         // Initialize proxy tokenomics storage
         (bool success, ) = implementation.delegatecall(mechMarketplaceData);
         if (!success) {
@@ -53,7 +55,8 @@ contract MechMarketplaceProxy {
     }
 
     /// @dev Delegatecall to all the incoming data.
-    fallback() external {
+    fallback() external payable {
+        // solhint-disable-next-line avoid-low-level-calls
         assembly {
             let implementation := sload(MECH_MARKETPLACE_PROXY)
             calldatacopy(0, 0, calldatasize())

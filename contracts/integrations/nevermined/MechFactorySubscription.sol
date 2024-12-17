@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {AgentMechSubscription} from "./AgentMechSubscription.sol";
+import {MechNeverminedSubscription} from "./MechNeverminedSubscription.sol";
+
+/// @dev Incorrect data length.
+/// @param provided Provided data length.
+/// @param expected Expected data length.
+error IncorrectDataLength(uint256 provided, uint256 expected);
 
 /// @title Mech Factory Subscription - Periphery smart contract for managing subscription mech creation
 contract MechFactorySubscription {
@@ -25,7 +30,7 @@ contract MechFactorySubscription {
     ) external returns (address mech) {
         // Check payload length
         if (payload.length != 96) {
-            revert();
+            revert IncorrectDataLength(payload.length, 96);
         }
 
         // Decode subscription parameters
@@ -36,7 +41,7 @@ contract MechFactorySubscription {
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new AgentMechSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
+        mech = address((new MechNeverminedSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
             minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
 
         emit CreateSubscriptionMech(mech, serviceId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);

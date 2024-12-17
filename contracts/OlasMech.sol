@@ -7,19 +7,56 @@ import {ImmutableStorage} from "../lib/gnosis-mech/contracts/base/ImmutableStora
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
 
-// ERC721 interface
-interface IERC721 {
-    /// @dev Gets the owner of the `tokenId` token.
-    /// @param tokenId Token Id that must exist.
-    /// @return tokenOwner Token owner.
-    function ownerOf(uint256 tokenId) external view returns (address tokenOwner);
-}
-
 /// @dev A Mech that is operated by the multisig of an Olas service
-contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
+abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
+    event Deliver(address indexed sender, uint256 requestId, bytes data);
+    event Request(address indexed sender, uint256 requestId, bytes data);
+    event RevokeRequest(address indexed sender, uint256 requestId);
+
+    enum RequestStatus {
+        DoesNotExist,
+        Requested,
+        Delivered
+    }
+
+    // Agent mech version number
+    string public constant VERSION = "1.1.0";
+    // Domain separator type hash
+    bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
+    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    // Original domain separator value
+    bytes32 public immutable domainSeparator;
+    // Original chain Id
+    uint256 public immutable chainId;
+    // Mech marketplace address
+    address public immutable mechMarketplace;
+
+    // Number of undelivered requests by this mech
+    uint256 public numUndeliveredRequests;
+    // Number of total requests by this mech
+    uint256 public numTotalRequests;
+    // Number of total deliveries by this mech
+    uint256 public numTotalDeliveries;
+    // Reentrancy lock
+    uint256 internal _locked = 1;
+
+    // Map of request counts for corresponding addresses in this agent mech
+    mapping(address => uint256) public mapRequestCounts;
+    // Map of delivery counts for corresponding addresses in this agent mech
+    mapping(address => uint256) public mapDeliveryCounts;
+    // Map of undelivered requests counts for corresponding addresses in this agent mech
+    mapping(address => uint256) public mapUndeliveredRequestsCounts;
+    // Cyclical map of request Ids
+    mapping(uint256 => uint256[2]) public mapRequestIds;
+    // Map of request Id => sender address
+    mapping(uint256 => address) public mapRequestAddresses;
+    // Mapping of account nonces
+    mapping(address => uint256) public mapNonces;
+
+    /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the registry contract.
     /// @param _serviceId Service Id.
-    constructor(address _serviceRegistry, uint256 _serviceId) {
+    constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId) {
         // Check for zero address
         if (_serviceRegistry == address(0)) {
             revert ZeroAddress();
@@ -44,101 +81,9 @@ contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             revert WrongServiceState(uint256(state), _serviceId);
         }
         setUp(initParams);
-    }
-
-    function setUp(bytes memory initParams) public override {
-        require(readImmutable().length == 0, "Already initialized");
-        writeImmutable(initParams);
-    }
-
-    function token() public view returns (IERC721) {
-        address serviceRegistry = abi.decode(readImmutable(), (address));
-        return IERC721(serviceRegistry);
-    }
-
-    function tokenId() public view returns (uint256) {
-        (, uint256 serviceId) = abi.decode(readImmutable(), (address, uint256));
-        return serviceId;
-    }
-
-    function isOperator(address signer) public view override returns (bool) {
-        (address serviceRegistry, uint256 serviceId) = abi.decode(
-            readImmutable(),
-            (address, uint256)
-        );
-
-        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
-        return multisig == signer;
-    }
-}
-
-/// @title AgentMech - Smart contract for extending OlasMech
-/// @dev An OlasMech that accepts a fixed price payment for services.
-contract AgentMech is OlasMech {
-    event Deliver(address indexed sender, uint256 requestId, bytes data);
-    event Request(address indexed sender, uint256 requestId, bytes data);
-    event RevokeRequest(address indexed sender, uint256 requestId);
-    event PriceUpdated(uint256 price);
-
-    enum RequestStatus {
-        DoesNotExist,
-        Requested,
-        Delivered
-    }
-
-    // Agent mech version number
-    string public constant VERSION = "1.1.0";
-    // Domain separator type hash
-    bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
-    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    // Original domain separator value
-    bytes32 public immutable domainSeparator;
-    // Original chain Id
-    uint256 public immutable chainId;
-    // Mech marketplace address
-    address public immutable mechMarketplace;
-
-    // Minimum required price
-    uint256 public price;
-    // Number of undelivered requests by this mech
-    uint256 public numUndeliveredRequests;
-    // Number of total requests by this mech
-    uint256 public numTotalRequests;
-    // Number of total deliveries by this mech
-    uint256 public numTotalDeliveries;
-    // Reentrancy lock
-    uint256 internal _locked = 1;
-
-    // Map of request counts for corresponding addresses in this agent mech
-    mapping(address => uint256) public mapRequestCounts;
-    // Map of delivery counts for corresponding addresses in this agent mech
-    mapping(address => uint256) public mapDeliveryCounts;
-    // Map of undelivered requests counts for corresponding addresses in this agent mech
-    mapping(address => uint256) public mapUndeliveredRequestsCounts;
-    // Cyclical map of request Ids
-    mapping(uint256 => uint256[2]) public mapRequestIds;
-    // Map of request Id => sender address
-    mapping(uint256 => address) public mapRequestAddresses;
-    // Mapping of account nonces
-    mapping(address => uint256) public mapNonces;
-
-    /// @dev AgentMech constructor.
-    /// @param _mechMarketplace Mech marketplace address.
-    /// @param _serviceRegistry Address of the token contract.
-    /// @param _serviceId Service Id.
-    /// @param _price The minimum required price.
-    constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId, uint256 _price)
-        OlasMech(_serviceRegistry, _serviceId)
-    {
-        // Check for the token to have the owner
-        address tokenOwner = IERC721(_serviceRegistry).ownerOf(_serviceId);
-        if (tokenOwner == address(0)) {
-            revert AgentNotFound(_serviceId);
-        }
 
         mechMarketplace = _mechMarketplace;
-        // Record the price
-        price = _price;
+
 
         // Record chain Id
         chainId = block.chainid;
@@ -162,12 +107,12 @@ contract AgentMech is OlasMech {
 
     /// @dev Performs actions before the request is posted.
     /// @param amount Amount of payment in wei.
-    function _preRequest(uint256 amount, uint256, bytes memory) internal virtual {
-        // Check the request payment
-        if (amount < price) {
-            revert NotEnoughPaid(amount, price);
-        }
-    }
+    function _preRequest(uint256 amount, uint256, bytes memory) internal virtual;
+
+    /// @dev Performs actions before the delivery of a request.
+    /// @param data Self-descriptive opaque data-blob.
+    /// @return requestData Data for the request processing.
+    function _preDeliver(address, uint256, bytes memory data) internal virtual returns (bytes memory requestData);
 
     /// @dev Registers a request.
     /// @param account Requester account address.
@@ -179,7 +124,7 @@ contract AgentMech is OlasMech {
         uint256 payment,
         bytes memory data,
         uint256 requestId
-    ) internal {
+    ) internal virtual {
         // Check the request payment
         _preRequest(payment, requestId, data);
 
@@ -211,17 +156,10 @@ contract AgentMech is OlasMech {
         emit Request(account, requestId, data);
     }
 
-    /// @dev Performs actions before the delivery of a request.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @return requestData Data for the request processing.
-    function _preDeliver(address, uint256, bytes memory data) internal virtual returns (bytes memory requestData) {
-        requestData = data;
-    }
-
     /// @dev Cleans the request info from all the relevant storage.
     /// @param account Requester account address.
     /// @param requestId Request Id.
-    function _cleanRequestInfo(address account, uint256 requestId) internal {
+    function _cleanRequestInfo(address account, uint256 requestId) internal virtual {
         // Decrease the number of undelivered requests
         mapUndeliveredRequestsCounts[account]--;
         numUndeliveredRequests--;
@@ -246,7 +184,7 @@ contract AgentMech is OlasMech {
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
-    function _deliver(uint256 requestId, bytes memory data) internal returns (bytes memory requestData) {
+    function _deliver(uint256 requestId, bytes memory data) internal virtual returns (bytes memory requestData) {
         // Get an account to deliver request to
         address account = mapRequestAddresses[requestId];
 
@@ -290,7 +228,6 @@ contract AgentMech is OlasMech {
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
     function requestFromMarketplace(address account, uint256 payment, bytes memory data, uint256 requestId) external {
-        // TODO Shall the mech marketplace be checked for being whitelisted by mechManager? Now it's enforced
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceNotAuthorized(msg.sender);
@@ -351,12 +288,28 @@ contract AgentMech is OlasMech {
         _locked = 1;
     }
 
-    /// TODO: We need the same system to work with Nevermined pricing.
-    /// @dev Sets the new price.
-    /// @param newPrice New mimimum required price.
-    function setPrice(uint256 newPrice) external onlyOperator {
-        price = newPrice;
-        emit PriceUpdated(newPrice);
+    function setUp(bytes memory initParams) public override {
+        require(readImmutable().length == 0, "Already initialized");
+        writeImmutable(initParams);
+    }
+
+    function token() public view returns (address serviceRegistry) {
+        serviceRegistry = abi.decode(readImmutable(), (address));
+    }
+
+    function tokenId() public view returns (uint256) {
+        (, uint256 serviceId) = abi.decode(readImmutable(), (address, uint256));
+        return serviceId;
+    }
+
+    function isOperator(address signer) public view override returns (bool) {
+        (address serviceRegistry, uint256 serviceId) = abi.decode(
+            readImmutable(),
+            (address, uint256)
+        );
+
+        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+        return multisig == signer;
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
