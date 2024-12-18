@@ -10,7 +10,7 @@ error IncorrectDataLength(uint256 provided, uint256 expected);
 
 /// @title Mech Factory Basic - Periphery smart contract for managing basic mech creation
 contract MechFactoryFixedPrice {
-    event CreateBasicMech(address indexed mech, uint256 indexed serviceId, uint256 indexed price);
+    event CreateFixedPriceMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
 
     // Agent factory version number
     string public constant VERSION = "0.1.0";
@@ -32,15 +32,15 @@ contract MechFactoryFixedPrice {
             revert IncorrectDataLength(payload.length, 32);
         }
 
-        // Decode price
-        uint256 price = abi.decode(payload, (uint256));
+        // Decode max delivery rate
+        uint256 maxDeliveryRate = abi.decode(payload, (uint256));
 
         // Get salt
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new MechFixedPrice){salt: salt}(mechMarketplace, serviceRegistry, serviceId, price));
+        mech = address((new MechFixedPrice){salt: salt}(mechMarketplace, serviceRegistry, serviceId, maxDeliveryRate));
 
-        emit CreateBasicMech(mech, serviceId, price);
+        emit CreateFixedPriceMech(mech, serviceId, maxDeliveryRate);
     }
 }

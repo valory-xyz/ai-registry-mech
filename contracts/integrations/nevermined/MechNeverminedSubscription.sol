@@ -25,15 +25,8 @@ error ZeroValue();
 
 /// @title AgentMechSubscription - Smart contract for extending AgentMech with subscription
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a subscription.
-contract MechNeverminedSubscription is OlasMech, ERC1155TokenReceiver {
-    event DeliveryRateFinalized(uint256 indexed requestId, uint256 deliveryRate, uint256 creditsToBurn);
-
-    // TODO This migrates to its corresponding escrow contract
-    event SubscriptionUpdated(address indexed subscriptionNFT, uint256 subscriptionTokenId);
-    // Subscription NFT
-    address public subscriptionNFT;
-    // Subscription token Id
-    uint256 public subscriptionTokenId;
+contract MechNeverminedSubscription is OlasMech {
+    event DeliveryRateFinalized(uint256 indexed requestId, uint256 deliveryRate);
 
     // Mapping for requestId => finalized delivery rates
     mapping(uint256 => uint256) public mapRequestIdFinalizedRates;
@@ -68,39 +61,31 @@ contract MechNeverminedSubscription is OlasMech, ERC1155TokenReceiver {
         }
         _locked = 2;
 
-        // Extract the request deliver rate
-        uint256 deliveryRate;
-        (deliveryRate, requestData) = abi.decode(data, (uint256, bytes));
+        // Extract the request deliver rate as credits to burn
+        uint256 creditsToBurn;
+        (creditsToBurn, requestData) = abi.decode(data, (uint256, bytes));
 
-        mapRequestIdFinalizedRates[requestId] = deliveryRate;
+        mapRequestIdFinalizedRates[requestId] = creditsToBurn;
 
-        emit DeliveryRateFinalized(requestId, deliveryRate, creditsToBurn);
+        // TODO: mocks, get subscriptionNFT and subscriptionTokenId from marketplace
+        address subscriptionNFT = address(1);
+        uint256 subscriptionTokenId = 1;
+        // Check for the number of credits available in the subscription
+        uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(account, subscriptionTokenId);
+
+        // Adjust the amount of credits to burn if the deliver price is bigger than the amount of credits available
+        if (creditsToBurn > creditsBalance) {
+            creditsToBurn = creditsBalance;
+        }
+
+        // Burn credits of the request Id sender upon delivery
+        if (creditsToBurn > 0) {
+            IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
+        }
+
+        emit DeliveryRateFinalized(requestId, creditsToBurn);
 
         _locked = 1;
-    }
-
-    // TODO This migrates to its corresponding escrow contract
-    /// @dev Sets a new subscription.
-    /// @param newSubscriptionNFT New address of the NFT subscription.
-    /// @param newSubscriptionTokenId New subscription Id.
-    function setSubscription(
-        address newSubscriptionNFT,
-        uint256 newSubscriptionTokenId
-    ) external onlyOperator {
-        // Check for the subscription address
-        if (newSubscriptionNFT == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Check for the subscription token Id
-        if (newSubscriptionTokenId == 0) {
-            revert ZeroValue();
-        }
-
-        subscriptionNFT = newSubscriptionNFT;
-        subscriptionTokenId = newSubscriptionTokenId;
-
-        emit SubscriptionUpdated(subscriptionNFT, subscriptionTokenId);
     }
 
     /// @dev Gets finalized delivery rate for a request Id.

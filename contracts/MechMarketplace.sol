@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IErrorsMarketplace} from "./interfaces/IErrorsMarketplace.sol";
+import {IEscrow} from "./interfaces/IEscrow.sol";
 import {IKarma} from "./interfaces/IKarma.sol";
 import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
@@ -16,18 +17,6 @@ interface IMechFactory {
     /// @return mech The created mech instance address.
     function createMech(address mechManager, address serviceRegistry, uint256 serviceId, bytes memory payload)
         external returns (address mech);
-}
-
-interface IToken {
-    /// @dev Transfers the token amount.
-    /// @param to Address to transfer to.
-    /// @param amount The amount to transfer.
-    /// @return True if the function execution is successful.
-    function transfer(address to, uint256 amount) external returns (bool);
-}
-
-interface IWrappedToken {
-    function deposit() external payable;
 }
 
 // Mech delivery info struct
@@ -54,12 +43,11 @@ contract MechMarketplace is IErrorsMarketplace {
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
+    event SetMechTypeEscrows(IMech.MechType[] mechTypes, address[] escrows);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data, uint256 mechPayment, uint256 marketplaceFee);
     event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 deliveryRate, uint256 fee);
-    event Withdraw(address indexed mech, uint256 amount);
-    event Drained(uint256 collectedFees);
 
     enum RequestStatus {
         DoesNotExist,
@@ -85,10 +73,6 @@ contract MechMarketplace is IErrorsMarketplace {
     address public immutable stakingFactory;
     // Service registry contract address
     address public immutable serviceRegistry;
-    // Wrapped native token address
-    address public immutable wrappedNativeToken;
-    // Buy back burner address
-    address public immutable buyBackBurner;
 
     // Universal mech marketplace fee (max of 10_000 == 100%)
     uint256 public fee;
@@ -96,8 +80,6 @@ contract MechMarketplace is IErrorsMarketplace {
     uint256 public minResponseTimeout;
     // Maximum response time
     uint256 public maxResponseTimeout;
-    // Collected fees
-    uint256 public collectedFees;
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
     // Number of total requests
@@ -122,8 +104,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => bool) public mapMechFactories;
     // Map of mech => its creating factory
     mapping(address => address) public mapAgentMechFactories;
-    // Map of mech => its current balance
-    mapping(address => uint256) public mapMechBalances;
+    // Map of mech type => escrow address
+    mapping(IMech.MechType => address) public mapMechTypeEscrows;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
     // Set of mechs created by this marketplace
@@ -134,26 +116,19 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param _serviceRegistry Service registry contract address.
     /// @param _stakingFactory Staking factory contract address.
     /// @param _karma Karma proxy contract address.
-    /// @param _wrappedNativeToken Wrapped native token address.
-    /// @param _buyBackBurner Buy back burner address.
     constructor(
         address _serviceRegistry,
         address _stakingFactory,
-        address _karma,
-        address _wrappedNativeToken,
-        address _buyBackBurner
+        address _karma
     ) {
         // Check for zero address
-        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0) ||
-            _wrappedNativeToken == address(0) || _buyBackBurner == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0)) {
             revert ZeroAddress();
         }
 
         serviceRegistry = _serviceRegistry;
         stakingFactory = _stakingFactory;
         karma = _karma;
-        wrappedNativeToken = _wrappedNativeToken;
-        buyBackBurner = _buyBackBurner;
 
         // Record chain Id
         chainId = block.chainid;
@@ -194,21 +169,26 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroValue();
         }
 
+        // TODO What to do if there is rateDIff leftovers? Keep as a fee or record into sender's map?
+        uint256 rateDiff;
+        if (actualDeliveryRate > deliveryRate) {
+            rateDiff = actualDeliveryRate - deliveryRate;
+        }
+
         // TODO what if fee is zero just because the delivery rate is in the order of 1..10_000?
         // Calculate mech payment and marketplace fee
-        marketplaceFee = (deliveryRate * fee) / 10_000;
-        mechPayment = deliveryRate - marketplaceFee;
+        marketplaceFee = (actualDeliveryRate * fee) / 10_000;
+        mechPayment = actualDeliveryRate - marketplaceFee;
 
         // Check for zero value, although this must never happen
         if (mechPayment == 0) {
             revert ZeroValue();
         }
 
-        // Record payment into mech balance
-        mapMechBalances[mech] += mechPayment;
-
-        // Record collected fee
-        collectedFees += marketplaceFee;
+        // Record mech payment and marketplace fee into corresponding escrow balances
+        IMech.MechType mechType = IMech(mech).mechType();
+        address escrow = mapMechTypeEscrows[mechType];
+        IEscrow(escrow).adjustBalances(mech, mechPayment, marketplaceFee);
     }
 
     /// @dev Changes marketplace params.
@@ -257,10 +237,6 @@ contract MechMarketplace is IErrorsMarketplace {
         _changeMarketplaceParams(_fee, _minResponseTimeout, _maxResponseTimeout);
 
         owner = msg.sender;
-    }
-
-    function _wrap(uint256 amount) internal virtual {
-        IWrappedToken(wrappedNativeToken).deposit{value: amount}();
     }
 
     /// @dev Changes contract owner address.
@@ -371,27 +347,30 @@ contract MechMarketplace is IErrorsMarketplace {
         emit SetMechFactoryStatuses(mechFactories, statuses);
     }
 
-    // Check and escrow delivery rate
-    function _checkAndEscrowDeliveryRate(address mech) internal {
-        IMech.MechType mechType = IMech(mech).mechType();
-        uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
-
-        // Check delivery rates
-        if (mechType == IMech.MechType.FixedPrice) {
-            // Check the request delivery rate for a fixed price
-            if (msg.value < maxDeliveryRate) {
-                revert InsufficientBalance(msg.value, maxDeliveryRate);
-            }
-        } else {
-            // Check that there is no incoming deposit
-            if (msg.value > 0) {
-                revert NoDepositAllowed(msg.value);
-            }
-
-            // TODO Add onERC1155Received to the receiving contract
-            // Get max subscription rate for escrow from sender
-            IERC1155(subscriptionNFT).safeTransferFrom(msg.sender, address(this), subscriptionTokenId, maxDeliveryRate, "");
+    /// @dev Sets mech type escrows.
+    /// @param mechTypes Mech types.
+    /// @param escrows Corresponding escrow addresses.
+    function setMechTypeEscrows(IMech.MechType[] memory mechTypes, address[] memory escrows) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
         }
+
+        if (mechTypes.length != escrows.length) {
+            revert WrongArrayLength(mechTypes.length, escrows.length);
+        }
+
+        // Traverse all the mech types and escrows
+        for (uint256 i = 0; i < mechTypes.length; ++i) {
+            // Check for zero address
+            if (escrows[i] == address(0)) {
+                revert ZeroAddress();
+            }
+
+            mapMechTypeEscrows[mechTypes[i]] = escrows[i];
+        }
+
+        emit SetMechTypeEscrows(mechTypes, escrows);
     }
 
     // TODO: leave optional fields or remove?
@@ -455,8 +434,10 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check requester
         checkRequester(msg.sender, requesterStakingInstance, requesterServiceId);
 
-        // Check delivery rate
-        _checkAndEscrowDeliveryRate(priorityMech);
+        // Check and escrow delivery rate
+        IMech.MechType mechType = IMech(priorityMech).mechType();
+        address escrow = mapMechTypeEscrows[mechType];
+        IEscrow(escrow).checkAndEscrowDeliveryRate{value: msg.value}(priorityMech);
 
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
@@ -487,7 +468,7 @@ contract MechMarketplace is IErrorsMarketplace {
         numTotalRequests++;
 
         // Process request by a specified priority mech
-        IMech(priorityMech).requestFromMarketplace(msg.sender, msg.value, data, requestId);
+        IMech(priorityMech).requestFromMarketplace(msg.sender, data, requestId);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestId, data);
 
@@ -568,67 +549,6 @@ contract MechMarketplace is IErrorsMarketplace {
         (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, requestId, mechDelivery.deliveryRate);
 
         emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData, mechPayment, marketplaceFee);
-
-        _locked = 1;
-    }
-
-    /// @dev Withdraws funds for a specific mech.
-    function withdraw() external virtual {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get mech balance
-        uint256 balance = mapMechBalances[msg.sender];
-        if (balance == 0) {
-            revert UnauthorizedAccount(msg.sender);
-        }
-
-        // Get mech type
-        IMech.MechType mechType = IMech(msg.sender).mechType();
-
-        // Transfer mech balance
-        if (mechType == IMech.MechType.FixedPrice) {
-            // solhint-disable-next-line avoid-low-level-calls
-            (bool success, ) = msg.sender.call{value: balance}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), msg.sender, balance);
-            }
-        } else {
-            IERC1155(subscriptionNFT).safeTransferFrom(address(this), msg.sender, subscriptionTokenId, mechPayment, "");
-        }
-
-        emit Withdraw(msg.sender, balance);
-
-        _locked = 1;
-    }
-
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain() external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        uint256 localCollectedFees = collectedFees;
-
-        // Check for zero value
-        if (localCollectedFees == 0) {
-            revert ZeroValue();
-        }
-
-        collectedFees = 0;
-
-        // Wrap native tokens
-        _wrap(localCollectedFees);
-
-        // Transfer to Buy back burner
-        IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
-
-        emit Drained(localCollectedFees);
 
         _locked = 1;
     }
