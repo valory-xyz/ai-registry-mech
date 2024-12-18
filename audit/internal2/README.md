@@ -19,7 +19,7 @@ Most of the issues raised by instrumental analysis are outside the scope of the 
 
 
 ### Issue
-#### Medium _calculatePayment not update collectedFees;
+#### Medium. _calculatePayment not update collectedFees;
 ```
 function _calculatePayment(
         address mech,
@@ -28,12 +28,26 @@ function _calculatePayment(
 ```
 []
 
-#### Medium payable fallback()
+#### Medium. payable fallback()
 ```
 Must be payable.
 fallback() external {
         // solhint-disable-next-line avoid-low-level-calls
 ```
+[]
+
+#### Medium. Typo in check. 
+```
+price == 0 => _price == 0
+constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId, uint256 _price)
+        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId)
+    {
+        // Check for zero value
+        if (price == 0) {
+            revert ZeroValue();
+        }
+```
+[]
 
 ####  Low? Notices? OlasMech.setUp(bytes) event
 []
