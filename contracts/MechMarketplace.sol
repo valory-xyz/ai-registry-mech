@@ -177,22 +177,29 @@ contract MechMarketplace is IErrorsMarketplace {
 
     /// @dev Calculates payment and fee based on delivery rates and mech type.
     /// @param mech Delivery mech address.
+    /// @param requestId Request Id.
     /// @param deliveryRate Delivery rate.
     /// @param mechPayment Mech payment.
     /// @param marketplaceFee Marketplace fee.
     function _calculatePayment(
         address mech,
+        uint256 requestId,
         uint256 deliveryRate
     ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
-        IMech.MechType mechType = IMech(mech).mechType();
-        uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
+        // Get actual delivery rate
+        uint256 actualDeliveryRate = IMech(mech).getFinalizedDeliveryRate(requestId);
+
+        // Check for zero value
+        if (actualDeliveryRate == 0) {
+            revert ZeroValue();
+        }
 
         // TODO what if fee is zero just because the delivery rate is in the order of 1..10_000?
         // Calculate mech payment and marketplace fee
         marketplaceFee = (deliveryRate * fee) / 10_000;
         mechPayment = deliveryRate - marketplaceFee;
 
-        // Check for zero value
+        // Check for zero value, although this must never happen
         if (mechPayment == 0) {
             revert ZeroValue();
         }
@@ -558,7 +565,7 @@ contract MechMarketplace is IErrorsMarketplace {
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
         // Process payment
-        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, mechDelivery.deliveryRate);
+        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, requestId, mechDelivery.deliveryRate);
 
         emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData, mechPayment, marketplaceFee);
 

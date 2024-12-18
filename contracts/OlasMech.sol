@@ -443,4 +443,9 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             }
         }
     }
+
+    /// @dev Gets finalized delivery rate for a request Id.
+    /// @param requestId Request Id.
+    /// @return Finalized delivery rate.
+    function getFinalizedDeliveryRate(uint256 requestId) external virtual returns (uint256);
 }

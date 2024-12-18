@@ -26,4 +26,9 @@ interface IMech {
     function maxDeliveryRate() external returns (uint256);
 
     function mechType() external returns (MechType);
+
+    /// @dev Gets finalized delivery rate for a request Id.
+    /// @param requestId Request Id.
+    /// @return Finalized delivery rate.
+    function getFinalizedDeliveryRate(uint256 requestId) external returns (uint256);
 }

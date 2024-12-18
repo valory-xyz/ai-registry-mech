@@ -35,6 +35,9 @@ contract MechNeverminedSubscription is OlasMech, ERC1155TokenReceiver {
     // Subscription token Id
     uint256 public subscriptionTokenId;
 
+    // Mapping for requestId => finalized delivery rates
+    mapping(uint256 => uint256) public mapRequestIdFinalizedRates;
+
     /// @dev AgentMechSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the token contract.
@@ -69,19 +72,7 @@ contract MechNeverminedSubscription is OlasMech, ERC1155TokenReceiver {
         uint256 deliveryRate;
         (deliveryRate, requestData) = abi.decode(data, (uint256, bytes));
 
-        // Check for the number of credits available in the subscription
-        uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(account, subscriptionTokenId);
-
-        // Adjust the amount of credits to burn if the deliver price is bigger than the amount of credits available
-        uint256 creditsToBurn = deliveryRate;
-        if (creditsToBurn > creditsBalance) {
-            creditsToBurn = creditsBalance;
-        }
-
-        // Burn credits of the request Id sender upon delivery
-        if (creditsToBurn > 0) {
-            IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
-        }
+        mapRequestIdFinalizedRates[requestId] = deliveryRate;
 
         emit DeliveryRateFinalized(requestId, deliveryRate, creditsToBurn);
 
@@ -110,5 +101,12 @@ contract MechNeverminedSubscription is OlasMech, ERC1155TokenReceiver {
         subscriptionTokenId = newSubscriptionTokenId;
 
         emit SubscriptionUpdated(subscriptionNFT, subscriptionTokenId);
+    }
+
+    /// @dev Gets finalized delivery rate for a request Id.
+    /// @param requestId Request Id.
+    /// @return Finalized delivery rate.
+    function getFinalizedDeliveryRate(uint256 requestId) external virtual override returns (uint256) {
+        return mapRequestIdFinalizedRates[requestId];
     }
 }

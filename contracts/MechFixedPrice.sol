@@ -20,4 +20,11 @@ contract MechFixedPrice is OlasMech {
     function _preDeliver(address, uint256, bytes memory data) internal virtual override returns (bytes memory requestData) {
         requestData = data;
     }
+
+    /// @dev Gets finalized delivery rate for a request Id.
+    /// @param requestId Request Id.
+    /// @return Finalized delivery rate.
+    function getFinalizedDeliveryRate(uint256) external virtual override returns (uint256) {
+        return maxDeliveryRate;
+    }
 }
