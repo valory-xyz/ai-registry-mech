@@ -19,6 +19,37 @@ Most of the issues raised by instrumental analysis are outside the scope of the 
 
 
 ### Issue
+#### Critical? _preDeliver() passed low then price and zero balance 
+```
+        // Check for the number of credits available in the subscription
+        uint256 creditsBalance = IERC1155(subscriptionNFT).balanceOf(account, subscriptionTokenId);
+
+        // Adjust the amount of credits to burn if the deliver price is bigger than the amount of credits available
+        uint256 creditsToBurn = deliverPrice;
+        if (creditsToBurn > creditsBalance) {
+            creditsToBurn = creditsBalance;
+        }
+
+        // Burn credits of the request Id sender upon delivery
+        if (creditsToBurn > 0) {
+            IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
+        }
+1. creditsBalance = IERC1155(subscriptionNFT).balanceOf => let 1token
+2. deliverPrice > creditsBalance => let 2token > 1token
+3. creditsToBurn = creditsBalance => creditsToBurn = 1token
+4. IERC1155(subscriptionNFT).burn(1token)
+Already from my point of view it is a problem. The price is 2 tokens - and we allow to pass with 1 token for the price of 2.
+next
+1. creditsBalance = IERC1155(subscriptionNFT).balanceOf => let 0token
+2. deliverPrice > creditsBalance => let 2token > 0token
+3. creditsToBurn = creditsBalance => creditsToBurn = 0token
+4. if (creditsToBurn > 0) {
+            IERC1155(subscriptionNFT).burn(account, subscriptionTokenId, creditsToBurn);
+        } - skip
+5. pass        
+```
+[]
+
 #### Medium. _calculatePayment not update collectedFees;
 ```
 function _calculatePayment(
@@ -91,6 +122,8 @@ function createMech(
 require(mech != address(0), "Contract creation failed");
 uint256 nonce = nonces[msg.sender]++;
 bytes32 salt = keccak256(abi.encode(nonce, block.timestamp, msg.sender, serviceId));
+
+same for contracts\integrations\nevermined\MechFactorySubscription.sol
 ```
 []
 
