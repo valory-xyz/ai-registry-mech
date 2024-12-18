@@ -28,6 +28,13 @@ function _calculatePayment(
 ```
 []
 
+#### Medium payable fallback()
+```
+Must be payable.
+fallback() external {
+        // solhint-disable-next-line avoid-low-level-calls
+```
+
 ####  Low? Notices? OlasMech.setUp(bytes) event
 []
 
