@@ -9,9 +9,15 @@ import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
 
 /// @dev A Mech that is operated by the multisig of an Olas service
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
+    event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestId);
+
+    enum MechType {
+        FixedPrice,
+        Subscription
+    }
 
     enum RequestStatus {
         DoesNotExist,
@@ -30,7 +36,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     uint256 public immutable chainId;
     // Mech marketplace address
     address public immutable mechMarketplace;
+    // Mech type
+    MechType public immutable mechType;
 
+    // Maximum required delivery rate
+    uint256 public maxDeliveryRate;
     // Number of undelivered requests by this mech
     uint256 public numUndeliveredRequests;
     // Number of total requests by this mech
@@ -56,14 +66,20 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the registry contract.
     /// @param _serviceId Service Id.
-    constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId) {
+    constructor(
+        address _mechMarketplace,
+        address _serviceRegistry,
+        uint256 _serviceId,
+        uint256 _maxDeliveryRate,
+        MechType _mechType
+    ) {
         // Check for zero address
         if (_serviceRegistry == address(0)) {
             revert ZeroAddress();
         }
 
         // Check for zero value
-        if (_serviceId == 0) {
+        if (_serviceId == 0 || _maxDeliveryRate == 0) {
             revert ZeroValue();
         }
 
@@ -83,6 +99,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         setUp(initParams);
 
         mechMarketplace = _mechMarketplace;
+        maxDeliveryRate = _maxDeliveryRate;
+        mechType = _mechType;
 
 
         // Record chain Id
@@ -219,6 +237,18 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         numTotalDeliveries++;
 
         emit Deliver(msg.sender, requestId, requestData);
+    }
+
+    /// @dev Sets the new max delivery rate.
+    /// @param newMaxDeliveryRate New max delivery rate.
+    function changeMaxDeliveryRate(uint256 newMaxDeliveryRate) external virtual onlyOperator {
+        // Check for zero value
+        if (newMaxDeliveryRate == 0) {
+            revert ZeroValue();
+        }
+
+        maxDeliveryRate = newMaxDeliveryRate;
+        emit MaxDeliveryRateUpdated(newMaxDeliveryRate);
     }
 
     /// @dev Registers a request by a marketplace.

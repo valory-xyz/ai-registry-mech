@@ -3,6 +3,11 @@ pragma solidity ^0.8.28;
 
 /// @dev Agent Mech interface
 interface IMech {
+    enum MechType {
+        FixedPrice,
+        Subscription
+    }
+
     /// @dev Checks if the signer is the mech operator.
     function isOperator(address signer) external view returns (bool);
 
@@ -17,4 +22,8 @@ interface IMech {
     /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
     /// @param requestId Request Id.
     function revokeRequest(uint256 requestId) external;
+
+    function maxDeliveryRate() external returns (uint256);
+
+    function mechType() external returns (MechType);
 }

@@ -40,8 +40,8 @@ struct MechDelivery {
     address requester;
     // Response timeout window
     uint256 responseTimeout;
-    // Payment amount
-    uint256 payment;
+    // Delivery rate
+    uint256 deliveryRate;
 }
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
@@ -57,7 +57,7 @@ contract MechMarketplace is IErrorsMarketplace {
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data, uint256 mechPayment, uint256 marketplaceFee);
-    event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 payment, uint256 fee);
+    event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 deliveryRate, uint256 fee);
     event Withdraw(address indexed mech, uint256 amount);
     event Drained(uint256 collectedFees);
 
@@ -102,8 +102,6 @@ contract MechMarketplace is IErrorsMarketplace {
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
-    // Number of created mechs
-    uint256 public numMechs;
     // Reentrancy lock
     uint256 internal _locked = 1;
 
@@ -177,30 +175,33 @@ contract MechMarketplace is IErrorsMarketplace {
         );
     }
 
-    /// @dev Calculates payment for request delivery.
+    /// @dev Calculates payment and fee based on delivery rates and mech type.
     /// @param mech Delivery mech address.
-    /// @param payment Payment amount.
+    /// @param deliveryRate Delivery rate.
+    /// @param mechPayment Mech payment.
+    /// @param marketplaceFee Marketplace fee.
     function _calculatePayment(
         address mech,
-        uint256 payment
+        uint256 deliveryRate
     ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
-        // This must never be zero
-        if (payment > 0) {
-            // Process payment
-            marketplaceFee = (payment * fee) / 10_000;
-            mechPayment = payment - marketplaceFee;
+        IMech.MechType mechType = IMech(mech).mechType();
+        uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
-            // Check for zero value
-            if (mechPayment == 0) {
-                revert ZeroValue();
-            }
+        // TODO what if fee is zero just because the delivery rate is in the order of 1..10_000?
+        // Calculate mech payment and marketplace fee
+        marketplaceFee = (deliveryRate * fee) / 10_000;
+        mechPayment = deliveryRate - marketplaceFee;
 
-            // Record payment into mech balance
-            mapMechBalances[mech] += mechPayment;
-
-            // Record collected fee
-            collectedFees += marketplaceFee;
+        // Check for zero value
+        if (mechPayment == 0) {
+            revert ZeroValue();
         }
+
+        // Record payment into mech balance
+        mapMechBalances[mech] += mechPayment;
+
+        // Record collected fee
+        collectedFees += marketplaceFee;
     }
 
     /// @dev Changes marketplace params.
@@ -334,8 +335,6 @@ contract MechMarketplace is IErrorsMarketplace {
         mapAgentMechFactories[mech] = mechFactory;
         // Add mech address into the global set
         setMechs.push(mech);
-        // Adjust the global mech counter
-        numMechs = setMechs.length;
 
         emit CreateMech(mech, serviceId);
     }
@@ -363,6 +362,29 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         emit SetMechFactoryStatuses(mechFactories, statuses);
+    }
+
+    // Check and escrow delivery rate
+    function _checkAndEscrowDeliveryRate(address mech) internal {
+        IMech.MechType mechType = IMech(mech).mechType();
+        uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
+
+        // Check delivery rates
+        if (mechType == IMech.MechType.FixedPrice) {
+            // Check the request delivery rate for a fixed price
+            if (msg.value < maxDeliveryRate) {
+                revert InsufficientBalance(msg.value, maxDeliveryRate);
+            }
+        } else {
+            // Check that there is no incoming deposit
+            if (msg.value > 0) {
+                revert NoDepositAllowed(msg.value);
+            }
+
+            // TODO Add onERC1155Received to the receiving contract
+            // Get max subscription rate for escrow from sender
+            IERC1155(subscriptionNFT).safeTransferFrom(msg.sender, address(this), subscriptionTokenId, maxDeliveryRate, "");
+        }
     }
 
     // TODO: leave optional fields or remove?
@@ -426,6 +448,9 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check requester
         checkRequester(msg.sender, requesterStakingInstance, requesterServiceId);
 
+        // Check delivery rate
+        _checkAndEscrowDeliveryRate(priorityMech);
+
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
 
@@ -441,8 +466,8 @@ contract MechMarketplace is IErrorsMarketplace {
         mechDelivery.responseTimeout = responseTimeout + block.timestamp;
         // Record request account
         mechDelivery.requester = msg.sender;
-        // Record payment for request
-        mechDelivery.payment = msg.value;
+        // Record deliveryRate for request
+        mechDelivery.deliveryRate = msg.value;
 
         // Increase mech requester karma
         IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, 1);
@@ -533,7 +558,7 @@ contract MechMarketplace is IErrorsMarketplace {
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
         // Process payment
-        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, mechDelivery.payment);
+        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, mechDelivery.deliveryRate);
 
         emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData, mechPayment, marketplaceFee);
 
@@ -554,11 +579,18 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        // Transfer balance
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, ) = msg.sender.call{value: balance}("");
-        if (!success) {
-            revert TransferFailed(address(0), address(this), msg.sender, balance);
+        // Get mech type
+        IMech.MechType mechType = IMech(msg.sender).mechType();
+
+        // Transfer mech balance
+        if (mechType == IMech.MechType.FixedPrice) {
+            // solhint-disable-next-line avoid-low-level-calls
+            (bool success, ) = msg.sender.call{value: balance}("");
+            if (!success) {
+                revert TransferFailed(address(0), address(this), msg.sender, balance);
+            }
+        } else {
+            IERC1155(subscriptionNFT).safeTransferFrom(address(this), msg.sender, subscriptionTokenId, mechPayment, "");
         }
 
         emit Withdraw(msg.sender, balance);
@@ -773,6 +805,12 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @return Mech delivery info.
     function getMechDeliveryInfo(uint256 requestId) external view returns (MechDelivery memory) {
         return mapRequestIdDeliveries[requestId];
+    }
+
+    /// @dev Gets  global number of created mechs.
+    /// @return Number of mechs in a global set.
+    function getNumMechs() external view returns (uint256) {
+        return setMechs.length;
     }
 }
 
