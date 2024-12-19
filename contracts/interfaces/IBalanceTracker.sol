@@ -2,9 +2,9 @@
 pragma solidity ^0.8.28;
 
 /// @dev Escrow interface
-interface IEscrow {
+interface IBalanceTracker {
     // Check and escrow delivery rate
-    function checkAndEscrowDeliveryRate(address mech) external payable;
+    function checkAndRecordDeliveryRate(address mech, bytes memory paymentData) external payable;
 
     function adjustBalances(address mech, uint256 mechPayment, uint256 marketplaceFee) external;
 }

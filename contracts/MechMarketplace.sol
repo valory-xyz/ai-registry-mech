@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IErrorsMarketplace} from "./interfaces/IErrorsMarketplace.sol";
-import {IEscrow} from "./interfaces/IEscrow.sol";
+import {IBalanceTracker} from "./interfaces/IBalanceTracker.sol";
 import {IKarma} from "./interfaces/IKarma.sol";
 import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
@@ -43,7 +43,7 @@ contract MechMarketplace is IErrorsMarketplace {
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
-    event SetMechTypeEscrows(IMech.MechType[] mechTypes, address[] escrows);
+    event SetPaymentTypeBalanceTrackers(uint8[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data, uint256 mechPayment, uint256 marketplaceFee);
@@ -104,8 +104,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => bool) public mapMechFactories;
     // Map of mech => its creating factory
     mapping(address => address) public mapAgentMechFactories;
-    // Map of mech type => escrow address
-    mapping(IMech.MechType => address) public mapMechTypeEscrows;
+    // Map of mech type => balanceTracker address
+    mapping(uint8 => address) public mapPaymentTypeBalanceTrackers;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
     // Set of mechs created by this marketplace
@@ -185,10 +185,10 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroValue();
         }
 
-        // Record mech payment and marketplace fee into corresponding escrow balances
-        IMech.MechType mechType = IMech(mech).mechType();
-        address escrow = mapMechTypeEscrows[mechType];
-        IEscrow(escrow).adjustBalances(mech, mechPayment, marketplaceFee);
+        // Record mech payment and marketplace fee into corresponding balance tracker
+        uint8 paymentType = IMech(mech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
+        IBalanceTracker(balanceTracker).adjustBalances(mech, mechPayment, marketplaceFee);
     }
 
     /// @dev Changes marketplace params.
@@ -347,36 +347,37 @@ contract MechMarketplace is IErrorsMarketplace {
         emit SetMechFactoryStatuses(mechFactories, statuses);
     }
 
-    /// @dev Sets mech type escrows.
-    /// @param mechTypes Mech types.
-    /// @param escrows Corresponding escrow addresses.
-    function setMechTypeEscrows(IMech.MechType[] memory mechTypes, address[] memory escrows) external {
+    /// @dev Sets mech payment type balanceTrackers.
+    /// @param paymentTypes Mech types.
+    /// @param balanceTrackers Corresponding balanceTracker addresses.
+    function setPaymentTypeBalanceTrackers(uint8[] memory paymentTypes, address[] memory balanceTrackers) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        if (mechTypes.length != escrows.length) {
-            revert WrongArrayLength(mechTypes.length, escrows.length);
+        if (paymentTypes.length != balanceTrackers.length) {
+            revert WrongArrayLength(paymentTypes.length, balanceTrackers.length);
         }
 
-        // Traverse all the mech types and escrows
-        for (uint256 i = 0; i < mechTypes.length; ++i) {
+        // Traverse all the mech types and balanceTrackers
+        for (uint256 i = 0; i < paymentTypes.length; ++i) {
             // Check for zero address
-            if (escrows[i] == address(0)) {
+            if (balanceTrackers[i] == address(0)) {
                 revert ZeroAddress();
             }
 
-            mapMechTypeEscrows[mechTypes[i]] = escrows[i];
+            mapPaymentTypeBalanceTrackers[paymentTypes[i]] = balanceTrackers[i];
         }
 
-        emit SetMechTypeEscrows(mechTypes, escrows);
+        emit SetPaymentTypeBalanceTrackers(paymentTypes, balanceTrackers);
     }
 
     // TODO: leave optional fields or remove?
     /// @dev Registers a request.
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param data Self-descriptive opaque data-blob.
+    /// @param paymentData Payment-related data, if applicable.
     /// @param priorityMech Address of a priority mech.
     /// @param priorityMechStakingInstance Address of a priority mech staking instance (optional).
     /// @param priorityMechServiceId Priority mech service Id.
@@ -386,6 +387,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @return requestId Request Id.
     function request(
         bytes memory data,
+        bytes memory paymentData,
         address priorityMech,
         address priorityMechStakingInstance,
         uint256 priorityMechServiceId,
@@ -409,6 +411,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(priorityMechStakingInstance);
         }
 
+        // TODO Shall we allow other mechs to post requests to mechs? Or completely prohibit mechs to post requests?
         // Check that msg.sender is not a mech
         if (msg.sender == priorityMech) {
             revert UnauthorizedAccount(msg.sender);
@@ -434,10 +437,10 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check requester
         checkRequester(msg.sender, requesterStakingInstance, requesterServiceId);
 
-        // Check and escrow delivery rate
-        IMech.MechType mechType = IMech(priorityMech).mechType();
-        address escrow = mapMechTypeEscrows[mechType];
-        IEscrow(escrow).checkAndEscrowDeliveryRate{value: msg.value}(priorityMech);
+        // Check and record delivery rate
+        uint8 paymentType = IMech(priorityMech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, paymentData);
 
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);

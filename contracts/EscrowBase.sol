@@ -10,19 +10,13 @@ error ZeroMarketplaceAddress();
 error ManagerOnly(address sender, address manager);
 
 abstract contract EscrowBase {
-    event Withdraw(address indexed mech, uint256 amount);
-    event Drained(uint256 collectedFees);
+
 
     // Mech marketplace address
     address public immutable mechMarketplace;
 
-    // Collected fees
-    uint256 public collectedFees;
     // Reentrancy lock
     uint256 internal _locked = 1;
-
-    // Map of mech => its current balance
-    mapping(address => uint256) public mapMechBalances;
 
     constructor(address _mechMarketplace) {
         // Check for zero address
@@ -34,10 +28,7 @@ abstract contract EscrowBase {
     }
 
     // Check and escrow delivery rate
-    function checkAndEscrowDeliveryRate(address mech) external virtual payable;
-
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain() external virtual;
+    function checkAndRecordDeliveryRate(address mech, bytes memory paymentData) external virtual payable;
 
     function adjustBalances(address mech, uint256 mechPayment, uint256 marketplaceFee) external virtual {
         if (msg.sender != mechMarketplace) {
@@ -50,7 +41,4 @@ abstract contract EscrowBase {
         // Record collected fee
         collectedFees += marketplaceFee;
     }
-
-    /// @dev Withdraws funds for a specific mech.
-    function withdraw() external virtual;
 }

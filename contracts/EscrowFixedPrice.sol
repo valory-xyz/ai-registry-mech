@@ -42,10 +42,20 @@ error UnauthorizedAccount(address account);
 error TransferFailed(address token, address from, address to, uint256 amount);
 
 contract EscrowFixedPrice is EscrowBase {
+    event Drained(address indexed token, uint256 collectedFees);
+    event Withdraw(address indexed mech, address indexed token, uint256 amount);
+
     // Wrapped native token address
     address public immutable wrappedNativeToken;
     // Buy back burner address
     address public immutable buyBackBurner;
+
+    // Map of account => map of (token => current balance)
+    mapping(address => mapping(address => uint256)) public mapAccountBalances;
+    // Map of mech => its current balance
+    mapping(address => mapping(address => uint256)) public mapMechBalances;
+    // Map of token => collected fees
+    mapping(address => uint256) public mapCollectedFees;
 
     /// @param _wrappedNativeToken Wrapped native token address.
     /// @param _buyBackBurner Buy back burner address.
@@ -66,17 +76,83 @@ contract EscrowFixedPrice is EscrowBase {
     }
 
     // Check and escrow delivery rate
-    function checkAndEscrowDeliveryRate(address mech) external virtual override payable {
+    function checkAndRecordDeliveryRate(address mech, bytes memory paymentData) external virtual override payable {
         uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
+        // Get payment token
+        address token;
+        if (paymentData.length > 0) {
+            if (paymentData.length == 32) {
+                token = abi.decode(paymentData, (address));
+            } else {
+                revert();
+            }
+        }
+
+        // Get account balance
+        uint256 balance = mapAccountBalances[msg.sender][token];
+
         // Check the request delivery rate for a fixed price
-        if (msg.value < maxDeliveryRate) {
-            revert InsufficientBalance(msg.value, maxDeliveryRate);
+        if (balance < maxDeliveryRate) {
+            revert InsufficientBalance(balance, maxDeliveryRate);
+        }
+
+        // Adjust account balance
+        balance -= maxDeliveryRate;
+        mapAccountBalances[msg.sender][token] = balance;
+    }
+
+    // TODO buyBackBurner does not account for other tokens but WETH, OLAS
+    /// @dev Drains collected fees by sending them to a Buy back burner contract.
+    function drain(address token) external virtual override {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        uint256 localCollectedFees = mapCollectedFees[token];
+
+        // Check for zero value
+        if (localCollectedFees == 0) {
+            revert ZeroValue();
+        }
+
+        mapCollectedFees[token] = 0;
+
+        // Check token address
+        if (token == address (0)) {
+            // Wrap native tokens
+            _wrap(localCollectedFees);
+            // Transfer to Buy back burner
+            IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
+        } else {
+            IToken(token).transfer(buyBackBurner, localCollectedFees);
+        }
+
+        emit Drained(token, localCollectedFees);
+
+        _locked = 1;
+    }
+
+    function _withdraw(address token, uint256 balance) internal {
+        bool success;
+        // Transfer mech balance
+        if (token == address(0)) {
+            // solhint-disable-next-line avoid-low-level-calls
+            (success, ) = msg.sender.call{value: balance}("");
+        } else {
+            IToken(token).transfer(msg.sender, balance);
+        }
+
+        // Check transfer
+        if (!success) {
+            revert TransferFailed(token, address(this), msg.sender, balance);
         }
     }
 
     /// @dev Withdraws funds for a specific mech.
-    function withdraw() external virtual override {
+    function withdrawMech(address token) external virtual override {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -84,47 +160,37 @@ contract EscrowFixedPrice is EscrowBase {
         _locked = 2;
 
         // Get mech balance
-        uint256 balance = mapMechBalances[msg.sender];
+        uint256 balance = mapMechBalances[msg.sender][token];
+        // TODO limits?
         if (balance == 0) {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        // Transfer mech balance
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, ) = msg.sender.call{value: balance}("");
-        if (!success) {
-            revert TransferFailed(address(0), address(this), msg.sender, balance);
-        }
+        _withdraw(token, balance);
 
-        emit Withdraw(msg.sender, balance);
+        emit Withdraw(msg.sender, token, balance);
 
         _locked = 1;
     }
 
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain() external virtual override {
+    /// @dev Withdraws funds for a specific account.
+    function withdrawAccount(address token) external virtual override {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        uint256 localCollectedFees = collectedFees;
-
-        // Check for zero value
-        if (localCollectedFees == 0) {
-            revert ZeroValue();
+        // Get account balance
+        uint256 balance = mapAccountBalances[msg.sender][token];
+        // TODO limits?
+        if (balance == 0) {
+            revert UnauthorizedAccount(msg.sender);
         }
 
-        collectedFees = 0;
+        _withdraw(token, balance);
 
-        // Wrap native tokens
-        _wrap(localCollectedFees);
-
-        // Transfer to Buy back burner
-        IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
-
-        emit Drained(localCollectedFees);
+        emit Withdraw(msg.sender, token, balance);
 
         _locked = 1;
     }

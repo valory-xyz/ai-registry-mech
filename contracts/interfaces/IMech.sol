@@ -3,11 +3,6 @@ pragma solidity ^0.8.28;
 
 /// @dev Mech interface
 interface IMech {
-    enum MechType {
-        FixedPrice,
-        Subscription
-    }
-
     /// @dev Checks if the signer is the mech operator.
     function isOperator(address signer) external view returns (bool);
 
@@ -24,7 +19,7 @@ interface IMech {
 
     function maxDeliveryRate() external returns (uint256);
 
-    function mechType() external returns (MechType);
+    function getPaymentType() external returns (uint8);
 
     /// @dev Gets finalized delivery rate for a request Id.
     /// @param requestId Request Id.

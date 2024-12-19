@@ -21,11 +21,6 @@ interface IERC1155 {
     function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external;
 }
 
-/// @dev Only `owner` has a privilege, but the `sender` was provided.
-/// @param sender Sender address.
-/// @param owner Required sender address as an owner.
-error OwnerOnly(address sender, address owner);
-
 /// @dev Provided zero address.
 error ZeroAddress();
 
@@ -46,12 +41,10 @@ error NoDepositAllowed(uint256 amount);
 contract EscrowSubscription is EscrowBase, ERC1155TokenReceiver {
     event SubscriptionUpdated(address indexed subscriptionNFT, uint256 subscriptionTokenId);
 
-    // Owner address
-    address public owner;
     // Subscription NFT
-    address public subscriptionNFT;
+    address public immutable subscriptionNFT;
     // Subscription token Id
-    uint256 public subscriptionTokenId;
+    uint256 public immutable subscriptionTokenId;
 
     constructor(address _mechMarketplace, address _subscriptionNFT, uint256 _subscriptionTokenId)
         EscrowBase(_mechMarketplace)
@@ -64,13 +57,12 @@ contract EscrowSubscription is EscrowBase, ERC1155TokenReceiver {
             revert ZeroValue();
         }
 
-        owner = msg.sender;
         subscriptionNFT = _subscriptionNFT;
         subscriptionTokenId = _subscriptionTokenId;
     }
 
     // Check and escrow delivery rate
-    function checkAndEscrowDeliveryRate(address mech) external virtual override payable {
+    function checkAndRecordDeliveryRate(address mech, bytes memory paymentData) external virtual override payable {
         uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
         // Check that there is no incoming deposit
@@ -107,32 +99,5 @@ contract EscrowSubscription is EscrowBase, ERC1155TokenReceiver {
         emit Withdraw(msg.sender, balance);
 
         _locked = 1;
-    }
-
-    /// @dev Sets a new subscription.
-    /// @param newSubscriptionNFT New address of the NFT subscription.
-    /// @param newSubscriptionTokenId New subscription Id.
-    function setSubscription(
-        address newSubscriptionNFT,
-        uint256 newSubscriptionTokenId
-    ) external {
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the subscription address
-        if (newSubscriptionNFT == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Check for the subscription token Id
-        if (newSubscriptionTokenId == 0) {
-            revert ZeroValue();
-        }
-
-        subscriptionNFT = newSubscriptionNFT;
-        subscriptionTokenId = newSubscriptionTokenId;
-
-        emit SubscriptionUpdated(subscriptionNFT, subscriptionTokenId);
     }
 }
