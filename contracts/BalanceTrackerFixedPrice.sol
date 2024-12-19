@@ -307,7 +307,7 @@ contract BalanceTrackerFixedPrice {
             revert ZeroAddress();
         }
 
-        // TODO: safe?
+        // TODO: safe transfer?
         IToken(token).transferFrom(msg.sender, address(0), amount);
 
         // Update account balances
