@@ -151,39 +151,6 @@ contract BalanceTrackerFixedPrice {
         mapRequesterBalances[requester][token] = balance;
     }
 
-    // TODO buyBackBurner does not account for other tokens but WETH, OLAS
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain(address token) external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        uint256 localCollectedFees = mapCollectedFees[token];
-
-        // Check for zero value
-        if (localCollectedFees == 0) {
-            revert ZeroValue();
-        }
-
-        mapCollectedFees[token] = 0;
-
-        // Check token address
-        if (token == address (0)) {
-            // Wrap native tokens
-            _wrap(localCollectedFees);
-            // Transfer to Buy back burner
-            IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
-        } else {
-            IToken(token).transfer(buyBackBurner, localCollectedFees);
-        }
-
-        emit Drained(token, localCollectedFees);
-
-        _locked = 1;
-    }
-
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
     /// @param mech Delivery mech address.
     /// @param requester Requester address.
@@ -217,6 +184,39 @@ contract BalanceTrackerFixedPrice {
         mapMechBalances[mech][token] += actualDeliveryRate;
 
         emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
+    }
+
+    // TODO buyBackBurner does not account for other tokens but WETH, OLAS
+    /// @dev Drains collected fees by sending them to a Buy back burner contract.
+    function drain(address token) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        uint256 localCollectedFees = mapCollectedFees[token];
+
+        // Check for zero value
+        if (localCollectedFees == 0) {
+            revert ZeroValue();
+        }
+
+        mapCollectedFees[token] = 0;
+
+        // Check token address
+        if (token == address (0)) {
+            // Wrap native tokens
+            _wrap(localCollectedFees);
+            // Transfer to Buy back burner
+            IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
+        } else {
+            IToken(token).transfer(buyBackBurner, localCollectedFees);
+        }
+
+        emit Drained(token, localCollectedFees);
+
+        _locked = 1;
     }
 
     function _withdraw(address token, uint256 balance) internal {
