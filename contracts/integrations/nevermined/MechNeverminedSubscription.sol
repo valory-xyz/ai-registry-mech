@@ -42,7 +42,7 @@ contract MechNeverminedSubscription is OlasMech {
         uint256 _serviceId,
         uint256 _maxDeliveryRate
     )
-        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, MechType.Subscription)
+        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.Subscription)
     {}
 
     /// @dev Performs actions before the delivery of a request.

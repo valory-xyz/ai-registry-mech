@@ -71,7 +71,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         address _serviceRegistry,
         uint256 _serviceId,
         uint256 _maxDeliveryRate,
-        PaymentType _mechType
+        PaymentType _paymentType
     ) {
         // Check for zero address
         if (_serviceRegistry == address(0)) {
@@ -100,7 +100,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         mechMarketplace = _mechMarketplace;
         maxDeliveryRate = _maxDeliveryRate;
-        mechType = _mechType;
+        paymentType = _paymentType;
 
 
         // Record chain Id

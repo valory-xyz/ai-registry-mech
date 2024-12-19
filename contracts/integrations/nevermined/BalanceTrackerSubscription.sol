@@ -47,7 +47,7 @@ error NoDepositAllowed(uint256 amount);
 
 contract BalanceTrackerSubscription is ERC1155TokenReceiver {
     event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
-    event Withdraw(address indexed account, address indexed token, uint256 amount);
+    event CreditsAccounted(address indexed account, uint256 amount);
 
     // Mech marketplace address
     address public immutable mechMarketplace;
@@ -68,7 +68,6 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _subscriptionNFT Subscription NFT address.
     /// @param _subscriptionTokenId Subscription token Id.
-    /// @param _paymentType Mech payment type.
     constructor(address _mechMarketplace, address _subscriptionNFT, uint256 _subscriptionTokenId) {
         if (_subscriptionNFT == address(0)) {
             revert ZeroAddress();
@@ -87,8 +86,8 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
     function checkAndRecordDeliveryRate(
         address mech,
         address requester,
-        uint256 requestId,
-        bytes memory paymentData
+        uint256,
+        bytes memory
     ) external payable {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
@@ -192,7 +191,7 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
         // Burn credits of the request Id sender upon delivery
         IERC1155(subscriptionNFT).burn(msg.sender, subscriptionTokenId, creditsToBurn);
 
-        emit Withdraw(msg.sender, creditsToBurn);
+        emit CreditsAccounted(msg.sender, creditsToBurn);
 
         _locked = 1;
     }

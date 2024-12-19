@@ -214,7 +214,7 @@ contract BalanceTrackerFixedPrice {
         }
 
         // Record payment into mech balance
-        mapMechBalances[mech] += actualDeliveryRate;
+        mapMechBalances[mech][token] += actualDeliveryRate;
 
         emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
     }
@@ -251,7 +251,7 @@ contract BalanceTrackerFixedPrice {
         }
 
         // Calculate mech payment and marketplace fee
-        uint256 fee = IMechMarketplace(mechMarketplace).fee;
+        uint256 fee = IMechMarketplace(mechMarketplace).fee();
         marketplaceFee = (balance * fee) / 10_000;
         mechPayment = balance - marketplaceFee;
 
@@ -311,9 +311,9 @@ contract BalanceTrackerFixedPrice {
         IToken(token).transferFrom(msg.sender, address(0), amount);
 
         // Update account balances
-        mapRequesterBalances[msg.sender][address(0)] += msg.value;
+        mapRequesterBalances[msg.sender][address(0)] += amount;
 
-        Deposit(msg.sender, token, msg.value);
+        emit Deposit(msg.sender, token, amount);
     }
 
     receive() external payable {
@@ -322,6 +322,6 @@ contract BalanceTrackerFixedPrice {
         // Update account balances
         mapRequesterBalances[msg.sender][address(0)] += msg.value;
 
-        Deposit(msg.sender, address(0), msg.value);
+        emit Deposit(msg.sender, address(0), msg.value);
     }
 }

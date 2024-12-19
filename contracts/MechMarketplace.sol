@@ -515,7 +515,8 @@ contract MechMarketplace is IErrorsMarketplace {
         address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
         // Process payment
-        IBalanceTracker().calculatePayment(msg.sender, mechDelivery.requester, requestId, mechDelivery.deliveryRate);
+        IBalanceTracker(balanceTracker).finalizeDeliveryRate(msg.sender, mechDelivery.requester, requestId,
+            mechDelivery.deliveryRate);
 
         emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
 
