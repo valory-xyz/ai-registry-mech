@@ -199,6 +199,7 @@ contract BalanceTrackerFixedPrice {
 
         uint256 localCollectedFees = mapCollectedFees[token];
 
+        // TODO Limits
         // Check for zero value
         if (localCollectedFees == 0) {
             revert ZeroValue();
