@@ -3,6 +3,10 @@ pragma solidity ^0.8.28;
 
 import {IMech} from "./interfaces/IMech.sol";
 
+interface IMechMarketplace {
+    function fee() external returns(uint256);
+}
+
 interface IToken {
     /// @dev Transfers the token amount.
     /// @param to Address to transfer to.
@@ -62,7 +66,7 @@ error InvalidPayloadLength(uint256 provided, uint256 expected);
 error TransferFailed(address token, address from, address to, uint256 amount);
 
 contract BalanceTrackerFixedPrice {
-    event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate);
+    event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
     event Deposit(address indexed account, address indexed token, uint256 amount);
     event Withdraw(address indexed account, address indexed token, uint256 amount);
     event Drained(address indexed token, uint256 collectedFees);
@@ -73,15 +77,12 @@ contract BalanceTrackerFixedPrice {
     address public immutable wrappedNativeToken;
     // Buy back burner address
     address public immutable buyBackBurner;
-    // Payment type
-    uint8 public immutable paymentType;
-
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Map of account => map of (token => current balance)
-    mapping(address => mapping(address => uint256)) public mapAccountBalances;
-    // Map of mech => its current balance
+    // Map of requester => map of (token => current debit balance)
+    mapping(address => mapping(address => uint256)) public mapRequesterBalances;
+    // Map of mech => map of (token => current debit balance)
     mapping(address => mapping(address => uint256)) public mapMechBalances;
     // Map of token => collected fees
     mapping(address => uint256) public mapCollectedFees;
@@ -92,8 +93,7 @@ contract BalanceTrackerFixedPrice {
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _wrappedNativeToken Wrapped native token address.
     /// @param _buyBackBurner Buy back burner address.
-    /// @param _paymentType Mech payment type.
-    constructor(address _mechMarketplace, address _wrappedNativeToken, address _buyBackBurner, uint8 _paymentType) {
+    constructor(address _mechMarketplace, address _wrappedNativeToken, address _buyBackBurner) {
         // Check for zero address
         if (_mechMarketplace == address(0) || _wrappedNativeToken == address(0) || _buyBackBurner == address(0)) {
             revert ZeroAddress();
@@ -102,7 +102,6 @@ contract BalanceTrackerFixedPrice {
         mechMarketplace = _mechMarketplace;
         wrappedNativeToken = _wrappedNativeToken;
         buyBackBurner = _buyBackBurner;
-        paymentType = _paymentType;
     }
 
     function _wrap(uint256 amount) internal virtual {
@@ -110,20 +109,18 @@ contract BalanceTrackerFixedPrice {
     }
 
     // Check and record delivery rate
-    function checkAndRecordDeliveryRate(address mech, uint256 requestId, bytes memory paymentData) external payable {
+    function checkAndRecordDeliveryRate(
+        address mech,
+        address requester,
+        uint256 requestId,
+        bytes memory paymentData
+    ) external payable {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert ManagerOnly(msg.sender, mechMarketplace);
         }
 
-        // Check and record delivery rate
-        uint8 mechPaymentType = IMech(mech).getPaymentType();
-        // Check for payment type compatibility
-        if (mechPaymentType != paymentType) {
-            UnauthorizedAccount(mech);
-        }
-
-        // Get max mech delivery rate
+        // Get mech max delivery rate
         uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
         // Get payment token
@@ -135,11 +132,11 @@ contract BalanceTrackerFixedPrice {
                 revert NoDepositAllowed(msg.value);
             }
         } else if (paymentData.length > 0) {
-            revert ();
+            revert InvalidPayloadLength(paymentData.length, 32);
         }
 
         // Get account balance
-        uint256 balance = mapAccountBalances[msg.sender][token];
+        uint256 balance = mapRequesterBalances[requester][token];
 
         // Check the request delivery rate for a fixed price
         if (balance < maxDeliveryRate) {
@@ -151,12 +148,12 @@ contract BalanceTrackerFixedPrice {
 
         // Adjust account balance
         balance -= maxDeliveryRate;
-        mapAccountBalances[msg.sender][token] = balance;
+        mapRequesterBalances[requester][token] = balance;
     }
 
     // TODO buyBackBurner does not account for other tokens but WETH, OLAS
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain(address token) external virtual override {
+    function drain(address token) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -211,15 +208,15 @@ contract BalanceTrackerFixedPrice {
 
         uint256 rateDiff;
         if (actualDeliveryRate > deliveryRate) {
-            // Return back requester overpayment
+            // Return back requester overpayment debit
             rateDiff = actualDeliveryRate - deliveryRate;
-            mapAccountBalances[requester][token] += rateDiff;
+            mapRequesterBalances[requester][token] += rateDiff;
         }
 
         // Record payment into mech balance
         mapMechBalances[mech] += actualDeliveryRate;
 
-        emit MechPaymentCalculated(mech, requestId, actualDeliveryRate);
+        emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
     }
 
     function _withdraw(address token, uint256 balance) internal {
@@ -238,8 +235,8 @@ contract BalanceTrackerFixedPrice {
         }
     }
 
-    /// @dev Withdraws funds for a specific mech.
-    function withdrawMech(address token) external returns (uint256 mechPayment, uint256 marketplaceFee) {
+    /// @dev Processes mech payment by withdrawing funds.
+    function processPayment(address token) external returns (uint256 mechPayment, uint256 marketplaceFee) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -253,9 +250,8 @@ contract BalanceTrackerFixedPrice {
             revert ZeroValue();
         }
 
-        // TODO apply fees
-        // TODO what if fee is zero just because the delivery rate is in the order of 1..10_000?
         // Calculate mech payment and marketplace fee
+        uint256 fee = IMechMarketplace(mechMarketplace).fee;
         marketplaceFee = (balance * fee) / 10_000;
         mechPayment = balance - marketplaceFee;
 
@@ -267,6 +263,10 @@ contract BalanceTrackerFixedPrice {
         // Adjust marketplace fee
         mapCollectedFees[token] += marketplaceFee;
 
+        // Clear balances
+        mapMechBalances[msg.sender][token] = 0;
+
+        // Process withdraw
         _withdraw(token, balance);
 
         emit Withdraw(msg.sender, token, balance);
@@ -283,12 +283,16 @@ contract BalanceTrackerFixedPrice {
         _locked = 2;
 
         // Get account balance
-        uint256 balance = mapAccountBalances[msg.sender][token];
+        uint256 balance = mapRequesterBalances[msg.sender][token];
         // TODO limits?
         if (balance == 0) {
             revert ZeroValue();
         }
 
+        // Clear balances
+        mapRequesterBalances[msg.sender][token] = 0;
+
+        // Process withdraw
         _withdraw(token, balance);
 
         emit Withdraw(msg.sender, token, balance);
@@ -307,7 +311,7 @@ contract BalanceTrackerFixedPrice {
         IToken(token).transferFrom(msg.sender, address(0), amount);
 
         // Update account balances
-        mapAccountBalances[msg.sender][address(0)] += msg.value;
+        mapRequesterBalances[msg.sender][address(0)] += msg.value;
 
         Deposit(msg.sender, token, msg.value);
     }
@@ -316,7 +320,7 @@ contract BalanceTrackerFixedPrice {
         // TODO Accept deposits from mechs as well?
 
         // Update account balances
-        mapAccountBalances[msg.sender][address(0)] += msg.value;
+        mapRequesterBalances[msg.sender][address(0)] += msg.value;
 
         Deposit(msg.sender, address(0), msg.value);
     }

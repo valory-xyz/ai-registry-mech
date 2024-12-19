@@ -342,7 +342,6 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request (optional).
     /// @param requesterServiceId Corresponding service Id in the staking contract (optional).
     /// @param responseTimeout Relative response time in sec.
-    /// @param balanceTracker Balance tracker address.
     /// @param paymentData Payment-related data, if applicable.
     /// @return requestId Request Id.
     function request(
@@ -353,7 +352,6 @@ contract MechMarketplace is IErrorsMarketplace {
         address requesterStakingInstance,
         uint256 requesterServiceId,
         uint256 responseTimeout,
-        address balanceTracker,
         bytes memory paymentData
     ) external payable returns (uint256 requestId) {
         // Reentrancy guard
@@ -401,10 +399,15 @@ contract MechMarketplace is IErrorsMarketplace {
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
 
-        // Check and record mech delivery rate
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, requestId, paymentData);
+        // Get balance tracker address
+        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
-        // Update sender's nonce
+        // Check and record mech delivery rate
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender,
+            requestId, paymentData);
+
+        // Update requester nonce
         mapNonces[msg.sender]++;
 
         // Get mech delivery info struct
@@ -506,6 +509,10 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Increase mech karma that delivers the request
         IKarma(karma).changeMechKarma(msg.sender, 1);
+
+        // Get balance tracker address
+        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
         // Process payment
         IBalanceTracker().calculatePayment(msg.sender, mechDelivery.requester, requestId, mechDelivery.deliveryRate);

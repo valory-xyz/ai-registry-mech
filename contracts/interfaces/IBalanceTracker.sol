@@ -4,7 +4,8 @@ pragma solidity ^0.8.28;
 /// @dev Escrow interface
 interface IBalanceTracker {
     // Check and record delivery rate
-    function checkAndRecordDeliveryRate(address mech, uint256 requestId, bytes memory paymentData) external payable;
+    function checkAndRecordDeliveryRate(address mech, address requester, uint256 requestId, bytes memory paymentData)
+        external payable;
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
     /// @param mech Delivery mech address.

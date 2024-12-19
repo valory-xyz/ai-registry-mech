@@ -16,15 +16,23 @@ interface IERC1155 {
     /// @param tokenId Token Id.
     /// @param amount Amount of tokens.
     function burn(address account, uint256 tokenId, uint256 amount) external;
-
-    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external;
 }
+
+/// @dev Only `manager` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param manager Required sender address as a manager.
+error ManagerOnly(address sender, address manager);
 
 /// @dev Provided zero address.
 error ZeroAddress();
 
 /// @dev Provided zero value.
 error ZeroValue();
+
+/// @dev Not enough balance to cover costs.
+/// @param current Current balance.
+/// @param required Required balance.
+error InsufficientBalance(uint256 current, uint256 required);
 
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
@@ -38,6 +46,8 @@ error UnauthorizedAccount(address account);
 error NoDepositAllowed(uint256 amount);
 
 contract BalanceTrackerSubscription is ERC1155TokenReceiver {
+    event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
+    event Withdraw(address indexed account, address indexed token, uint256 amount);
 
     // Mech marketplace address
     address public immutable mechMarketplace;
@@ -49,12 +59,17 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
+    // Map of requester => current credit balance
+    mapping(address => uint256) public mapRequesterBalances;
+    // Map of mech => current debit balance
+    mapping(address => uint256) public mapMechBalances;
+
     /// @dev BalanceTrackerSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _subscriptionNFT Subscription NFT address.
     /// @param _subscriptionTokenId Subscription token Id.
     /// @param _paymentType Mech payment type.
-    constructor(address _mechMarketplace, address _subscriptionNFT, uint256 _subscriptionTokenId, uint8 _paymentType){
+    constructor(address _mechMarketplace, address _subscriptionNFT, uint256 _subscriptionTokenId) {
         if (_subscriptionNFT == address(0)) {
             revert ZeroAddress();
         }
@@ -66,11 +81,21 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
         mechMarketplace = _mechMarketplace;
         subscriptionNFT = _subscriptionNFT;
         subscriptionTokenId = _subscriptionTokenId;
-        paymentType = _paymentType;
     }
 
     // Check and record delivery rate
-    function checkAndRecordDeliveryRate(address mech, bytes memory paymentData) external virtual override payable {
+    function checkAndRecordDeliveryRate(
+        address mech,
+        address requester,
+        uint256 requestId,
+        bytes memory paymentData
+    ) external payable {
+        // Check for marketplace access
+        if (msg.sender != mechMarketplace) {
+            revert ManagerOnly(msg.sender, mechMarketplace);
+        }
+
+        // Get mech max delivery rate
         uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
         // Check that there is no incoming deposit
@@ -78,29 +103,96 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
             revert NoDepositAllowed(msg.value);
         }
 
-        // TODO Probably just check the amount of credits on a subscription for a msg.sender, as it's going to be managed by Nevermined
-        // Get max subscription delivery rate from sender
-        IERC1155(subscriptionNFT).safeTransferFrom(msg.sender, address(this), subscriptionTokenId, maxDeliveryRate, "");
+        // Get requester credit balance
+        uint256 balance = mapRequesterBalances[requester];
+        // Get requester actual subscription balance
+        uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(requester, subscriptionTokenId);
+
+        // Adjust requester balance with maxDeliveryRate credits
+        balance += maxDeliveryRate;
+
+        // Check the request delivery rate for a fixed price
+        if (subscriptionBalance < balance) {
+            revert InsufficientBalance(subscriptionBalance, balance);
+        }
+
+        // Adjust requester balance
+        mapRequesterBalances[requester] = balance;
     }
 
-    /// @dev Withdraws funds for a specific mech.
-    function withdraw() external virtual override {
+    /// @dev Finalizes mech delivery rate based on requested and actual ones.
+    /// @param mech Delivery mech address.
+    /// @param requester Requester address.
+    /// @param requestId Request Id.
+    /// @param deliveryRate Requested delivery rate.
+    function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 deliveryRate) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        // Get mech balance
-        uint256 balance = mapMechBalances[msg.sender];
-        if (balance == 0) {
+        // Check for marketplace access
+        if (msg.sender != mechMarketplace) {
+            revert ManagerOnly(msg.sender, mechMarketplace);
+        }
+
+        // Get actual delivery rate
+        uint256 actualDeliveryRate = IMech(mech).getFinalizedDeliveryRate(requestId);
+
+        // Check for zero value
+        if (actualDeliveryRate == 0) {
+            revert ZeroValue();
+        }
+
+        uint256 rateDiff;
+        if (actualDeliveryRate > deliveryRate) {
+            // Return back requester overpayment credit
+            rateDiff = actualDeliveryRate - deliveryRate;
+            mapRequesterBalances[requester] -= rateDiff;
+        }
+
+        // Record payment into mech balance
+        mapMechBalances[mech] += actualDeliveryRate;
+
+        emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
+
+        _locked = 1;
+    }
+
+    /// @dev Processes payment.
+    function processPayment() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Get requester credit balance
+        uint256 balance = mapRequesterBalances[msg.sender];
+        // Get requester actual subscription balance
+        uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(msg.sender, subscriptionTokenId);
+
+        // This must never happen
+        if (subscriptionBalance < balance) {
+            revert InsufficientBalance(subscriptionBalance, balance);
+        }
+
+        // Get credits to burn
+        uint256 creditsToBurn = subscriptionBalance - balance;
+
+        // TODO limits
+        if (creditsToBurn == 0) {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        // Transfer mech balance
-        IERC1155(subscriptionNFT).safeTransferFrom(address(this), msg.sender, subscriptionTokenId, balance, "");
+        // Clear balances
+        mapRequesterBalances[msg.sender] = 0;
 
-        emit Withdraw(msg.sender, balance);
+        // Burn credits of the request Id sender upon delivery
+        IERC1155(subscriptionNFT).burn(msg.sender, subscriptionTokenId, creditsToBurn);
+
+        emit Withdraw(msg.sender, creditsToBurn);
 
         _locked = 1;
     }
