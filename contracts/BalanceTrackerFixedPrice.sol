@@ -277,8 +277,8 @@ contract BalanceTrackerFixedPrice {
         _locked = 1;
     }
 
-    /// @dev Withdraws funds for a specific account.
-    function withdrawAccount(address token) external {
+    /// @dev Withdraws funds for a specific requester account.
+    function withdraw(address token) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -303,6 +303,7 @@ contract BalanceTrackerFixedPrice {
         _locked = 1;
     }
 
+    // Deposits token funds for requester.
     function deposit(address token, uint256 amount) external {
         // TODO Accept deposits from mechs as well?
 
@@ -319,6 +320,7 @@ contract BalanceTrackerFixedPrice {
         emit Deposit(msg.sender, token, amount);
     }
 
+    // Deposits native funds for requester.
     receive() external payable {
         // TODO Accept deposits from mechs as well?
 
