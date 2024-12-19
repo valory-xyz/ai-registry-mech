@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import {ERC1155TokenReceiver} from "../../../lib/autonolas-registries/lib/solmate/src/tokens/ERC1155.sol";
-import {EscrowBase} from "../../EscrowBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IERC1155 {
@@ -38,17 +37,24 @@ error UnauthorizedAccount(address account);
 /// @param amount Value amount.
 error NoDepositAllowed(uint256 amount);
 
-contract EscrowSubscription is EscrowBase, ERC1155TokenReceiver {
-    event SubscriptionUpdated(address indexed subscriptionNFT, uint256 subscriptionTokenId);
+contract BalanceTrackerSubscription is ERC1155TokenReceiver {
 
+    // Mech marketplace address
+    address public immutable mechMarketplace;
     // Subscription NFT
     address public immutable subscriptionNFT;
     // Subscription token Id
     uint256 public immutable subscriptionTokenId;
 
-    constructor(address _mechMarketplace, address _subscriptionNFT, uint256 _subscriptionTokenId)
-        EscrowBase(_mechMarketplace)
-    {
+    // Reentrancy lock
+    uint256 internal _locked = 1;
+
+    /// @dev BalanceTrackerSubscription constructor.
+    /// @param _mechMarketplace Mech marketplace address.
+    /// @param _subscriptionNFT Subscription NFT address.
+    /// @param _subscriptionTokenId Subscription token Id.
+    /// @param _paymentType Mech payment type.
+    constructor(address _mechMarketplace, address _subscriptionNFT, uint256 _subscriptionTokenId, uint8 _paymentType){
         if (_subscriptionNFT == address(0)) {
             revert ZeroAddress();
         }
@@ -57,11 +63,13 @@ contract EscrowSubscription is EscrowBase, ERC1155TokenReceiver {
             revert ZeroValue();
         }
 
+        mechMarketplace = _mechMarketplace;
         subscriptionNFT = _subscriptionNFT;
         subscriptionTokenId = _subscriptionTokenId;
+        paymentType = _paymentType;
     }
 
-    // Check and escrow delivery rate
+    // Check and record delivery rate
     function checkAndRecordDeliveryRate(address mech, bytes memory paymentData) external virtual override payable {
         uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
@@ -71,13 +79,9 @@ contract EscrowSubscription is EscrowBase, ERC1155TokenReceiver {
         }
 
         // TODO Probably just check the amount of credits on a subscription for a msg.sender, as it's going to be managed by Nevermined
-        // Get max subscription rate for escrow from sender
+        // Get max subscription delivery rate from sender
         IERC1155(subscriptionNFT).safeTransferFrom(msg.sender, address(this), subscriptionTokenId, maxDeliveryRate, "");
     }
-
-    // TODO TBD
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain() external virtual override {}
 
     /// @dev Withdraws funds for a specific mech.
     function withdraw() external virtual override {

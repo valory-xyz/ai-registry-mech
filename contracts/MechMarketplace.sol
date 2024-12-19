@@ -46,7 +46,7 @@ contract MechMarketplace is IErrorsMarketplace {
     event SetPaymentTypeBalanceTrackers(uint8[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
-        uint256 requestId, bytes data, uint256 mechPayment, uint256 marketplaceFee);
+        uint256 requestId, bytes data);
     event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 deliveryRate, uint256 fee);
 
     enum RequestStatus {
@@ -148,47 +148,6 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
-    }
-
-    /// @dev Calculates payment and fee based on delivery rates and mech type.
-    /// @param mech Delivery mech address.
-    /// @param requestId Request Id.
-    /// @param deliveryRate Delivery rate.
-    /// @param mechPayment Mech payment.
-    /// @param marketplaceFee Marketplace fee.
-    function _calculatePayment(
-        address mech,
-        uint256 requestId,
-        uint256 deliveryRate
-    ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
-        // Get actual delivery rate
-        uint256 actualDeliveryRate = IMech(mech).getFinalizedDeliveryRate(requestId);
-
-        // Check for zero value
-        if (actualDeliveryRate == 0) {
-            revert ZeroValue();
-        }
-
-        // TODO What to do if there is rateDIff leftovers? Keep as a fee or record into sender's map?
-        uint256 rateDiff;
-        if (actualDeliveryRate > deliveryRate) {
-            rateDiff = actualDeliveryRate - deliveryRate;
-        }
-
-        // TODO what if fee is zero just because the delivery rate is in the order of 1..10_000?
-        // Calculate mech payment and marketplace fee
-        marketplaceFee = (actualDeliveryRate * fee) / 10_000;
-        mechPayment = actualDeliveryRate - marketplaceFee;
-
-        // Check for zero value, although this must never happen
-        if (mechPayment == 0) {
-            revert ZeroValue();
-        }
-
-        // Record mech payment and marketplace fee into corresponding balance tracker
-        uint8 paymentType = IMech(mech).getPaymentType();
-        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
-        IBalanceTracker(balanceTracker).adjustBalances(mech, mechPayment, marketplaceFee);
     }
 
     /// @dev Changes marketplace params.
@@ -377,23 +336,25 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Registers a request.
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param data Self-descriptive opaque data-blob.
-    /// @param paymentData Payment-related data, if applicable.
     /// @param priorityMech Address of a priority mech.
     /// @param priorityMechStakingInstance Address of a priority mech staking instance (optional).
     /// @param priorityMechServiceId Priority mech service Id.
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request (optional).
     /// @param requesterServiceId Corresponding service Id in the staking contract (optional).
     /// @param responseTimeout Relative response time in sec.
+    /// @param balanceTracker Balance tracker address.
+    /// @param paymentData Payment-related data, if applicable.
     /// @return requestId Request Id.
     function request(
         bytes memory data,
-        bytes memory paymentData,
         address priorityMech,
         address priorityMechStakingInstance,
         uint256 priorityMechServiceId,
         address requesterStakingInstance,
         uint256 requesterServiceId,
-        uint256 responseTimeout
+        uint256 responseTimeout,
+        address balanceTracker,
+        bytes memory paymentData
     ) external payable returns (uint256 requestId) {
         // Reentrancy guard
         if (_locked > 1) {
@@ -437,13 +398,11 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check requester
         checkRequester(msg.sender, requesterStakingInstance, requesterServiceId);
 
-        // Check and record delivery rate
-        uint8 paymentType = IMech(priorityMech).getPaymentType();
-        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, paymentData);
-
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
+
+        // Check and record mech delivery rate
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, requestId, paymentData);
 
         // Update sender's nonce
         mapNonces[msg.sender]++;
@@ -549,9 +508,9 @@ contract MechMarketplace is IErrorsMarketplace {
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
         // Process payment
-        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, requestId, mechDelivery.deliveryRate);
+        IBalanceTracker().calculatePayment(msg.sender, mechDelivery.requester, requestId, mechDelivery.deliveryRate);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData, mechPayment, marketplaceFee);
+        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
 
         _locked = 1;
     }
