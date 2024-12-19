@@ -34,6 +34,11 @@ error ZeroValue();
 /// @param required Required balance.
 error InsufficientBalance(uint256 current, uint256 required);
 
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
@@ -148,7 +153,18 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
         if (maxDeliveryRate > actualDeliveryRate) {
             // Return back requester overpayment credit
             rateDiff = maxDeliveryRate - actualDeliveryRate;
-            mapRequesterBalances[requester] -= rateDiff;
+
+            // Get requester balance
+            uint256 balance = mapRequesterBalances[requester];
+
+            // This must never happen as max delivery rate is always bigger or equal to the actual delivery rate
+            if (rateDiff > balance) {
+                revert Overflow(rateDiff, balance);
+            }
+
+            // Adjust requester balance
+            balance -= rateDiff;
+            mapRequesterBalances[requester] = balance;
         } else {
             actualDeliveryRate = maxDeliveryRate;
         }
