@@ -178,7 +178,7 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
     }
 
     /// @dev Processes payment.
-    function processPayment() external {
+    function processPayment(address requester) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -186,9 +186,9 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
         _locked = 2;
 
         // Get requester credit balance
-        uint256 balance = mapRequesterBalances[msg.sender];
+        uint256 balance = mapRequesterBalances[requester];
         // Get requester actual subscription balance
-        uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(msg.sender, subscriptionTokenId);
+        uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(requester, subscriptionTokenId);
 
         // This must never happen
         if (subscriptionBalance < balance) {
@@ -198,18 +198,18 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
         // Get credits to burn
         uint256 creditsToBurn = subscriptionBalance - balance;
 
-        // TODO limits
+        // TODO limits and correct balance value
         if (creditsToBurn == 0) {
-            revert UnauthorizedAccount(msg.sender);
+            revert InsufficientBalance(0, 0);
         }
 
         // Clear balances
-        mapRequesterBalances[msg.sender] = 0;
+        mapRequesterBalances[requester] = 0;
 
         // Burn credits of the request Id sender upon delivery
-        IERC1155(subscriptionNFT).burn(msg.sender, subscriptionTokenId, creditsToBurn);
+        IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, creditsToBurn);
 
-        emit CreditsAccounted(msg.sender, creditsToBurn);
+        emit CreditsAccounted(requester, creditsToBurn);
 
         _locked = 1;
     }
