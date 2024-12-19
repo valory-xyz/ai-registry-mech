@@ -155,8 +155,8 @@ contract BalanceTrackerFixedPrice {
     /// @param mech Delivery mech address.
     /// @param requester Requester address.
     /// @param requestId Request Id.
-    /// @param deliveryRate Requested delivery rate.
-    function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 deliveryRate) external {
+    /// @param maxDeliveryRate Requested max delivery rate.
+    function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 maxDeliveryRate) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert ManagerOnly(msg.sender, mechMarketplace);
@@ -174,10 +174,12 @@ contract BalanceTrackerFixedPrice {
         address token = mapRequestIdTokens[requestId];
 
         uint256 rateDiff;
-        if (actualDeliveryRate > deliveryRate) {
+        if (maxDeliveryRate > actualDeliveryRate) {
             // Return back requester overpayment debit
-            rateDiff = actualDeliveryRate - deliveryRate;
+            rateDiff = maxDeliveryRate - actualDeliveryRate;
             mapRequesterBalances[requester][token] += rateDiff;
+        } else {
+            actualDeliveryRate = maxDeliveryRate;
         }
 
         // Record payment into mech balance

@@ -123,8 +123,8 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
     /// @param mech Delivery mech address.
     /// @param requester Requester address.
     /// @param requestId Request Id.
-    /// @param deliveryRate Requested delivery rate.
-    function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 deliveryRate) external {
+    /// @param maxDeliveryRate Requested max delivery rate.
+    function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 maxDeliveryRate) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -145,10 +145,12 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
         }
 
         uint256 rateDiff;
-        if (actualDeliveryRate > deliveryRate) {
+        if (maxDeliveryRate > actualDeliveryRate) {
             // Return back requester overpayment credit
-            rateDiff = actualDeliveryRate - deliveryRate;
+            rateDiff = maxDeliveryRate - actualDeliveryRate;
             mapRequesterBalances[requester] -= rateDiff;
+        } else {
+            actualDeliveryRate = maxDeliveryRate;
         }
 
         // Record payment into mech balance
