@@ -342,6 +342,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request (optional).
     /// @param requesterServiceId Corresponding service Id in the staking contract (optional).
     /// @param responseTimeout Relative response time in sec.
+    /// @param paymentData Additional payment-related request data, if applicable.
     /// @return requestId Request Id.
     function request(
         bytes memory data,
@@ -350,7 +351,8 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 priorityMechServiceId,
         address requesterStakingInstance,
         uint256 requesterServiceId,
-        uint256 responseTimeout
+        uint256 responseTimeout,
+        bytes memory paymentData
     ) external payable returns (uint256 requestId) {
         // Reentrancy guard
         if (_locked > 1) {
@@ -396,7 +398,7 @@ contract MechMarketplace is IErrorsMarketplace {
         address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
         // Check and record mech delivery rate
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender, requestId);
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender, paymentData);
 
         // Update requester nonce
         mapNonces[msg.sender]++;

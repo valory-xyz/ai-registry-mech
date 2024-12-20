@@ -90,7 +90,7 @@ abstract contract BalanceTrackerFixedPriceBase {
     function checkAndRecordDeliveryRate(
         address mech,
         address requester,
-        uint256
+        bytes memory
     ) external payable {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {

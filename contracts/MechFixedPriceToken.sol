@@ -11,7 +11,7 @@ contract MechFixedPriceToken is OlasMech {
     /// @param _serviceId Service Id.
     /// @param _maxDeliveryRate The maximum delivery rate.
     constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId, uint256 _maxDeliveryRate)
-    OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.FixedPriceToken)
+        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.FixedPriceToken)
     {}
 
     /// @dev Performs actions before the delivery of a request.

@@ -46,6 +46,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
     }
 
     function _getRequiredFunds(address requester, uint256 balanceDiff) internal virtual override returns (uint256) {
+        // TODO check balances before and after
         IToken(olas).transferFrom(requester, address(this), balanceDiff);
         return balanceDiff;
     }
