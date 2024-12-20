@@ -15,8 +15,9 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event RevokeRequest(address indexed sender, uint256 requestId);
 
     enum PaymentType {
-        FixedPrice,
-        Subscription
+        FixedPriceNative,
+        FixedPriceToken,
+        NvmSubscription
     }
 
     enum RequestStatus {

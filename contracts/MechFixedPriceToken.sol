@@ -3,15 +3,15 @@ pragma solidity ^0.8.28;
 
 import {OlasMech} from "./OlasMech.sol";
 
-/// @title MechFixedPrice - Smart contract for OlasMech that accepts a fixed price payment for services.
-contract MechFixedPrice is OlasMech {
+/// @title MechFixedPriceToken - Smart contract for OlasMech that accepts a fixed price payment for services in native token.
+contract MechFixedPriceToken is OlasMech {
     /// @dev AgentMech constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the token contract.
     /// @param _serviceId Service Id.
     /// @param _maxDeliveryRate The maximum delivery rate.
     constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId, uint256 _maxDeliveryRate)
-        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.FixedPrice)
+    OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.FixedPriceToken)
     {}
 
     /// @dev Performs actions before the delivery of a request.

@@ -22,14 +22,10 @@ interface IToken {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
-interface IWrappedToken {
-    function deposit() external payable;
-}
-
-/// @dev Only `manager` has a privilege, but the `sender` was provided.
+/// @dev Only `marketplace` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
-/// @param manager Required sender address as a manager.
-error ManagerOnly(address sender, address manager);
+/// @param marketplace Required marketplace address.
+error MarketplaceOnly(address sender, address marketplace);
 
 /// @dev Provided zero address.
 error ZeroAddress();
@@ -65,7 +61,7 @@ error InvalidPayloadLength(uint256 provided, uint256 expected);
 /// @param amount Amount value.
 error TransferFailed(address token, address from, address to, uint256 amount);
 
-contract BalanceTrackerFixedPrice {
+contract BalanceTrackerFixedPriceToken {
     event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
     event Deposit(address indexed account, address indexed token, uint256 amount);
     event Withdraw(address indexed account, address indexed token, uint256 amount);
@@ -73,82 +69,68 @@ contract BalanceTrackerFixedPrice {
 
     // Mech marketplace address
     address public immutable mechMarketplace;
-    // Wrapped native token address
-    address public immutable wrappedNativeToken;
+    // OLAS token address
+    address public immutable olas;
     // Buy back burner address
     address public immutable buyBackBurner;
+    // Collected fees
+    uint256 public collectedFees;
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Map of requester => map of (token => current debit balance)
-    mapping(address => mapping(address => uint256)) public mapRequesterBalances;
-    // Map of mech => map of (token => current debit balance)
-    mapping(address => mapping(address => uint256)) public mapMechBalances;
-    // Map of token => collected fees
-    mapping(address => uint256) public mapCollectedFees;
-    // Map of requestId => token
-    mapping(uint256 => address) public mapRequestIdTokens;
+    // Map of requester => current debit balance
+    mapping(address => uint256) public mapRequesterBalances;
+    // Map of mech => => current debit balance
+    mapping(address => uint256) public mapMechBalances;
 
     /// @dev BalanceTrackerFixedPrice constructor.
     /// @param _mechMarketplace Mech marketplace address.
-    /// @param _wrappedNativeToken Wrapped native token address.
+    /// @param _olas OLAS token address.
     /// @param _buyBackBurner Buy back burner address.
-    constructor(address _mechMarketplace, address _wrappedNativeToken, address _buyBackBurner) {
+    constructor(address _mechMarketplace, address _olas, address _buyBackBurner) {
         // Check for zero address
-        if (_mechMarketplace == address(0) || _wrappedNativeToken == address(0) || _buyBackBurner == address(0)) {
+        if (_mechMarketplace == address(0) || _olas == address(0) || _buyBackBurner == address(0)) {
             revert ZeroAddress();
         }
 
         mechMarketplace = _mechMarketplace;
-        wrappedNativeToken = _wrappedNativeToken;
+        olas = _olas;
         buyBackBurner = _buyBackBurner;
-    }
-
-    function _wrap(uint256 amount) internal virtual {
-        IWrappedToken(wrappedNativeToken).deposit{value: amount}();
     }
 
     // Check and record delivery rate
     function checkAndRecordDeliveryRate(
         address mech,
         address requester,
-        uint256 requestId,
-        bytes memory paymentData
+        uint256
     ) external payable {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
-            revert ManagerOnly(msg.sender, mechMarketplace);
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        }
+
+        // Check for msg.value
+        if (msg.value > 0) {
+            revert NoDepositAllowed(msg.value);
         }
 
         // Get mech max delivery rate
         uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
-        // Get payment token
-        address token;
-        if (paymentData.length == 32) {
-            // Extract token address
-            token = abi.decode(paymentData, (address));
-            if (token != address(0) && msg.value > 0) {
-                revert NoDepositAllowed(msg.value);
-            }
-        } else if (paymentData.length > 0) {
-            revert InvalidPayloadLength(paymentData.length, 32);
-        }
-
         // Get account balance
-        uint256 balance = mapRequesterBalances[requester][token];
+        uint256 balance = mapRequesterBalances[requester];
 
         // Check the request delivery rate for a fixed price
         if (balance < maxDeliveryRate) {
-            revert InsufficientBalance(balance, maxDeliveryRate);
+            // Get balance difference
+            uint256 balanceDiff = maxDeliveryRate - balance;
+            // Get required funds
+            IToken(olas).transferFrom(requester, address(this), balanceDiff);
         }
-
-        // Record request token
-        mapRequestIdTokens[requestId] = token;
 
         // Adjust account balance
         balance -= maxDeliveryRate;
-        mapRequesterBalances[requester][token] = balance;
+        mapRequesterBalances[requester] = balance;
     }
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
@@ -159,7 +141,7 @@ contract BalanceTrackerFixedPrice {
     function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 maxDeliveryRate) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
-            revert ManagerOnly(msg.sender, mechMarketplace);
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Get actual delivery rate
@@ -170,34 +152,30 @@ contract BalanceTrackerFixedPrice {
             revert ZeroValue();
         }
 
-        // Get token associated with request Id
-        address token = mapRequestIdTokens[requestId];
-
         uint256 rateDiff;
         if (maxDeliveryRate > actualDeliveryRate) {
             // Return back requester overpayment debit
             rateDiff = maxDeliveryRate - actualDeliveryRate;
-            mapRequesterBalances[requester][token] += rateDiff;
+            mapRequesterBalances[requester] += rateDiff;
         } else {
             actualDeliveryRate = maxDeliveryRate;
         }
 
         // Record payment into mech balance
-        mapMechBalances[mech][token] += actualDeliveryRate;
+        mapMechBalances[mech] += actualDeliveryRate;
 
         emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
     }
 
-    // TODO buyBackBurner does not account for other tokens but WETH, OLAS
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain(address token) external {
+    function drain() external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        uint256 localCollectedFees = mapCollectedFees[token];
+        uint256 localCollectedFees = collectedFees;
 
         // TODO Limits
         // Check for zero value
@@ -205,41 +183,27 @@ contract BalanceTrackerFixedPrice {
             revert ZeroValue();
         }
 
-        mapCollectedFees[token] = 0;
+        collectedFees = 0;
 
-        // Check token address
-        if (token == address (0)) {
-            // Wrap native tokens
-            _wrap(localCollectedFees);
-            // Transfer to Buy back burner
-            IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
-        } else {
-            IToken(token).transfer(buyBackBurner, localCollectedFees);
-        }
+        // Transfer to Buy back burner
+        IToken(olas).transfer(buyBackBurner, localCollectedFees);
 
-        emit Drained(token, localCollectedFees);
+        emit Drained(olas, localCollectedFees);
 
         _locked = 1;
     }
 
-    function _withdraw(address token, uint256 balance) internal {
-        bool success;
-        // Transfer mech balance
-        if (token == address(0)) {
-            // solhint-disable-next-line avoid-low-level-calls
-            (success, ) = msg.sender.call{value: balance}("");
-        } else {
-            IToken(token).transfer(msg.sender, balance);
-        }
+    function _withdraw(uint256 balance) internal {
+        bool success = IToken(olas).transfer(msg.sender, balance);
 
         // Check transfer
         if (!success) {
-            revert TransferFailed(token, address(this), msg.sender, balance);
+            revert TransferFailed(olas, address(this), msg.sender, balance);
         }
     }
 
     /// @dev Processes mech payment by withdrawing funds.
-    function processPayment(address token) external returns (uint256 mechPayment, uint256 marketplaceFee) {
+    function processPayment() external returns (uint256 mechPayment, uint256 marketplaceFee) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -247,7 +211,7 @@ contract BalanceTrackerFixedPrice {
         _locked = 2;
 
         // Get mech balance
-        uint256 balance = mapMechBalances[msg.sender][token];
+        uint256 balance = mapMechBalances[msg.sender];
         // TODO limits?
         if (balance == 0) {
             revert ZeroValue();
@@ -264,21 +228,21 @@ contract BalanceTrackerFixedPrice {
         }
 
         // Adjust marketplace fee
-        mapCollectedFees[token] += marketplaceFee;
+        collectedFees += marketplaceFee;
 
         // Clear balances
-        mapMechBalances[msg.sender][token] = 0;
+        mapMechBalances[msg.sender] = 0;
 
         // Process withdraw
-        _withdraw(token, balance);
+        _withdraw(balance);
 
-        emit Withdraw(msg.sender, token, balance);
+        emit Withdraw(msg.sender, olas, balance);
 
         _locked = 1;
     }
 
     /// @dev Withdraws funds for a specific requester account.
-    function withdraw(address token) external {
+    function withdraw() external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -286,47 +250,30 @@ contract BalanceTrackerFixedPrice {
         _locked = 2;
 
         // Get account balance
-        uint256 balance = mapRequesterBalances[msg.sender][token];
+        uint256 balance = mapRequesterBalances[msg.sender];
         // TODO limits?
         if (balance == 0) {
             revert ZeroValue();
         }
 
         // Clear balances
-        mapRequesterBalances[msg.sender][token] = 0;
+        mapRequesterBalances[msg.sender] = 0;
 
         // Process withdraw
-        _withdraw(token, balance);
+        _withdraw(balance);
 
-        emit Withdraw(msg.sender, token, balance);
+        emit Withdraw(msg.sender, olas, balance);
 
         _locked = 1;
     }
 
     // Deposits token funds for requester.
-    function deposit(address token, uint256 amount) external {
-        // TODO Accept deposits from mechs as well?
-
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // TODO: safe transfer?
-        IToken(token).transferFrom(msg.sender, address(0), amount);
+    function deposit(uint256 amount) external {
+        IToken(olas).transferFrom(msg.sender, address(this), amount);
 
         // Update account balances
-        mapRequesterBalances[msg.sender][address(0)] += amount;
+        mapRequesterBalances[msg.sender] += amount;
 
-        emit Deposit(msg.sender, token, amount);
-    }
-
-    // Deposits native funds for requester.
-    receive() external payable {
-        // TODO Accept deposits from mechs as well?
-
-        // Update account balances
-        mapRequesterBalances[msg.sender][address(0)] += msg.value;
-
-        emit Deposit(msg.sender, address(0), msg.value);
+        emit Deposit(msg.sender, olas, amount);
     }
 }

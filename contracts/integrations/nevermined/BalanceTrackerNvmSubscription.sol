@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ERC1155TokenReceiver} from "../../../lib/autonolas-registries/lib/solmate/src/tokens/ERC1155.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IERC1155 {
@@ -18,10 +17,10 @@ interface IERC1155 {
     function burn(address account, uint256 tokenId, uint256 amount) external;
 }
 
-/// @dev Only `manager` has a privilege, but the `sender` was provided.
+/// @dev Only `marketplace` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
-/// @param manager Required sender address as a manager.
-error ManagerOnly(address sender, address manager);
+/// @param marketplace Required marketplace address.
+error MarketplaceOnly(address sender, address marketplace);
 
 /// @dev Provided zero address.
 error ZeroAddress();
@@ -50,7 +49,7 @@ error UnauthorizedAccount(address account);
 /// @param amount Value amount.
 error NoDepositAllowed(uint256 amount);
 
-contract BalanceTrackerSubscription is ERC1155TokenReceiver {
+contract BalanceTrackerNvmSubscription {
     event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
     event CreditsAccounted(address indexed account, uint256 amount);
 
@@ -96,7 +95,7 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
     ) external payable {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
-            revert ManagerOnly(msg.sender, mechMarketplace);
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Get mech max delivery rate
@@ -138,7 +137,7 @@ contract BalanceTrackerSubscription is ERC1155TokenReceiver {
 
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
-            revert ManagerOnly(msg.sender, mechMarketplace);
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Get actual delivery rate

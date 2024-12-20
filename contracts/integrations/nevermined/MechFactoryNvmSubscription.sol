@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {MechFixedPrice} from "./MechFixedPrice.sol";
+import {MechNvmSubscription} from "./MechNvmSubscription.sol";
 
 /// @dev Incorrect data length.
 /// @param provided Provided data length.
 /// @param expected Expected data length.
 error IncorrectDataLength(uint256 provided, uint256 expected);
 
-/// @title Mech Factory Basic - Periphery smart contract for managing basic mech creation
-contract MechFactoryFixedPrice {
-    event CreateFixedPriceMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
+/// @title MechFactoryNvmSubscription - Periphery smart contract for managing Nevermined subscription mech creation
+contract MechFactoryNvmSubscription {
+    event CreateSubscriptionMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
 
     // Agent factory version number
     string public constant VERSION = "0.1.0";
@@ -32,15 +32,16 @@ contract MechFactoryFixedPrice {
             revert IncorrectDataLength(payload.length, 32);
         }
 
-        // Decode max delivery rate
+        // Decode subscription parameters
         uint256 maxDeliveryRate = abi.decode(payload, (uint256));
 
         // Get salt
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
-        mech = address((new MechFixedPrice){salt: salt}(mechMarketplace, serviceRegistry, serviceId, maxDeliveryRate));
+        mech = address((new MechNvmSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
+            maxDeliveryRate));
 
-        emit CreateFixedPriceMech(mech, serviceId, maxDeliveryRate);
+        emit CreateSubscriptionMech(mech, serviceId, maxDeliveryRate);
     }
 }
