@@ -97,6 +97,7 @@ abstract contract BalanceTrackerFixedPriceBase {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
+        // Check for native value
         _checkNativeValue();
 
         // Get mech max delivery rate
