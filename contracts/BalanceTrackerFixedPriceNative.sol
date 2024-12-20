@@ -175,7 +175,6 @@ contract BalanceTrackerFixedPriceNative {
 
         uint256 localCollectedFees = collectedFees;
 
-        // TODO Limits
         // Check for zero value
         if (localCollectedFees == 0) {
             revert ZeroValue();

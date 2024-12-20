@@ -12,7 +12,9 @@ interface IMechMarketplace {
         // Requester address
         address requester;
         // Response timeout window
-        uint32 responseTimeout;
+        uint256 responseTimeout;
+        // Delivery rate
+        uint256 deliveryRate;
     }
 
     /// @dev Delivers a request.

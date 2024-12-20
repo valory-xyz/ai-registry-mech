@@ -196,8 +196,6 @@ contract BalanceTrackerNvmSubscription {
 
         // Get credits to burn
         uint256 creditsToBurn = subscriptionBalance - balance;
-
-        // TODO limits and correct balance value
         if (creditsToBurn == 0) {
             revert InsufficientBalance(0, 0);
         }
