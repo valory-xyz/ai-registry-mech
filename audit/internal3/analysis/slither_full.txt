@@ -1,0 +1,20 @@
+INFO:Detectors:
+Reentrancy in BalanceTrackerFixedPriceBase.checkAndRecordDeliveryRate(address,address,uint256) (BalanceTrackerFixedPriceBase-flatten.sol#121-151):
+	External calls:
+	- maxDeliveryRate = IMech(mech).maxDeliveryRate() (BalanceTrackerFixedPriceBase-flatten.sol#135)
+	State variables written after the call(s):
+	- mapRequesterBalances[requester] = balance (BalanceTrackerFixedPriceBase-flatten.sol#150)
+Reentrancy in BalanceTrackerFixedPriceBase.finalizeDeliveryRate(address,address,uint256,uint256) (BalanceTrackerFixedPriceBase-flatten.sol#158-185):
+	External calls:
+	- actualDeliveryRate = IMech(mech).getFinalizedDeliveryRate(requestId) (BalanceTrackerFixedPriceBase-flatten.sol#165)
+	State variables written after the call(s):
+	- mapMechBalances[mech] += actualDeliveryRate (BalanceTrackerFixedPriceBase-flatten.sol#182)
+	- mapRequesterBalances[requester] += rateDiff (BalanceTrackerFixedPriceBase-flatten.sol#176)
+
+INFO:Detectors:
+Setter function OlasMech.setUp(bytes) (OlasMech-flatten.sol#3844-3847) does not emit an event
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
+
+
+
+
