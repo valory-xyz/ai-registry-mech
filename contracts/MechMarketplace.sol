@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IErrorsMarketplace} from "./interfaces/IErrorsMarketplace.sol";
-import {IEscrow} from "./interfaces/IEscrow.sol";
+import {IBalanceTracker} from "./interfaces/IBalanceTracker.sol";
 import {IKarma} from "./interfaces/IKarma.sol";
 import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
@@ -43,10 +43,10 @@ contract MechMarketplace is IErrorsMarketplace {
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
-    event SetMechTypeEscrows(IMech.MechType[] mechTypes, address[] escrows);
+    event SetPaymentTypeBalanceTrackers(uint8[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
-        uint256 requestId, bytes data, uint256 mechPayment, uint256 marketplaceFee);
+        uint256 requestId, bytes data);
     event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 deliveryRate, uint256 fee);
 
     enum RequestStatus {
@@ -104,8 +104,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => bool) public mapMechFactories;
     // Map of mech => its creating factory
     mapping(address => address) public mapAgentMechFactories;
-    // Map of mech type => escrow address
-    mapping(IMech.MechType => address) public mapMechTypeEscrows;
+    // Map of mech type => balanceTracker address
+    mapping(uint8 => address) public mapPaymentTypeBalanceTrackers;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
     // Set of mechs created by this marketplace
@@ -148,47 +148,6 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
-    }
-
-    /// @dev Calculates payment and fee based on delivery rates and mech type.
-    /// @param mech Delivery mech address.
-    /// @param requestId Request Id.
-    /// @param deliveryRate Delivery rate.
-    /// @param mechPayment Mech payment.
-    /// @param marketplaceFee Marketplace fee.
-    function _calculatePayment(
-        address mech,
-        uint256 requestId,
-        uint256 deliveryRate
-    ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
-        // Get actual delivery rate
-        uint256 actualDeliveryRate = IMech(mech).getFinalizedDeliveryRate(requestId);
-
-        // Check for zero value
-        if (actualDeliveryRate == 0) {
-            revert ZeroValue();
-        }
-
-        // TODO What to do if there is rateDIff leftovers? Keep as a fee or record into sender's map?
-        uint256 rateDiff;
-        if (actualDeliveryRate > deliveryRate) {
-            rateDiff = actualDeliveryRate - deliveryRate;
-        }
-
-        // TODO what if fee is zero just because the delivery rate is in the order of 1..10_000?
-        // Calculate mech payment and marketplace fee
-        marketplaceFee = (actualDeliveryRate * fee) / 10_000;
-        mechPayment = actualDeliveryRate - marketplaceFee;
-
-        // Check for zero value, although this must never happen
-        if (mechPayment == 0) {
-            revert ZeroValue();
-        }
-
-        // Record mech payment and marketplace fee into corresponding escrow balances
-        IMech.MechType mechType = IMech(mech).mechType();
-        address escrow = mapMechTypeEscrows[mechType];
-        IEscrow(escrow).adjustBalances(mech, mechPayment, marketplaceFee);
     }
 
     /// @dev Changes marketplace params.
@@ -347,30 +306,30 @@ contract MechMarketplace is IErrorsMarketplace {
         emit SetMechFactoryStatuses(mechFactories, statuses);
     }
 
-    /// @dev Sets mech type escrows.
-    /// @param mechTypes Mech types.
-    /// @param escrows Corresponding escrow addresses.
-    function setMechTypeEscrows(IMech.MechType[] memory mechTypes, address[] memory escrows) external {
+    /// @dev Sets mech payment type balanceTrackers.
+    /// @param paymentTypes Mech types.
+    /// @param balanceTrackers Corresponding balanceTracker addresses.
+    function setPaymentTypeBalanceTrackers(uint8[] memory paymentTypes, address[] memory balanceTrackers) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        if (mechTypes.length != escrows.length) {
-            revert WrongArrayLength(mechTypes.length, escrows.length);
+        if (paymentTypes.length != balanceTrackers.length) {
+            revert WrongArrayLength(paymentTypes.length, balanceTrackers.length);
         }
 
-        // Traverse all the mech types and escrows
-        for (uint256 i = 0; i < mechTypes.length; ++i) {
+        // Traverse all the mech types and balanceTrackers
+        for (uint256 i = 0; i < paymentTypes.length; ++i) {
             // Check for zero address
-            if (escrows[i] == address(0)) {
+            if (balanceTrackers[i] == address(0)) {
                 revert ZeroAddress();
             }
 
-            mapMechTypeEscrows[mechTypes[i]] = escrows[i];
+            mapPaymentTypeBalanceTrackers[paymentTypes[i]] = balanceTrackers[i];
         }
 
-        emit SetMechTypeEscrows(mechTypes, escrows);
+        emit SetPaymentTypeBalanceTrackers(paymentTypes, balanceTrackers);
     }
 
     // TODO: leave optional fields or remove?
@@ -383,6 +342,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request (optional).
     /// @param requesterServiceId Corresponding service Id in the staking contract (optional).
     /// @param responseTimeout Relative response time in sec.
+    /// @param paymentData Payment-related data, if applicable.
     /// @return requestId Request Id.
     function request(
         bytes memory data,
@@ -391,7 +351,8 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 priorityMechServiceId,
         address requesterStakingInstance,
         uint256 requesterServiceId,
-        uint256 responseTimeout
+        uint256 responseTimeout,
+        bytes memory paymentData
     ) external payable returns (uint256 requestId) {
         // Reentrancy guard
         if (_locked > 1) {
@@ -409,6 +370,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(priorityMechStakingInstance);
         }
 
+        // TODO Shall we allow other mechs to post requests to mechs? Or completely prohibit mechs to post requests?
         // Check that msg.sender is not a mech
         if (msg.sender == priorityMech) {
             revert UnauthorizedAccount(msg.sender);
@@ -434,15 +396,18 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check requester
         checkRequester(msg.sender, requesterStakingInstance, requesterServiceId);
 
-        // Check and escrow delivery rate
-        IMech.MechType mechType = IMech(priorityMech).mechType();
-        address escrow = mapMechTypeEscrows[mechType];
-        IEscrow(escrow).checkAndEscrowDeliveryRate{value: msg.value}(priorityMech);
-
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
 
-        // Update sender's nonce
+        // Get balance tracker address
+        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
+
+        // Check and record mech delivery rate
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender,
+            requestId, paymentData);
+
+        // Update requester nonce
         mapNonces[msg.sender]++;
 
         // Get mech delivery info struct
@@ -545,10 +510,15 @@ contract MechMarketplace is IErrorsMarketplace {
         // Increase mech karma that delivers the request
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
-        // Process payment
-        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, requestId, mechDelivery.deliveryRate);
+        // Get balance tracker address
+        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData, mechPayment, marketplaceFee);
+        // Process payment
+        IBalanceTracker(balanceTracker).finalizeDeliveryRate(msg.sender, mechDelivery.requester, requestId,
+            mechDelivery.deliveryRate);
+
+        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
 
         _locked = 1;
     }

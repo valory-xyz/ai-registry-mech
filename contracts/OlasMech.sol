@@ -14,7 +14,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event Request(address indexed sender, uint256 requestId, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestId);
 
-    enum MechType {
+    enum PaymentType {
         FixedPrice,
         Subscription
     }
@@ -36,8 +36,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     uint256 public immutable chainId;
     // Mech marketplace address
     address public immutable mechMarketplace;
-    // Mech type
-    MechType public immutable mechType;
+    // Mech payment type
+    PaymentType public immutable paymentType;
 
     // Maximum required delivery rate
     uint256 public maxDeliveryRate;
@@ -71,7 +71,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         address _serviceRegistry,
         uint256 _serviceId,
         uint256 _maxDeliveryRate,
-        MechType _mechType
+        PaymentType _paymentType
     ) {
         // Check for zero address
         if (_serviceRegistry == address(0)) {
@@ -100,7 +100,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         mechMarketplace = _mechMarketplace;
         maxDeliveryRate = _maxDeliveryRate;
-        mechType = _mechType;
+        paymentType = _paymentType;
 
 
         // Record chain Id
@@ -441,6 +441,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
                 curRequestId = mapRequestIds[curRequestId][1];
             }
         }
+    }
+
+
+    function getPaymentType() external view returns (uint8) {
+        return uint8(paymentType);
     }
 
     /// @dev Gets finalized delivery rate for a request Id.
