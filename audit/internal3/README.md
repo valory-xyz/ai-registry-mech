@@ -22,14 +22,11 @@ Most of the issues raised by instrumental analysis are outside the scope of the 
 #### Medium. Make sure that the previous comments (internal - internal2) have been addressed.
 []
 
-#### Medium. withdraw() vs processPayment()
+#### Critical/Medium. checkAndRecordDeliveryRate() for native token
 ```
-function withdraw()
-and
-function processPayment()
-They have the same logic, but in one it pays fee and in the other it doesn't. Double-check for logical bugs.
+function checkAndRecordDeliveryRate()
+This is not the right behavior for a case msg.value > 0 and native token contracts.
 ```
-[]
 
 #### Low. More Reentrancy protection
 ```
@@ -39,6 +36,21 @@ function finalizeDeliveryRate()
 ```
 []
 
+#### Notices. unintuitive name vs action
+```
+function _checkNativeValue() internal virtual override
+The function name is very unintuitive. In reality, it just does a revert if the contract type is token.
+```
+[]
 
-
-
+#### Notices. checkAndRecordDeliveryRate why are uint256 parameters needed
+```
+Why unused params?
+/ Check and record delivery rate
+    function checkAndRecordDeliveryRate(
+        address mech,
+        address requester,
+        uint256
+If this is abstract data for the future, it is better to replace it with bytes payload.
+```
+[]
