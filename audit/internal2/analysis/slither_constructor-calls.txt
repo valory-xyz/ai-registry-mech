@@ -1,0 +1,168 @@
+'solc --version' running
+'solc ./KarmaProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./MechMarketplace-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./Karma-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./OlasMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./MechMarketplaceProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+INFO:Printers:
+##########################
+####### KarmaProxy #######
+##########################
+
+## Constructor Call Sequence
+	- KarmaProxy
+
+## Constructor Definitions
+
+### KarmaProxy
+
+     constructor(address implementation, bytes memory karmaData) {
+        // Check for the zero address, since the delegatecall works even with the zero one
+        if (implementation == address(0)) {
+            revert ZeroImplementationAddress();
+        }
+
+        // Check for the zero data
+        if (karmaData.length == 0) {
+            revert ZeroKarmaData();
+        }
+
+        // Store the karma implementation address
+        assembly {
+            sstore(KARMA_PROXY, implementation)
+        }
+        // Initialize proxy tokenomics storage
+        (bool success, ) = implementation.delegatecall(karmaData);
+        if (!success) {
+            revert InitializationFailed();
+        }
+    }
+
+INFO:Printers:
+###############################
+####### MechMarketplace #######
+###############################
+
+## Constructor Call Sequence
+	- MechMarketplace
+
+## Constructor Definitions
+
+### MechMarketplace
+
+     constructor(
+        address _serviceRegistry,
+        address _stakingFactory,
+        address _karma,
+        address _wrappedNativeToken,
+        address _buyBackBurner
+    ) {
+        // Check for zero address
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0) ||
+            _wrappedNativeToken == address(0) || _buyBackBurner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        serviceRegistry = _serviceRegistry;
+        stakingFactory = _stakingFactory;
+        karma = _karma;
+        wrappedNativeToken = _wrappedNativeToken;
+        buyBackBurner = _buyBackBurner;
+
+        // Record chain Id
+        chainId = block.chainid;
+        // Compute domain separator
+        domainSeparator = _computeDomainSeparator();
+    }
+
+INFO:Printers:
+INFO:Printers:
+########################
+####### OlasMech #######
+########################
+
+## Constructor Call Sequence
+	- OlasMech
+
+## Constructor Definitions
+
+### OlasMech
+
+     ctor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId) {
+        // Check for zero address
+        if (_serviceRegistry == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_serviceId == 0) {
+            revert ZeroValue();
+        }
+
+        bytes memory initParams = abi.encode(_serviceRegistry, _serviceId);
+        (, address multisig, , , , , IServiceRegistry.ServiceState state) =
+            IServiceRegistry(_serviceRegistry).mapServices(_serviceId);
+
+        // Check for zero address
+        if (multisig == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for correct service state
+        if (state != IServiceRegistry.ServiceState.Deployed) {
+            revert WrongServiceState(uint256(state), _serviceId);
+        }
+        setUp(initParams);
+
+        mechMarketplace = _mechMarketplace;
+
+
+        // Record chain Id
+        chainId = block.chainid;
+        // Compute domain separator
+        domainSeparator = _computeDomainSeparator();
+    }
+
+    /
+
+INFO:Printers:
+####################################
+####### MechMarketplaceProxy #######
+####################################
+
+## Constructor Call Sequence
+	- MechMarketplaceProxy
+
+## Constructor Definitions
+
+### MechMarketplaceProxy
+
+     constructor(address implementation, bytes memory mechMarketplaceData) {
+        // Check for the zero address, since the delegatecall works even with the zero one
+        if (implementation == address(0)) {
+            revert ZeroImplementationAddress();
+        }
+
+        // Check for the zero data
+        if (mechMarketplaceData.length == 0) {
+            revert ZeroData();
+        }
+
+        // Store the mechMarketplace implementation address
+        // solhint-disable-next-line avoid-low-level-calls
+        assembly {
+            sstore(MECH_MARKETPLACE_PROXY, implementation)
+        }
+
+        // Initialize proxy tokenomics storage
+        (bool success, ) = implementation.delegatecall(mechMarketplaceData);
+        if (!success) {
+            revert InitializationFailed();
+        }
+    }
+
+INFO:Slither:. analyzed (40 contracts)
