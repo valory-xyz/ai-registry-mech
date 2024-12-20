@@ -14,7 +14,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event Request(address indexed sender, uint256 requestId, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestId);
 
-    enum MechType {
+    enum PaymentType {
         FixedPrice,
         Subscription
     }
@@ -36,8 +36,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     uint256 public immutable chainId;
     // Mech marketplace address
     address public immutable mechMarketplace;
-    // Mech type
-    MechType public immutable mechType;
+    // Mech payment type
+    PaymentType public immutable paymentType;
 
     // Maximum required delivery rate
     uint256 public maxDeliveryRate;
@@ -71,7 +71,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         address _serviceRegistry,
         uint256 _serviceId,
         uint256 _maxDeliveryRate,
-        MechType _mechType
+        PaymentType _paymentType
     ) {
         // Check for zero address
         if (_serviceRegistry == address(0)) {
@@ -100,7 +100,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         mechMarketplace = _mechMarketplace;
         maxDeliveryRate = _maxDeliveryRate;
-        mechType = _mechType;
+        paymentType = _paymentType;
 
 
         // Record chain Id
@@ -123,28 +123,28 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         );
     }
 
-    /// @dev Performs actions before the request is posted.
-    /// @param amount Amount of payment in wei.
-    function _preRequest(uint256 amount, uint256, bytes memory) internal virtual;
-
+    // TODO TBD
     /// @dev Performs actions before the delivery of a request.
+    /// @param account Request sender address.
+    /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(address, uint256, bytes memory data) internal virtual returns (bytes memory requestData);
+    function _preDeliver(
+        address account,
+        uint256 requestId,
+        bytes memory data
+    ) internal virtual returns (bytes memory requestData);
 
     /// @dev Registers a request.
     /// @param account Requester account address.
-    /// @param payment Supplied request payment.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
     function _request(
         address account,
-        uint256 payment,
         bytes memory data,
         uint256 requestId
     ) internal virtual {
-        // Check the request payment
-        _preRequest(payment, requestId, data);
+        // TODO data check for zero?
 
         // Increase the requests count supplied by the sender
         mapRequestCounts[account]++;
@@ -254,17 +254,16 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @dev Registers a request by a marketplace.
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
     /// @param account Requester account address.
-    /// @param payment Supplied request payment.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
-    function requestFromMarketplace(address account, uint256 payment, bytes memory data, uint256 requestId) external {
+    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceNotAuthorized(msg.sender);
         }
 
         // Perform a request
-        _request(account, payment, data, requestId);
+        _request(account, data, requestId);
     }
 
     /// @dev Revokes the request from the mech that does not deliver it.
@@ -442,6 +441,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
                 curRequestId = mapRequestIds[curRequestId][1];
             }
         }
+    }
+
+
+    function getPaymentType() external view returns (uint8) {
+        return uint8(paymentType);
     }
 
     /// @dev Gets finalized delivery rate for a request Id.

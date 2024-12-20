@@ -11,7 +11,7 @@ contract MechFixedPrice is OlasMech {
     /// @param _serviceId Service Id.
     /// @param _maxDeliveryRate The maximum delivery rate.
     constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId, uint256 _maxDeliveryRate)
-        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, MechType.FixedPrice)
+        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.FixedPrice)
     {}
 
     /// @dev Performs actions before the delivery of a request.
@@ -22,7 +22,6 @@ contract MechFixedPrice is OlasMech {
     }
 
     /// @dev Gets finalized delivery rate for a request Id.
-    /// @param requestId Request Id.
     /// @return Finalized delivery rate.
     function getFinalizedDeliveryRate(uint256) external virtual override returns (uint256) {
         return maxDeliveryRate;

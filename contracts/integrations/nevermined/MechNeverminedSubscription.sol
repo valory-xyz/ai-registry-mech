@@ -25,15 +25,8 @@ error ZeroValue();
 
 /// @title AgentMechSubscription - Smart contract for extending AgentMech with subscription
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a subscription.
-contract MechNeverminedSubscription is OlasMech, ERC1155TokenReceiver {
-    event DeliveryRateFinalized(uint256 indexed requestId, uint256 deliveryRate, uint256 creditsToBurn);
-
-    // TODO This migrates to its corresponding escrow contract
-    event SubscriptionUpdated(address indexed subscriptionNFT, uint256 subscriptionTokenId);
-    // Subscription NFT
-    address public subscriptionNFT;
-    // Subscription token Id
-    uint256 public subscriptionTokenId;
+contract MechNeverminedSubscription is OlasMech {
+    event RequestRateFinalized(uint256 indexed requestId, uint256 deliveryRate);
 
     // Mapping for requestId => finalized delivery rates
     mapping(uint256 => uint256) public mapRequestIdFinalizedRates;
@@ -49,58 +42,25 @@ contract MechNeverminedSubscription is OlasMech, ERC1155TokenReceiver {
         uint256 _serviceId,
         uint256 _maxDeliveryRate
     )
-        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, MechType.Subscription)
+        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.Subscription)
     {}
 
     /// @dev Performs actions before the delivery of a request.
-    /// @param account Request sender address.
     /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
     function _preDeliver(
-        address account,
+        address,
         uint256 requestId,
         bytes memory data
     ) internal override returns (bytes memory requestData) {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Extract the request deliver rate
+        // Extract the request deliver rate as credits to burn
         uint256 deliveryRate;
         (deliveryRate, requestData) = abi.decode(data, (uint256, bytes));
 
         mapRequestIdFinalizedRates[requestId] = deliveryRate;
 
-        emit DeliveryRateFinalized(requestId, deliveryRate, creditsToBurn);
-
-        _locked = 1;
-    }
-
-    // TODO This migrates to its corresponding escrow contract
-    /// @dev Sets a new subscription.
-    /// @param newSubscriptionNFT New address of the NFT subscription.
-    /// @param newSubscriptionTokenId New subscription Id.
-    function setSubscription(
-        address newSubscriptionNFT,
-        uint256 newSubscriptionTokenId
-    ) external onlyOperator {
-        // Check for the subscription address
-        if (newSubscriptionNFT == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Check for the subscription token Id
-        if (newSubscriptionTokenId == 0) {
-            revert ZeroValue();
-        }
-
-        subscriptionNFT = newSubscriptionNFT;
-        subscriptionTokenId = newSubscriptionTokenId;
-
-        emit SubscriptionUpdated(subscriptionNFT, subscriptionTokenId);
+        emit RequestRateFinalized(requestId, deliveryRate);
     }
 
     /// @dev Gets finalized delivery rate for a request Id.
