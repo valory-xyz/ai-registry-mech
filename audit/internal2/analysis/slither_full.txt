@@ -1,0 +1,11 @@
+INFO:Detectors:
+Setter function OlasMech.setUp(bytes) (OlasMech-flatten.sol#3777-3780) does not emit an event
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
+
+
+
+
+
+
+
+
