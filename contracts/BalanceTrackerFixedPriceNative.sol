@@ -213,9 +213,9 @@ contract BalanceTrackerFixedPriceNative {
 
         // Get mech balance
         uint256 balance = mapMechBalances[msg.sender];
-        // TODO limits?
-        if (balance == 0) {
-            revert ZeroValue();
+        // TODO minimal balance value to account for the round-off
+        if (balance == 0 || balance < 10_000) {
+            revert InsufficientBalance(balance, 10_000);
         }
 
         // Calculate mech payment and marketplace fee
@@ -224,7 +224,7 @@ contract BalanceTrackerFixedPriceNative {
         mechPayment = balance - marketplaceFee;
 
         // Check for zero value, although this must never happen
-        if (mechPayment == 0) {
+        if (marketplaceFee == 0 || mechPayment == 0) {
             revert ZeroValue();
         }
 
@@ -252,7 +252,6 @@ contract BalanceTrackerFixedPriceNative {
 
         // Get account balance
         uint256 balance = mapRequesterBalances[msg.sender];
-        // TODO limits?
         if (balance == 0) {
             revert ZeroValue();
         }
@@ -269,7 +268,7 @@ contract BalanceTrackerFixedPriceNative {
     }
 
     // Deposits funds for requester.
-    function deposit() external payable {
+    receive() external payable {
         // Update account balances
         mapRequesterBalances[msg.sender] += msg.value;
 

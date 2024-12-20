@@ -177,7 +177,6 @@ contract BalanceTrackerFixedPriceToken {
 
         uint256 localCollectedFees = collectedFees;
 
-        // TODO Limits
         // Check for zero value
         if (localCollectedFees == 0) {
             revert ZeroValue();
@@ -212,9 +211,9 @@ contract BalanceTrackerFixedPriceToken {
 
         // Get mech balance
         uint256 balance = mapMechBalances[msg.sender];
-        // TODO limits?
-        if (balance == 0) {
-            revert ZeroValue();
+        // TODO minimal balance value to account for the round-off
+        if (balance == 0 || balance < 10_000) {
+            revert InsufficientBalance(balance, 10_000);
         }
 
         // Calculate mech payment and marketplace fee
@@ -223,7 +222,7 @@ contract BalanceTrackerFixedPriceToken {
         mechPayment = balance - marketplaceFee;
 
         // Check for zero value, although this must never happen
-        if (mechPayment == 0) {
+        if (marketplaceFee == 0 || mechPayment == 0) {
             revert ZeroValue();
         }
 
@@ -251,7 +250,6 @@ contract BalanceTrackerFixedPriceToken {
 
         // Get account balance
         uint256 balance = mapRequesterBalances[msg.sender];
-        // TODO limits?
         if (balance == 0) {
             revert ZeroValue();
         }
