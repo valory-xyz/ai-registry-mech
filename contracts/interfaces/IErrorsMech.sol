@@ -12,14 +12,6 @@ interface IErrorsMech {
     /// @param mechMarketplace Mech marketplace address.
     error MarketplaceNotAuthorized(address mechMarketplace);
 
-    /// @dev Mech marketplace exists.
-    /// @param mechMarketplace Mech marketplace address.
-    error MarketplaceExists(address mechMarketplace);
-
-    /// @dev Agent does not exist.
-    /// @param agentId Agent Id.
-    error AgentNotFound(uint256 agentId);
-
     /// @dev Request Id not found.
     /// @param requestId Request Id.
     error RequestIdNotFound(uint256 requestId);

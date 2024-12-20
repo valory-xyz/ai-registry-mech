@@ -213,7 +213,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             return requestData;
         }
 
-        // Check for max delivery rate
+        // Check for max delivery rate compared to requested one
         if (maxDeliveryRate > mechDelivery.deliveryRate) {
             revert Overflow(maxDeliveryRate, mechDelivery.deliveryRate);
         }

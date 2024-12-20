@@ -164,7 +164,7 @@ contract BalanceTrackerFixedPriceNative {
 
         emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
     }
-    
+
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
     function drain() external {
         // Reentrancy guard
@@ -187,7 +187,7 @@ contract BalanceTrackerFixedPriceNative {
         // Transfer to Buy back burner
         IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
 
-        emit Drained(address(0), localCollectedFees);
+        emit Drained(wrappedNativeToken, localCollectedFees);
 
         _locked = 1;
     }
@@ -256,7 +256,7 @@ contract BalanceTrackerFixedPriceNative {
         }
 
         // Clear balances
-        mapRequesterBalances[msg.sender]= 0;
+        mapRequesterBalances[msg.sender] = 0;
 
         // Process withdraw
         _withdraw(balance);
