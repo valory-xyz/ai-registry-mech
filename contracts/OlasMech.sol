@@ -15,8 +15,9 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event RevokeRequest(address indexed sender, uint256 requestId);
 
     enum PaymentType {
-        FixedPrice,
-        Subscription
+        FixedPriceNative,
+        FixedPriceToken,
+        NvmSubscription
     }
 
     enum RequestStatus {
@@ -144,8 +145,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         bytes memory data,
         uint256 requestId
     ) internal virtual {
-        // TODO data check for zero?
-
         // Increase the requests count supplied by the sender
         mapRequestCounts[account]++;
         mapUndeliveredRequestsCounts[account]++;
@@ -212,6 +211,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         // Instantly return if the request has been delivered
         if (mechDelivery.deliveryMech != address(0)) {
             return requestData;
+        }
+
+        // Check for max delivery rate compared to requested one
+        if (maxDeliveryRate > mechDelivery.deliveryRate) {
+            revert Overflow(maxDeliveryRate, mechDelivery.deliveryRate);
         }
 
         // The account is zero if the delivery mech is different from a priority mech, or if request does not exist

@@ -342,7 +342,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request (optional).
     /// @param requesterServiceId Corresponding service Id in the staking contract (optional).
     /// @param responseTimeout Relative response time in sec.
-    /// @param paymentData Payment-related data, if applicable.
+    /// @param paymentData Additional payment-related request data, if applicable.
     /// @return requestId Request Id.
     function request(
         bytes memory data,
@@ -368,12 +368,6 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check that mech staking contract is different from requester one
         if (priorityMechStakingInstance == requesterStakingInstance && priorityMechStakingInstance != address(0)) {
             revert UnauthorizedAccount(priorityMechStakingInstance);
-        }
-
-        // TODO Shall we allow other mechs to post requests to mechs? Or completely prohibit mechs to post requests?
-        // Check that msg.sender is not a mech
-        if (msg.sender == priorityMech) {
-            revert UnauthorizedAccount(msg.sender);
         }
 
         // responseTimeout bounds
@@ -404,8 +398,7 @@ contract MechMarketplace is IErrorsMarketplace {
         address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
         // Check and record mech delivery rate
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender,
-            requestId, paymentData);
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender, paymentData);
 
         // Update requester nonce
         mapNonces[msg.sender]++;

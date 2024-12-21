@@ -39,10 +39,6 @@ interface IErrorsMarketplace {
     /// @param max Maximum possible value.
     error Overflow(uint256 provided, uint256 max);
 
-    /// @dev Provided account is not a contract.
-    /// @param account Account address.
-    error NotContract(address account);
-
     /// @dev Caught reentrancy violation.
     error ReentrancyGuard();
 
@@ -69,10 +65,6 @@ interface IErrorsMarketplace {
     /// @dev The request is already delivered.
     /// @param requestId Request Id.
     error AlreadyDelivered(uint256 requestId);
-
-    /// @dev The request is already paid for.
-    /// @param requestId Request Id.
-    error RequestPaid(uint256 requestId);
 
     /// @dev Priority mech response timeout is not yet met.
     /// @param expected Expected timestamp.

@@ -23,9 +23,9 @@ error ZeroAddress();
 /// @dev Provided zero value.
 error ZeroValue();
 
-/// @title AgentMechSubscription - Smart contract for extending AgentMech with subscription
-/// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a subscription.
-contract MechNeverminedSubscription is OlasMech {
+/// @title MechNvmSubscription - Smart contract for extending OlasMech with Nevermided subscription
+/// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a Nevermided subscription.
+contract MechNvmSubscription is OlasMech {
     event RequestRateFinalized(uint256 indexed requestId, uint256 deliveryRate);
 
     // Mapping for requestId => finalized delivery rates
@@ -42,7 +42,7 @@ contract MechNeverminedSubscription is OlasMech {
         uint256 _serviceId,
         uint256 _maxDeliveryRate
     )
-        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.Subscription)
+        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.NvmSubscription)
     {}
 
     /// @dev Performs actions before the delivery of a request.
