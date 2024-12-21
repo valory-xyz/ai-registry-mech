@@ -10,8 +10,7 @@ error IncorrectDataLength(uint256 provided, uint256 expected);
 
 /// @title Mech Factory Subscription - Periphery smart contract for managing subscription mech creation
 contract MechFactorySubscription {
-    event CreateSubscriptionMech(address indexed mech, uint256 indexed serviceId, uint256 minCreditsPerRequest,
-        address indexed subscriptionNFT, uint256 subscriptionTokenId);
+    event CreateSubscriptionMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
 
     // Agent factory version number
     string public constant VERSION = "0.1.0";
@@ -29,21 +28,20 @@ contract MechFactorySubscription {
         bytes memory payload
     ) external returns (address mech) {
         // Check payload length
-        if (payload.length != 96) {
-            revert IncorrectDataLength(payload.length, 96);
+        if (payload.length != 32) {
+            revert IncorrectDataLength(payload.length, 32);
         }
 
         // Decode subscription parameters
-        (uint256 minCreditsPerRequest, address subscriptionNFT, uint256 subscriptionTokenId) =
-            abi.decode(payload, (uint256, address, uint256));
+        uint256 maxDeliveryRate = abi.decode(payload, (uint256));
 
         // Get salt
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
 
         // Service multisig is isOperator() for the mech
         mech = address((new MechNeverminedSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
-            minCreditsPerRequest, subscriptionNFT, subscriptionTokenId));
+            maxDeliveryRate));
 
-        emit CreateSubscriptionMech(mech, serviceId, minCreditsPerRequest, subscriptionNFT, subscriptionTokenId);
+        emit CreateSubscriptionMech(mech, serviceId, maxDeliveryRate);
     }
 }

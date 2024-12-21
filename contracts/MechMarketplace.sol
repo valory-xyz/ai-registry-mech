@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IErrorsMarketplace} from "./interfaces/IErrorsMarketplace.sol";
+import {IBalanceTracker} from "./interfaces/IBalanceTracker.sol";
 import {IKarma} from "./interfaces/IKarma.sol";
 import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
@@ -18,18 +19,6 @@ interface IMechFactory {
         external returns (address mech);
 }
 
-interface IToken {
-    /// @dev Transfers the token amount.
-    /// @param to Address to transfer to.
-    /// @param amount The amount to transfer.
-    /// @return True if the function execution is successful.
-    function transfer(address to, uint256 amount) external returns (bool);
-}
-
-interface IWrappedToken {
-    function deposit() external payable;
-}
-
 // Mech delivery info struct
 struct MechDelivery {
     // Priority mech address
@@ -40,8 +29,8 @@ struct MechDelivery {
     address requester;
     // Response timeout window
     uint256 responseTimeout;
-    // Payment amount
-    uint256 payment;
+    // Delivery rate
+    uint256 deliveryRate;
 }
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
@@ -54,12 +43,11 @@ contract MechMarketplace is IErrorsMarketplace {
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
+    event SetPaymentTypeBalanceTrackers(uint8[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
-        uint256 requestId, bytes data, uint256 mechPayment, uint256 marketplaceFee);
-    event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 payment, uint256 fee);
-    event Withdraw(address indexed mech, uint256 amount);
-    event Drained(uint256 collectedFees);
+        uint256 requestId, bytes data);
+    event DeliveryPaymentProcessed(uint256 indexed requestId, address indexed deliveryMech, uint256 deliveryRate, uint256 fee);
 
     enum RequestStatus {
         DoesNotExist,
@@ -85,10 +73,6 @@ contract MechMarketplace is IErrorsMarketplace {
     address public immutable stakingFactory;
     // Service registry contract address
     address public immutable serviceRegistry;
-    // Wrapped native token address
-    address public immutable wrappedNativeToken;
-    // Buy back burner address
-    address public immutable buyBackBurner;
 
     // Universal mech marketplace fee (max of 10_000 == 100%)
     uint256 public fee;
@@ -96,14 +80,10 @@ contract MechMarketplace is IErrorsMarketplace {
     uint256 public minResponseTimeout;
     // Maximum response time
     uint256 public maxResponseTimeout;
-    // Collected fees
-    uint256 public collectedFees;
     // Number of undelivered requests
     uint256 public numUndeliveredRequests;
     // Number of total requests
     uint256 public numTotalRequests;
-    // Number of created mechs
-    uint256 public numMechs;
     // Reentrancy lock
     uint256 internal _locked = 1;
 
@@ -124,8 +104,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => bool) public mapMechFactories;
     // Map of mech => its creating factory
     mapping(address => address) public mapAgentMechFactories;
-    // Map of mech => its current balance
-    mapping(address => uint256) public mapMechBalances;
+    // Map of mech type => balanceTracker address
+    mapping(uint8 => address) public mapPaymentTypeBalanceTrackers;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
     // Set of mechs created by this marketplace
@@ -136,26 +116,19 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param _serviceRegistry Service registry contract address.
     /// @param _stakingFactory Staking factory contract address.
     /// @param _karma Karma proxy contract address.
-    /// @param _wrappedNativeToken Wrapped native token address.
-    /// @param _buyBackBurner Buy back burner address.
     constructor(
         address _serviceRegistry,
         address _stakingFactory,
-        address _karma,
-        address _wrappedNativeToken,
-        address _buyBackBurner
+        address _karma
     ) {
         // Check for zero address
-        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0) ||
-            _wrappedNativeToken == address(0) || _buyBackBurner == address(0)) {
+        if (_serviceRegistry == address(0) || _stakingFactory == address(0) || _karma == address(0)) {
             revert ZeroAddress();
         }
 
         serviceRegistry = _serviceRegistry;
         stakingFactory = _stakingFactory;
         karma = _karma;
-        wrappedNativeToken = _wrappedNativeToken;
-        buyBackBurner = _buyBackBurner;
 
         // Record chain Id
         chainId = block.chainid;
@@ -175,32 +148,6 @@ contract MechMarketplace is IErrorsMarketplace {
                 address(this)
             )
         );
-    }
-
-    /// @dev Calculates payment for request delivery.
-    /// @param mech Delivery mech address.
-    /// @param payment Payment amount.
-    function _calculatePayment(
-        address mech,
-        uint256 payment
-    ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
-        // This must never be zero
-        if (payment > 0) {
-            // Process payment
-            marketplaceFee = (payment * fee) / 10_000;
-            mechPayment = payment - marketplaceFee;
-
-            // Check for zero value
-            if (mechPayment == 0) {
-                revert ZeroValue();
-            }
-
-            // Record payment into mech balance
-            mapMechBalances[mech] += mechPayment;
-
-            // Record collected fee
-            collectedFees += marketplaceFee;
-        }
     }
 
     /// @dev Changes marketplace params.
@@ -249,10 +196,6 @@ contract MechMarketplace is IErrorsMarketplace {
         _changeMarketplaceParams(_fee, _minResponseTimeout, _maxResponseTimeout);
 
         owner = msg.sender;
-    }
-
-    function _wrap(uint256 amount) internal virtual {
-        IWrappedToken(wrappedNativeToken).deposit{value: amount}();
     }
 
     /// @dev Changes contract owner address.
@@ -334,8 +277,6 @@ contract MechMarketplace is IErrorsMarketplace {
         mapAgentMechFactories[mech] = mechFactory;
         // Add mech address into the global set
         setMechs.push(mech);
-        // Adjust the global mech counter
-        numMechs = setMechs.length;
 
         emit CreateMech(mech, serviceId);
     }
@@ -365,6 +306,32 @@ contract MechMarketplace is IErrorsMarketplace {
         emit SetMechFactoryStatuses(mechFactories, statuses);
     }
 
+    /// @dev Sets mech payment type balanceTrackers.
+    /// @param paymentTypes Mech types.
+    /// @param balanceTrackers Corresponding balanceTracker addresses.
+    function setPaymentTypeBalanceTrackers(uint8[] memory paymentTypes, address[] memory balanceTrackers) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (paymentTypes.length != balanceTrackers.length) {
+            revert WrongArrayLength(paymentTypes.length, balanceTrackers.length);
+        }
+
+        // Traverse all the mech types and balanceTrackers
+        for (uint256 i = 0; i < paymentTypes.length; ++i) {
+            // Check for zero address
+            if (balanceTrackers[i] == address(0)) {
+                revert ZeroAddress();
+            }
+
+            mapPaymentTypeBalanceTrackers[paymentTypes[i]] = balanceTrackers[i];
+        }
+
+        emit SetPaymentTypeBalanceTrackers(paymentTypes, balanceTrackers);
+    }
+
     // TODO: leave optional fields or remove?
     /// @dev Registers a request.
     /// @notice The request is going to be registered for a specified priority mech.
@@ -375,6 +342,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requesterStakingInstance Staking instance of a service whose multisig posts a request (optional).
     /// @param requesterServiceId Corresponding service Id in the staking contract (optional).
     /// @param responseTimeout Relative response time in sec.
+    /// @param paymentData Payment-related data, if applicable.
     /// @return requestId Request Id.
     function request(
         bytes memory data,
@@ -383,7 +351,8 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 priorityMechServiceId,
         address requesterStakingInstance,
         uint256 requesterServiceId,
-        uint256 responseTimeout
+        uint256 responseTimeout,
+        bytes memory paymentData
     ) external payable returns (uint256 requestId) {
         // Reentrancy guard
         if (_locked > 1) {
@@ -401,6 +370,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(priorityMechStakingInstance);
         }
 
+        // TODO Shall we allow other mechs to post requests to mechs? Or completely prohibit mechs to post requests?
         // Check that msg.sender is not a mech
         if (msg.sender == priorityMech) {
             revert UnauthorizedAccount(msg.sender);
@@ -429,7 +399,15 @@ contract MechMarketplace is IErrorsMarketplace {
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
 
-        // Update sender's nonce
+        // Get balance tracker address
+        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
+
+        // Check and record mech delivery rate
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender,
+            requestId, paymentData);
+
+        // Update requester nonce
         mapNonces[msg.sender]++;
 
         // Get mech delivery info struct
@@ -441,8 +419,8 @@ contract MechMarketplace is IErrorsMarketplace {
         mechDelivery.responseTimeout = responseTimeout + block.timestamp;
         // Record request account
         mechDelivery.requester = msg.sender;
-        // Record payment for request
-        mechDelivery.payment = msg.value;
+        // Record deliveryRate for request
+        mechDelivery.deliveryRate = msg.value;
 
         // Increase mech requester karma
         IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, 1);
@@ -455,7 +433,7 @@ contract MechMarketplace is IErrorsMarketplace {
         numTotalRequests++;
 
         // Process request by a specified priority mech
-        IMech(priorityMech).requestFromMarketplace(msg.sender, msg.value, data, requestId);
+        IMech(priorityMech).requestFromMarketplace(msg.sender, data, requestId);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestId, data);
 
@@ -532,64 +510,15 @@ contract MechMarketplace is IErrorsMarketplace {
         // Increase mech karma that delivers the request
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
+        // Get balance tracker address
+        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
+
         // Process payment
-        (uint256 mechPayment, uint256 marketplaceFee) = _calculatePayment(msg.sender, mechDelivery.payment);
+        IBalanceTracker(balanceTracker).finalizeDeliveryRate(msg.sender, mechDelivery.requester, requestId,
+            mechDelivery.deliveryRate);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData, mechPayment, marketplaceFee);
-
-        _locked = 1;
-    }
-
-    /// @dev Withdraws funds for a specific mech.
-    function withdraw() external virtual {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get mech balance
-        uint256 balance = mapMechBalances[msg.sender];
-        if (balance == 0) {
-            revert UnauthorizedAccount(msg.sender);
-        }
-
-        // Transfer balance
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, ) = msg.sender.call{value: balance}("");
-        if (!success) {
-            revert TransferFailed(address(0), address(this), msg.sender, balance);
-        }
-
-        emit Withdraw(msg.sender, balance);
-
-        _locked = 1;
-    }
-
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
-    function drain() external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        uint256 localCollectedFees = collectedFees;
-
-        // Check for zero value
-        if (localCollectedFees == 0) {
-            revert ZeroValue();
-        }
-
-        collectedFees = 0;
-
-        // Wrap native tokens
-        _wrap(localCollectedFees);
-
-        // Transfer to Buy back burner
-        IToken(wrappedNativeToken).transfer(buyBackBurner, localCollectedFees);
-
-        emit Drained(localCollectedFees);
+        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
 
         _locked = 1;
     }
@@ -773,6 +702,12 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @return Mech delivery info.
     function getMechDeliveryInfo(uint256 requestId) external view returns (MechDelivery memory) {
         return mapRequestIdDeliveries[requestId];
+    }
+
+    /// @dev Gets  global number of created mechs.
+    /// @return Number of mechs in a global set.
+    function getNumMechs() external view returns (uint256) {
+        return setMechs.length;
     }
 }
 

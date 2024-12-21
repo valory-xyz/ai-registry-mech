@@ -21,10 +21,14 @@ interface IErrorsMarketplace {
     /// @param numValues2 Number of values in a second array.
     error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
-    /// @dev Not enough value paid.
-    /// @param provided Provided amount.
-    /// @param expected Expected amount.
-    error NotEnoughPaid(uint256 provided, uint256 expected);
+    /// @dev Not enough balance to cover costs.
+    /// @param current Current balance.
+    /// @param required Required balance.
+    error InsufficientBalance(uint256 current, uint256 required);
+
+    /// @dev No incoming msg.value is allowed.
+    /// @param amount Value amount.
+    error NoDepositAllowed(uint256 amount);
 
     /// @dev Request Id not found.
     /// @param requestId Request Id.

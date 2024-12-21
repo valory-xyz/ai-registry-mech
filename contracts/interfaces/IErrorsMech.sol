@@ -20,11 +20,6 @@ interface IErrorsMech {
     /// @param agentId Agent Id.
     error AgentNotFound(uint256 agentId);
 
-    /// @dev Not enough value paid.
-    /// @param provided Provided amount.
-    /// @param expected Expected amount.
-    error NotEnoughPaid(uint256 provided, uint256 expected);
-
     /// @dev Request Id not found.
     /// @param requestId Request Id.
     error RequestIdNotFound(uint256 requestId);
