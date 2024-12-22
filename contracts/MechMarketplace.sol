@@ -421,11 +421,9 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @notice This function can only be called by the mech delivering the request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
-    /// @param deliveryMechServiceId Mech service Id.
     function deliverMarketplace(
         uint256 requestId,
         bytes memory requestData,
-        uint256 deliveryMechServiceId
     ) external {
         // Reentrancy guard
         if (_locked > 1) {
@@ -434,7 +432,7 @@ contract MechMarketplace is IErrorsMarketplace {
         _locked = 2;
 
         // Check delivery mech and get its service multisig
-        address mechServiceMultisig = checkMech(msg.sender, deliveryMechServiceId);
+        address mechServiceMultisig = checkMech(msg.sender);
 
         // Get mech delivery info struct
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
