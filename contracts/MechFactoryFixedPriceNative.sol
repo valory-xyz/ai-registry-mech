@@ -27,6 +27,8 @@ contract MechFactoryFixedPriceNative {
         uint256 serviceId,
         bytes memory payload
     ) external returns (address mech) {
+        // TODO: restrict all factories to be called from marketplace only - makes it easier to monitor the system
+
         // Check payload length
         if (payload.length != 32) {
             revert IncorrectDataLength(payload.length, 32);

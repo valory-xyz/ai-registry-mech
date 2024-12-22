@@ -14,7 +14,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event Request(address indexed sender, uint256 requestId, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestId);
 
-    enum PaymentType {
+    enum PaymentType { // this level of the contract should not have to specify its possible extensions. So Payment type needs to be something that's extensible, string or number..
         FixedPriceNative,
         FixedPriceToken,
         NvmSubscription
@@ -26,8 +26,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         Delivered
     }
 
-    // Agent mech version number
-    string public constant VERSION = "1.1.0";
+    // Olas mech version number
+    string public constant VERSION = "1.0.0";
     // Domain separator type hash
     bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -38,8 +38,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Mech marketplace address
     address public immutable mechMarketplace;
     // Mech payment type
+    // TODO - can it be id or string so its' forward compatible?
     PaymentType public immutable paymentType;
 
+    // TODO give it a better name
     // Maximum required delivery rate
     uint256 public maxDeliveryRate;
     // Number of undelivered requests by this mech
@@ -51,6 +53,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
+    // TODO do we need the next two maps? Is it for staking activity checks?
     // Map of request counts for corresponding addresses in this agent mech
     mapping(address => uint256) public mapRequestCounts;
     // Map of delivery counts for corresponding addresses in this agent mech
@@ -61,6 +64,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     mapping(uint256 => uint256[2]) public mapRequestIds;
     // Map of request Id => sender address
     mapping(uint256 => address) public mapRequestAddresses;
+    // TODO is a global nonce not sufficient?
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
 
@@ -71,9 +75,14 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         address _mechMarketplace,
         address _serviceRegistry,
         uint256 _serviceId,
-        uint256 _maxDeliveryRate,
+        uint256 _maxDeliveryRate, // TODO - for subscriptions, why do we even specify this here; it should be specified by the requester
         PaymentType _paymentType
     ) {
+        // Check for zero address
+        if (mechMarketplace == address(0)) {
+            revert ZeroAddress();
+        }
+
         // Check for zero address
         if (_serviceRegistry == address(0)) {
             revert ZeroAddress();
@@ -116,7 +125,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         return keccak256(
             abi.encode(
                 DOMAIN_SEPARATOR_TYPE_HASH,
-                keccak256("AgentMech"),
+                keccak256("OlasMech"),
                 keccak256(abi.encode(VERSION)),
                 block.chainid,
                 address(this)
@@ -138,12 +147,12 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
     /// @dev Registers a request.
     /// @param account Requester account address.
-    /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
+    /// @param data Self-descriptive opaque data-blob.
     function _request(
         address account,
-        bytes memory data,
-        uint256 requestId
+        uint256 requestId,
+        bytes memory data
     ) internal virtual {
         // Increase the requests count supplied by the sender
         mapRequestCounts[account]++;
@@ -214,20 +223,18 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         }
 
         // Check for max delivery rate compared to requested one
-        if (maxDeliveryRate > mechDelivery.deliveryRate) {
+        if (maxDeliveryRate < mechDelivery.deliveryRate) {
             revert Overflow(maxDeliveryRate, mechDelivery.deliveryRate);
         }
 
         // The account is zero if the delivery mech is different from a priority mech, or if request does not exist
         if (account == address(0)) {
-            if (mechMarketplace != address(0)) {
-                account = mechDelivery.requester;
-            }
-
-            // Check if request exists in the mech marketplace or locally in the mech
+            account = mechDelivery.requester;
+            // Check if request exists in the mech marketplace
             if (account == address(0)) {
                 revert RequestIdNotFound(requestId);
             }
+            // Note, revoking the request for the priority mech happens later via revokeRequest
         } else {
             // The account is non-zero if it is delivered by the priority mech
             _cleanRequestInfo(account, requestId);
@@ -267,7 +274,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         }
 
         // Perform a request
-        _request(account, data, requestId);
+        _request(account, requestId, data);
     }
 
     /// @dev Revokes the request from the mech that does not deliver it.
@@ -295,13 +302,9 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
-    /// @param mechStakingInstance Mech staking instance address (optional).
-    /// @param mechServiceId Mech operator service Id.
     function deliverToMarketplace(
         uint256 requestId,
         bytes memory data,
-        address mechStakingInstance,
-        uint256 mechServiceId
     ) external onlyOperator {
         // Reentrancy guard
         if (_locked > 1) {
@@ -314,8 +317,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         // Mech marketplace delivery finalization if the request was not delivered already
         if (requestData.length > 0) {
-            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechStakingInstance,
-                mechServiceId);
+            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData,
+                tokenId());
         }
 
         _locked = 1;
@@ -341,7 +344,13 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             (address, uint256)
         );
 
-        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+        (, address multisig, , , , , IServiceRegistry.ServiceState state) =
+            IServiceRegistry(_serviceRegistry).mapServices(tokenId());
+
+        // Check for correct service state
+        if (state != IServiceRegistry.ServiceState.Deployed) {
+            revert WrongServiceState(uint256(state), tokenId());
+        }
         return multisig == signer;
     }
 

@@ -106,12 +106,22 @@ abstract contract BalanceTrackerFixedPriceBase {
         // Get account balance
         uint256 balance = mapRequesterBalances[requester];
 
+        // Update balance with native value
+        if (msg.value > 0) {
+            balance += msg.value;
+            emit Deposit(msg.sender, address(0), msg.value);
+        }
+        
         // Check the request delivery rate for a fixed price
         if (balance < maxDeliveryRate) {
             // Get balance difference
             uint256 balanceDiff = maxDeliveryRate - balance;
             // Adjust balance
             balance += _getRequiredFunds(requester, balanceDiff);
+        }
+
+        if (balance < maxDeliveryRate) {
+            revert InsufficientBalance(balance, maxDeliveryRate);
         }
 
         // Adjust account balance

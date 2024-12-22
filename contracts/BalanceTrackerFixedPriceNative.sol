@@ -37,11 +37,8 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
 
     function _checkNativeValue() internal virtual override {}
 
-    function _getRequiredFunds(address, uint256 balanceDiff) internal virtual override returns (uint256) {
-        if (msg.value < balanceDiff) {
-            revert InsufficientBalance(msg.value, balanceDiff);
-        }
-        return msg.value;
+    function _getRequiredFunds(address, uint256) internal virtual override returns (uint256) {
+        return 0;
     }
 
     function _wrap(uint256 amount) internal virtual {
