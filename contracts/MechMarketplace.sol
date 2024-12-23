@@ -430,6 +430,9 @@ contract MechMarketplace is IErrorsMarketplace {
         }
         _locked = 2;
 
+        // Check delivery mech and get its service multisig
+        address mechServiceMultisig = checkMech(msg.sender);
+
         // Get mech delivery info struct
         MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
         address priorityMech = mechDelivery.priorityMech;
@@ -467,6 +470,8 @@ contract MechMarketplace is IErrorsMarketplace {
         mapDeliveryCounts[mechDelivery.requester]++;
         // Increase the amount of mech delivery counts
         mapMechDeliveryCounts[msg.sender]++;
+        // Increase the amount of mech service multisig delivered requests
+        mapMechServiceDeliveryCounts[mechServiceMultisig]++;
 
         // Increase mech karma that delivers the request
         IKarma(karma).changeMechKarma(msg.sender, 1);
@@ -531,8 +536,9 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     /// @dev Checks for mech validity.
-    /// @dev mech Agent mech contract address.
-    function checkMech(address mech) public view {
+    /// @param mech Mech contract address.
+    /// @return multisig Mech service multisig address.
+    function checkMech(address mech) public view returns (address multisig){
         uint256 mechServiceId = IMech(mech).tokenId();
 
         // Check mech validity as it must be created and recorded via this marketplace
@@ -541,7 +547,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Check mech service Id
-        address multisig = checkServiceAndGetMultisig(mechServiceId);
+        multisig = checkServiceAndGetMultisig(mechServiceId);
 
         // Check that service multisig is the priority mech service multisig
         if (!IMech(mech).isOperator(multisig)) {
@@ -586,34 +592,6 @@ contract MechMarketplace is IErrorsMarketplace {
                 status = RequestStatus.Delivered;
             }
         }
-    }
-
-    /// @dev Gets the requests count for a specific account.
-    /// @param account Account address.
-    /// @return Requests count.
-    function getRequestsCount(address account) external view returns (uint256) {
-        return mapRequestCounts[account];
-    }
-
-    /// @dev Gets the deliveries count for a specific account.
-    /// @param account Account address.
-    /// @return Deliveries count.
-    function getDeliveriesCount(address account) external view returns (uint256) {
-        return mapDeliveryCounts[account];
-    }
-
-    /// @dev Gets deliveries count for a specific mech.
-    /// @param mech Mech address.
-    /// @return Deliveries count.
-    function getMechDeliveriesCount(address mech) external view returns (uint256) {
-        return mapMechDeliveryCounts[mech];
-    }
-
-    /// @dev Gets mech delivery info.
-    /// @param requestId Request Id.
-    /// @return Mech delivery info.
-    function getMechDeliveryInfo(uint256 requestId) external view returns (MechDelivery memory) {
-        return mapRequestIdDeliveries[requestId];
     }
 }
 
