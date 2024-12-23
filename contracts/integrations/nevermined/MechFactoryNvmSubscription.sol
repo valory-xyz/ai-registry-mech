@@ -8,6 +8,11 @@ import {MechNvmSubscription} from "./MechNvmSubscription.sol";
 /// @param expected Expected data length.
 error IncorrectDataLength(uint256 provided, uint256 expected);
 
+/// @dev Only `marketplace` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param marketplace Required marketplace address.
+error MarketplaceOnly(address sender, address marketplace);
+
 /// @dev Provided zero address.
 error ZeroAddress();
 
@@ -32,6 +37,11 @@ contract MechFactoryNvmSubscription {
         uint256 serviceId,
         bytes memory payload
     ) external returns (address mech) {
+        // Check for marketplace access
+        if (msg.sender != mechMarketplace) {
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        }
+
         // Check payload length
         if (payload.length != 32) {
             revert IncorrectDataLength(payload.length, 32);
