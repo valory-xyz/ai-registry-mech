@@ -8,12 +8,22 @@ import {MechFixedPriceNative} from "./MechFixedPriceNative.sol";
 /// @param expected Expected data length.
 error IncorrectDataLength(uint256 provided, uint256 expected);
 
+/// @dev Only `marketplace` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param marketplace Required marketplace address.
+error MarketplaceOnly(address sender, address marketplace);
+
+/// @dev Provided zero address.
+error ZeroAddress();
+
 /// @title Mech Factory Basic - Periphery smart contract for managing basic mech creation
 contract MechFactoryFixedPriceNative {
     event CreateFixedPriceMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
 
     // Agent factory version number
     string public constant VERSION = "0.1.0";
+    // Nonce
+    uint256 internal _nonce;
 
     /// @dev Registers service as a mech.
     /// @param mechMarketplace Mech marketplace address.
@@ -27,7 +37,10 @@ contract MechFactoryFixedPriceNative {
         uint256 serviceId,
         bytes memory payload
     ) external returns (address mech) {
-        // TODO: restrict all factories to be called from marketplace only - makes it easier to monitor the system
+        // Check for marketplace access
+        if (msg.sender != mechMarketplace) {
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        }
 
         // Check payload length
         if (payload.length != 32) {
@@ -37,11 +50,18 @@ contract MechFactoryFixedPriceNative {
         // Decode max delivery rate
         uint256 maxDeliveryRate = abi.decode(payload, (uint256));
 
+        uint256 localNonce = _nonce;
         // Get salt
-        bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
+        bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId, localNonce));
+        _nonce = localNonce + 1;
 
         // Service multisig is isOperator() for the mech
         mech = address((new MechFixedPriceNative){salt: salt}(mechMarketplace, serviceRegistry, serviceId, maxDeliveryRate));
+
+        // Check for zero address
+        if (mech == address(0)) {
+            revert ZeroAddress();
+        }
 
         emit CreateFixedPriceMech(mech, serviceId, maxDeliveryRate);
     }

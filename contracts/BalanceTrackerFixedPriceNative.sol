@@ -35,7 +35,14 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         wrappedNativeToken = _wrappedNativeToken;
     }
 
-    function _checkNativeValue() internal virtual override {}
+    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
+        // Update balance with native value
+        if (msg.value > 0) {
+            emit Deposit(msg.sender, address(0), msg.value);
+        }
+
+        return msg.value;
+    }
 
     function _getRequiredFunds(address, uint256) internal virtual override returns (uint256) {
         return 0;

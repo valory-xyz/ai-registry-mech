@@ -32,7 +32,7 @@ struct MechDelivery {
     uint256 deliveryRate;
 }
 
-/// @title Mech Marketplace - Marketplace for posting and delivering requests served by agent mechs
+/// @title Mech Marketplace - Marketplace for posting and delivering requests served by mechs
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Silvere Gangloff - <silvere.gangloff@valory.xyz>
@@ -42,7 +42,7 @@ contract MechMarketplace is IErrorsMarketplace {
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
-    event SetPaymentTypeBalanceTrackers(uint8[] paymentTypes, address[] balanceTrackers);
+    event SetPaymentTypeBalanceTrackers(bytes32[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
     event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
         uint256 requestId, bytes data);
@@ -89,13 +89,12 @@ contract MechMarketplace is IErrorsMarketplace {
     // Contract owner
     address public owner;
 
-    // TODO: Aren't we duplicating info hereand on mech re the address specific counts?
     // Map of request counts for corresponding requester
     mapping(address => uint256) public mapRequestCounts;
     // Map of delivery counts for corresponding requester
     mapping(address => uint256) public mapDeliveryCounts;
     // Map of delivery counts for mechs
-    mapping(address => uint256) public mapAgentMechDeliveryCounts;
+    mapping(address => uint256) public mapMechDeliveryCounts;
     // Map of delivery counts for corresponding mech service multisig
     mapping(address => uint256) public mapMechServiceDeliveryCounts;
     // Mapping of request Id => mech delivery information
@@ -104,8 +103,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => bool) public mapMechFactories;
     // Map of mech => its creating factory
     mapping(address => address) public mapAgentMechFactories;
-    // Map of mech type => balanceTracker address
-    mapping(uint8 => address) public mapPaymentTypeBalanceTrackers;
+    // Map of payment type => balanceTracker address
+    mapping(bytes32 => address) public mapPaymentTypeBalanceTrackers;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
     // Mapping of service ids to mechs
@@ -307,7 +306,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Sets mech payment type balanceTrackers.
     /// @param paymentTypes Mech types.
     /// @param balanceTrackers Corresponding balanceTracker addresses.
-    function setPaymentTypeBalanceTrackers(uint8[] memory paymentTypes, address[] memory balanceTrackers) external {
+    function setPaymentTypeBalanceTrackers(bytes32[] memory paymentTypes, address[] memory balanceTrackers) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -378,7 +377,7 @@ contract MechMarketplace is IErrorsMarketplace {
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
 
         // Get balance tracker address
-        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
         address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
         // Check and record mech delivery rate
@@ -423,7 +422,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requestData Self-descriptive opaque data-blob.
     function deliverMarketplace(
         uint256 requestId,
-        bytes memory requestData,
+        bytes memory requestData
     ) external {
         // Reentrancy guard
         if (_locked > 1) {
@@ -468,9 +467,9 @@ contract MechMarketplace is IErrorsMarketplace {
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
         // Increase the amount of requester delivered requests
-        mapDeliveryCounts[requester]++;
+        mapDeliveryCounts[mechDelivery.requester]++;
         // Increase the amount of mech delivery counts
-        mapAgentMechDeliveryCounts[msg.sender]++;
+        mapMechDeliveryCounts[msg.sender]++;
         // Increase the amount of mech service multisig delivered requests
         mapMechServiceDeliveryCounts[mechServiceMultisig]++;
 
@@ -478,14 +477,14 @@ contract MechMarketplace is IErrorsMarketplace {
         IKarma(karma).changeMechKarma(msg.sender, 1);
 
         // Get balance tracker address
-        uint8 mechPaymentType = IMech(priorityMech).getPaymentType();
+        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
         address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
         // Process payment
         IBalanceTracker(balanceTracker).finalizeDeliveryRate(msg.sender, mechDelivery.requester, requestId,
             mechDelivery.deliveryRate);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
+        emit MarketplaceDeliver(priorityMech, msg.sender, mechDelivery.requester, requestId, requestData);
 
         _locked = 1;
     }
@@ -537,17 +536,9 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     /// @dev Checks for mech validity.
-    /// @dev mech Agent mech contract address.
-    /// @param mechServiceId Agent mech service Id.
-    /// @return multisig
-    function checkMech(
-        address mech,
-    ) public view returns (address multisig) {
-        // Check for zero value
-        if (mechServiceId == 0) {
-            revert ZeroValue();
-        }
-
+    /// @param mech Mech contract address.
+    /// @return multisig Mech service multisig address.
+    function checkMech(address mech) public view returns (address multisig){
         uint256 mechServiceId = IMech(mech).tokenId();
 
         // Check mech validity as it must be created and recorded via this marketplace
@@ -555,7 +546,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(mech);
         }
 
-        // Check mech service Id, if applicable
+        // Check mech service Id
         multisig = checkServiceAndGetMultisig(mechServiceId);
 
         // Check that service multisig is the priority mech service multisig
@@ -566,7 +557,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
     /// @dev Checks for requester validity.
     /// @notice Explicitly allows for EOAs without service id.
-    /// @dev requester Requester contract address.
+    /// @param requester Requester address.
     /// @param requesterServiceId Requester service Id.
     function checkRequester(
         address requester,
@@ -601,42 +592,6 @@ contract MechMarketplace is IErrorsMarketplace {
                 status = RequestStatus.Delivered;
             }
         }
-    }
-
-    /// @dev Gets the requests count for a specific account.
-    /// @param account Account address.
-    /// @return Requests count.
-    function getRequestsCount(address account) external view returns (uint256) {
-        return mapRequestCounts[account];
-    }
-
-    /// @dev Gets the deliveries count for a specific account.
-    /// @param account Account address.
-    /// @return Deliveries count.
-    function getDeliveriesCount(address account) external view returns (uint256) {
-        return mapDeliveryCounts[account];
-    }
-
-    // TODO Check if needed
-    /// @dev Gets deliveries count for a specific mech.
-    /// @param agentMech Agent mech address.
-    /// @return Deliveries count.
-    function getAgentMechDeliveriesCount(address agentMech) external view returns (uint256) {
-        return mapAgentMechDeliveryCounts[agentMech];
-    }
-
-    /// @dev Gets deliveries count for a specific mech service multisig.
-    /// @param mechServiceMultisig Agent mech service multisig address.
-    /// @return Deliveries count.
-    function getMechServiceDeliveriesCount(address mechServiceMultisig) external view returns (uint256) {
-        return mapMechServiceDeliveryCounts[mechServiceMultisig];
-    }
-
-    /// @dev Gets mech delivery info.
-    /// @param requestId Request Id.
-    /// @return Mech delivery info.
-    function getMechDeliveryInfo(uint256 requestId) external view returns (MechDelivery memory) {
-        return mapRequestIdDeliveries[requestId];
     }
 }
 

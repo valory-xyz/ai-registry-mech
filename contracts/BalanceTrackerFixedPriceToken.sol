@@ -17,6 +17,11 @@ interface IToken {
     /// @param amount Amount to transfer to.
     /// @return True if the function execution is successful.
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
+
+    /// @dev Gets the amount of tokens owned by a specified account.
+    /// @param account Account address.
+    /// @return Amount of tokens owned.
+    function balanceOf(address account) external view returns (uint256);
 }
 
 contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
@@ -38,16 +43,29 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         olas = _olas;
     }
 
-    function _checkNativeValue() internal virtual override {
+    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
         // Check for msg.value
         if (msg.value > 0) {
             revert NoDepositAllowed(msg.value);
         }
+
+        return 0;
     }
 
     function _getRequiredFunds(address requester, uint256 balanceDiff) internal virtual override returns (uint256) {
-        // TODO check balances before and after
+        uint256 balanceBefore = IToken(olas).balanceOf(address(this));
+        // Get tokens from requester
         IToken(olas).transferFrom(requester, address(this), balanceDiff);
+        uint256 balanceAfter = IToken(olas).balanceOf(address(this));
+
+        // Check the balance
+        uint256 diff = balanceAfter - balanceBefore;
+        if (diff != balanceDiff) {
+            revert TransferFailed(olas, requester, address(this), balanceDiff);
+        }
+
+        emit Deposit(msg.sender, olas, balanceDiff);
+
         return balanceDiff;
     }
 
