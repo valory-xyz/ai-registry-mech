@@ -18,7 +18,6 @@ describe("MechFixedPriceNative", function () {
     let signers;
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
-    const agentHash = "0x" + "5".repeat(64);
     const price = 1000;
     const data = "0x00";
     const fee = 10;
@@ -196,7 +195,8 @@ describe("MechFixedPriceNative", function () {
             // Get the requests count
             let requestsCount = await mechMarketplace.mapRequestCounts(deployer.address);
             expect(requestsCount).to.equal(1);
-            requestCount = await priorityMech.mapUndeliveredRequestsCounts(deployer.address);
+            requestsCount = await priorityMech.mapUndeliveredRequestsCounts(deployer.address);
+            expect(requestsCount).to.equal(1);
             requestsCount = await mechMarketplace.numTotalRequests();
             expect(requestsCount).to.equal(1);
         });
