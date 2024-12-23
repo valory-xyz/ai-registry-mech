@@ -367,9 +367,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }    
 
         // Check requester
-        if (requesterServiceId > 0) {
-            checkRequester(msg.sender, requesterServiceId);
-        }
+        checkRequester(msg.sender, requesterServiceId);
 
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
