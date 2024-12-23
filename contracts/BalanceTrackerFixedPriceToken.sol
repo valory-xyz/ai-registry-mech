@@ -24,7 +24,7 @@ interface IToken {
     function balanceOf(address account) external view returns (uint256);
 }
 
-contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
+contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     // OLAS token address
     address public immutable olas;
 

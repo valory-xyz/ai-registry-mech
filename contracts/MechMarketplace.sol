@@ -9,12 +9,11 @@ import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 
 interface IMechFactory {
     /// @dev Registers service as a mech.
-    /// @param mechManager Mech manager address.
     /// @param serviceRegistry Service registry address.
     /// @param serviceId Service id.
     /// @param payload Mech creation payload.
     /// @return mech The created mech instance address.
-    function createMech(address mechManager, address serviceRegistry, uint256 serviceId, bytes memory payload)
+    function createMech(address serviceRegistry, uint256 serviceId, bytes memory payload)
         external returns (address mech);
 }
 
@@ -114,10 +113,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev MechMarketplace constructor.
     /// @param _serviceRegistry Service registry contract address.
     /// @param _karma Karma proxy contract address.
-    constructor(
-        address _serviceRegistry,
-        address _karma
-    ) {
+    constructor(address _serviceRegistry, address _karma) {
         // Check for zero address
         if (_serviceRegistry == address(0) || _karma == address(0)) {
             revert ZeroAddress();
@@ -262,7 +258,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(mechFactory);
         }
 
-        mech = IMechFactory(mechFactory).createMech(address(this), serviceRegistry, serviceId, payload);
+        mech = IMechFactory(mechFactory).createMech(serviceRegistry, serviceId, payload);
 
         // This should never be the case
         if (mech == address(0)) {
@@ -333,7 +329,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param data Self-descriptive opaque data-blob.
     /// @param priorityMechServiceId Priority mech service Id.
-    /// @param requesterServiceId Requester service Id (optional).
+    /// @param requesterServiceId Requester service Id, or zero if EOA.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestId Request Id.
@@ -542,7 +538,7 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 mechServiceId = IMech(mech).tokenId();
 
         // Check mech validity as it must be created and recorded via this marketplace
-        if (mapServiceIdMech[mechServiceId] == mech) {
+        if (mapServiceIdMech[mechServiceId] != mech) {
             revert UnauthorizedAccount(mech);
         }
 

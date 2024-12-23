@@ -53,9 +53,12 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Map of request Id => sender address
     mapping(uint256 => address) public mapRequestAddresses;
 
+    /// @dev OlasMech constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the registry contract.
     /// @param _serviceId Service Id.
+    /// @param _maxDeliveryRate Mech max delivery rate.
+    /// @param _paymentType Mech payment type.
     constructor(
         address _mechMarketplace,
         address _serviceRegistry,
@@ -64,7 +67,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         bytes32 _paymentType
     ) {
         // Check for zero address
-        if (mechMarketplace == address(0)) {
+        if (_mechMarketplace == address(0)) {
             revert ZeroAddress();
         }
 
@@ -197,16 +200,12 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         address account = mapRequestAddresses[requestId];
 
         // Get the mech delivery info from the mech marketplace
-        IMechMarketplace.MechDelivery memory mechDelivery = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestId);
+        IMechMarketplace.MechDelivery memory mechDelivery =
+            IMechMarketplace(mechMarketplace).mapRequestIdDeliveries(requestId);
 
         // Instantly return if the request has been delivered
         if (mechDelivery.deliveryMech != address(0)) {
             return requestData;
-        }
-
-        // Check for max delivery rate compared to requested one
-        if (maxDeliveryRate > mechDelivery.deliveryRate) {
-            revert Overflow(maxDeliveryRate, mechDelivery.deliveryRate);
         }
 
         // The account is zero if the delivery mech is different from a priority mech, or if request does not exist
@@ -220,6 +219,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         } else {
             // The account is non-zero if it is delivered by the priority mech
             _cleanRequestInfo(account, requestId);
+        }
+
+        // Check for max delivery rate compared to requested one
+        if (maxDeliveryRate > mechDelivery.deliveryRate) {
+            revert Overflow(maxDeliveryRate, mechDelivery.deliveryRate);
         }
 
         // Perform a pre-delivery of the data if it needs additional parsing
@@ -298,7 +302,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         // Mech marketplace delivery finalization if the request was not delivered already
         if (requestData.length > 0) {
-            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, tokenId());
+            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData);
         }
 
         _locked = 1;
@@ -331,6 +335,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         if (state != IServiceRegistry.ServiceState.Deployed) {
             revert WrongServiceState(uint256(state), serviceId);
         }
+
         return multisig == signer;
     }
 
