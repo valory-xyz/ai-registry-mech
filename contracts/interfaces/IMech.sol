@@ -19,7 +19,7 @@ interface IMech {
 
     function maxDeliveryRate() external returns (uint256);
 
-    function getPaymentType() external returns (uint8);
+    function paymentType() external returns (bytes32);
 
     /// @dev Gets finalized delivery rate for a request Id.
     /// @param requestId Request Id.

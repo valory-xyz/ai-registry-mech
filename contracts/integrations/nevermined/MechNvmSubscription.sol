@@ -28,6 +28,9 @@ error ZeroValue();
 contract MechNvmSubscription is OlasMech {
     event RequestRateFinalized(uint256 indexed requestId, uint256 deliveryRate);
 
+    // keccak256(NvmSubscription) = 626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0
+    bytes32 public constant PAYMENT_TYPE = 0x626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0;
+
     // Mapping for requestId => finalized delivery rates
     mapping(uint256 => uint256) public mapRequestIdFinalizedRates;
 
@@ -42,7 +45,7 @@ contract MechNvmSubscription is OlasMech {
         uint256 _serviceId,
         uint256 _maxDeliveryRate
     )
-        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PaymentType.NvmSubscription)
+        OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PAYMENT_TYPE)
     {}
 
     /// @dev Performs actions before the delivery of a request.
