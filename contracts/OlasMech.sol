@@ -304,7 +304,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param data Self-descriptive opaque data-blob.
     function deliverToMarketplace(
         uint256 requestId,
-        bytes memory data,
+        bytes memory data
     ) external onlyOperator {
         // Reentrancy guard
         if (_locked > 1) {
@@ -317,8 +317,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         // Mech marketplace delivery finalization if the request was not delivered already
         if (requestData.length > 0) {
-            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData,
-                tokenId());
+            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, tokenId());
         }
 
         _locked = 1;
@@ -345,11 +344,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         );
 
         (, address multisig, , , , , IServiceRegistry.ServiceState state) =
-            IServiceRegistry(_serviceRegistry).mapServices(tokenId());
+            IServiceRegistry(serviceRegistry).mapServices(serviceId);
 
         // Check for correct service state
         if (state != IServiceRegistry.ServiceState.Deployed) {
-            revert WrongServiceState(uint256(state), tokenId());
+            revert WrongServiceState(uint256(state), serviceId);
         }
         return multisig == signer;
     }

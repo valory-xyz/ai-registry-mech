@@ -25,4 +25,6 @@ interface IMech {
     /// @param requestId Request Id.
     /// @return Finalized delivery rate.
     function getFinalizedDeliveryRate(uint256 requestId) external returns (uint256);
+
+    function tokenId() external view returns (uint256);
 }

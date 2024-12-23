@@ -82,7 +82,7 @@ abstract contract BalanceTrackerFixedPriceBase {
         buyBackBurner = _buyBackBurner;
     }
 
-    function _checkNativeValue() internal virtual;
+    function _getOrRestrictNativeValue() internal virtual returns (uint256);
 
     function _getRequiredFunds(address requester, uint256 balanceDiff) internal virtual returns (uint256);
 
@@ -92,26 +92,26 @@ abstract contract BalanceTrackerFixedPriceBase {
         address requester,
         bytes memory
     ) external payable {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Check for native value
-        _checkNativeValue();
+        uint256 initAmount = _getOrRestrictNativeValue();
+
+        // Get account balance
+        uint256 balance = mapRequesterBalances[requester] + initAmount;
 
         // Get mech max delivery rate
         uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
-        // Get account balance
-        uint256 balance = mapRequesterBalances[requester];
-
-        // Update balance with native value
-        if (msg.value > 0) {
-            balance += msg.value;
-            emit Deposit(msg.sender, address(0), msg.value);
-        }
-        
         // Check the request delivery rate for a fixed price
         if (balance < maxDeliveryRate) {
             // Get balance difference
@@ -127,6 +127,8 @@ abstract contract BalanceTrackerFixedPriceBase {
         // Adjust account balance
         balance -= maxDeliveryRate;
         mapRequesterBalances[requester] = balance;
+
+        _locked = 1;
     }
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.

@@ -8,12 +8,17 @@ import {MechNvmSubscription} from "./MechNvmSubscription.sol";
 /// @param expected Expected data length.
 error IncorrectDataLength(uint256 provided, uint256 expected);
 
+/// @dev Provided zero address.
+error ZeroAddress();
+
 /// @title MechFactoryNvmSubscription - Periphery smart contract for managing Nevermined subscription mech creation
 contract MechFactoryNvmSubscription {
     event CreateSubscriptionMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
 
     // Agent factory version number
     string public constant VERSION = "0.1.0";
+    // Nonce
+    uint256 internal _nonce;
 
     /// @dev Registers service as a mech.
     /// @param mechMarketplace Mech marketplace address.
@@ -35,12 +40,19 @@ contract MechFactoryNvmSubscription {
         // Decode subscription parameters
         uint256 maxDeliveryRate = abi.decode(payload, (uint256));
 
+        uint256 localNonce = _nonce;
         // Get salt
-        bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId));
+        bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId, localNonce));
+        _nonce = localNonce + 1;
 
         // Service multisig is isOperator() for the mech
         mech = address((new MechNvmSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
             maxDeliveryRate));
+
+        // Check for zero address
+        if (mech == address(0)) {
+            revert ZeroAddress();
+        }
 
         emit CreateSubscriptionMech(mech, serviceId, maxDeliveryRate);
     }

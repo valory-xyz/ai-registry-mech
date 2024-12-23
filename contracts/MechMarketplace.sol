@@ -423,7 +423,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requestData Self-descriptive opaque data-blob.
     function deliverMarketplace(
         uint256 requestId,
-        bytes memory requestData,
+        bytes memory requestData
     ) external {
         // Reentrancy guard
         if (_locked > 1) {
@@ -468,7 +468,7 @@ contract MechMarketplace is IErrorsMarketplace {
         // Decrease the number of undelivered requests
         numUndeliveredRequests--;
         // Increase the amount of requester delivered requests
-        mapDeliveryCounts[requester]++;
+        mapDeliveryCounts[mechDelivery.requester]++;
         // Increase the amount of mech delivery counts
         mapAgentMechDeliveryCounts[msg.sender]++;
         // Increase the amount of mech service multisig delivered requests
@@ -485,7 +485,7 @@ contract MechMarketplace is IErrorsMarketplace {
         IBalanceTracker(balanceTracker).finalizeDeliveryRate(msg.sender, mechDelivery.requester, requestId,
             mechDelivery.deliveryRate);
 
-        emit MarketplaceDeliver(priorityMech, msg.sender, requester, requestId, requestData);
+        emit MarketplaceDeliver(priorityMech, msg.sender, mechDelivery.requester, requestId, requestData);
 
         _locked = 1;
     }
@@ -538,16 +538,8 @@ contract MechMarketplace is IErrorsMarketplace {
 
     /// @dev Checks for mech validity.
     /// @dev mech Agent mech contract address.
-    /// @param mechServiceId Agent mech service Id.
     /// @return multisig
-    function checkMech(
-        address mech,
-    ) public view returns (address multisig) {
-        // Check for zero value
-        if (mechServiceId == 0) {
-            revert ZeroValue();
-        }
-
+    function checkMech(address mech) public view returns (address multisig) {
         uint256 mechServiceId = IMech(mech).tokenId();
 
         // Check mech validity as it must be created and recorded via this marketplace
