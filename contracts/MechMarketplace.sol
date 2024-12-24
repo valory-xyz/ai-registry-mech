@@ -61,6 +61,9 @@ contract MechMarketplace is IErrorsMarketplace {
     // Domain separator type hash
     bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    // Fee base constant
+    uint256 public constant FEE_BASE = 10_000;
+
     // Original domain separator value
     bytes32 public immutable domainSeparator;
     // Original chain Id
@@ -157,8 +160,8 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Check for fee value
-        if (newFee > 10_000) {
-            revert Overflow(newFee, 10_000);
+        if (newFee > FEE_BASE) {
+            revert Overflow(newFee, FEE_BASE);
         }
 
         // Check for sanity values
@@ -314,6 +317,11 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Traverse all the mech types and balanceTrackers
         for (uint256 i = 0; i < paymentTypes.length; ++i) {
+            // Check for zero value
+            if (paymentTypes[i] == 0) {
+                revert ZeroValue();
+            }
+
             // Check for zero address
             if (balanceTrackers[i] == address(0)) {
                 revert ZeroAddress();
@@ -346,13 +354,14 @@ contract MechMarketplace is IErrorsMarketplace {
         }
         _locked = 2;
 
-        // responseTimeout bounds
-        if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
-            revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
-        }
-        // responseTimeout limits
+        // Response timeout limits
         if (responseTimeout + block.timestamp > type(uint32).max) {
             revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
+        }
+
+        // Response timeout bounds
+        if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
+            revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
         }
 
         // Check for non-zero data
@@ -438,7 +447,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroAddress();
         }
 
-        // Check that the request is not already delivered
+        // Check if request has been delivered
         if (mechDelivery.deliveryMech != address(0)) {
             revert AlreadyDelivered(requestId);
         }
@@ -517,24 +526,10 @@ contract MechMarketplace is IErrorsMarketplace {
         ));
     }
 
-    /// @dev Checks for service validity.
-    /// @param serviceId Service Id.
-    /// @return multisig Service multisig address.
-    function checkServiceAndGetMultisig(
-        uint256 serviceId
-    ) public view returns (address multisig) {
-        // Check mech service Id
-        IServiceRegistry.ServiceState state;
-        (, multisig, , , , , state) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
-        if (state != IServiceRegistry.ServiceState.Deployed) {
-            revert WrongServiceState(uint256(state), serviceId);
-        }
-    }
-
     /// @dev Checks for mech validity.
     /// @param mech Mech contract address.
     /// @return multisig Mech service multisig address.
-    function checkMech(address mech) public view returns (address multisig){
+    function checkMech(address mech) public view returns (address multisig) {
         uint256 mechServiceId = IMech(mech).tokenId();
 
         // Check mech validity as it must be created and recorded via this marketplace
@@ -542,13 +537,8 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(mech);
         }
 
-        // Check mech service Id
-        multisig = checkServiceAndGetMultisig(mechServiceId);
-
-        // Check that service multisig is the priority mech service multisig
-        if (!IMech(mech).isOperator(multisig)) {
-            revert UnauthorizedAccount(mech);
-        }
+        // Check mech service Id and get its multisig
+        multisig = IMech(mech).getOperator();
     }
 
     /// @dev Checks for requester validity.
@@ -561,7 +551,13 @@ contract MechMarketplace is IErrorsMarketplace {
     ) public view {
         // Check for requester service
         if (requesterServiceId > 0) {
-            address multisig = checkServiceAndGetMultisig(requesterServiceId);
+            (, address multisig, , , , , IServiceRegistry.ServiceState state) =
+                IServiceRegistry(serviceRegistry).mapServices(requesterServiceId);
+
+            // Check for correct service state
+            if (state != IServiceRegistry.ServiceState.Deployed) {
+                revert WrongServiceState(uint256(state), requesterServiceId);
+            }
 
             // Check staked service multisig
             if (multisig != requester) {

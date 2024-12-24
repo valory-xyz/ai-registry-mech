@@ -202,14 +202,19 @@ abstract contract BalanceTrackerFixedPriceBase {
 
         // Get mech balance
         uint256 balance = mapMechBalances[msg.sender];
-        // TODO minimal balance value to account for the round-off
-        if (balance == 0 || balance < 10_000) {
-            revert InsufficientBalance(balance, 10_000);
+        if (balance == 0) {
+            revert ZeroValue();
         }
 
         // Calculate mech payment and marketplace fee
         uint256 fee = IMechMarketplace(mechMarketplace).fee();
-        marketplaceFee = (balance * fee) / FEE_BASE;
+
+        // If requested balance is too small, charge the minimal fee
+        if (balance < FEE_BASE) {
+            marketplaceFee = 1;
+        } else {
+            marketplaceFee = (balance * fee) / FEE_BASE;
+        }
         mechPayment = balance - marketplaceFee;
 
         // Check for zero value, although this must never happen

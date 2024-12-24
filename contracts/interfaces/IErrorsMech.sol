@@ -8,6 +8,9 @@ interface IErrorsMech {
     /// @dev Provided zero value.
     error ZeroValue();
 
+    /// @dev The contract is already initialized.
+    error AlreadyInitialized();
+
     /// @dev Mech marketplace is not authorized.
     /// @param mechMarketplace Mech marketplace address.
     error MarketplaceNotAuthorized(address mechMarketplace);
