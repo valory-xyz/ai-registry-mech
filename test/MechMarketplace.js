@@ -2,7 +2,6 @@
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("MechMarketplace", function () {
     let MechMarketplace;
@@ -17,7 +16,6 @@ describe("MechMarketplace", function () {
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
     const maxDeliveryRate = 1000;
-    const data = "0x00";
     const fee = 10;
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
@@ -29,8 +27,6 @@ describe("MechMarketplace", function () {
     beforeEach(async function () {
         signers = await ethers.getSigners();
         deployer = signers[0];
-
-        MechFixedPriceNative = await ethers.getContractFactory("MechFixedPriceNative");
 
         // Karma implementation and proxy
         const Karma = await ethers.getContractFactory("Karma");
