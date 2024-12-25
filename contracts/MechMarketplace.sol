@@ -61,8 +61,8 @@ contract MechMarketplace is IErrorsMarketplace {
     // Domain separator type hash
     bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    // Fee base constant
-    uint256 public constant FEE_BASE = 10_000;
+    // Max marketplace fee
+    uint256 public constant MAX_FEE = 10_000;
 
     // Original domain separator value
     bytes32 public immutable domainSeparator;
@@ -160,8 +160,8 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Check for fee value
-        if (newFee > FEE_BASE) {
-            revert Overflow(newFee, FEE_BASE);
+        if (newFee > MAX_FEE) {
+            revert Overflow(newFee, MAX_FEE);
         }
 
         // Check for sanity values

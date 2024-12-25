@@ -52,8 +52,8 @@ abstract contract BalanceTrackerFixedPriceBase {
     event Withdraw(address indexed account, address indexed token, uint256 amount);
     event Drained(address indexed token, uint256 collectedFees);
 
-    // Fee base constant
-    uint256 public constant FEE_BASE = 10_000;
+    // Max marketplace fee
+    uint256 public constant MAX_FEE = 10_000;
 
     // Mech marketplace address
     address public immutable mechMarketplace;
@@ -210,11 +210,11 @@ abstract contract BalanceTrackerFixedPriceBase {
         uint256 fee = IMechMarketplace(mechMarketplace).fee();
 
         // If requested balance is too small, charge the minimal fee
-        if (balance < FEE_BASE) {
-            marketplaceFee = 1;
-        } else {
-            marketplaceFee = (balance * fee) / FEE_BASE;
-        }
+        // ceil(a, b) = (a + b - 1) / b
+        // This formula will always get at least a fee of 1
+        marketplaceFee = (balance * fee + (MAX_FEE - 1)) / MAX_FEE;
+
+        // Calculate mech payment
         mechPayment = balance - marketplaceFee;
 
         // Check for zero value, although this must never happen
