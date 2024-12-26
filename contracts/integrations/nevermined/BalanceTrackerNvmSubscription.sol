@@ -88,18 +88,14 @@ contract BalanceTrackerNvmSubscription {
 
     // Check and record delivery rate
     function checkAndRecordDeliveryRate(
-        address mech,
         address requester,
-        uint256,
+        uint256 maxDeliveryRate,
         bytes memory
     ) external payable {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
-
-        // Get mech max delivery rate
-        uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
         // Check that there is no incoming deposit
         if (msg.value > 0) {
@@ -176,7 +172,8 @@ contract BalanceTrackerNvmSubscription {
         _locked = 1;
     }
 
-    /// @dev Processes payment.
+    /// @dev Processes requester credits.
+    /// @param requester Requester address.
     function processPayment(address requester) external {
         // Reentrancy guard
         if (_locked > 1) {
