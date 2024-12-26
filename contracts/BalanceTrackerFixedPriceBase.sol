@@ -88,8 +88,8 @@ abstract contract BalanceTrackerFixedPriceBase {
 
     // Check and record delivery rate
     function checkAndRecordDeliveryRate(
-        address mech,
         address requester,
+        uint256 maxDeliveryRate,
         bytes memory
     ) external payable {
         // Reentrancy guard
@@ -108,9 +108,6 @@ abstract contract BalanceTrackerFixedPriceBase {
 
         // Get account balance
         uint256 balance = mapRequesterBalances[requester] + initAmount;
-
-        // Get mech max delivery rate
-        uint256 maxDeliveryRate = IMech(mech).maxDeliveryRate();
 
         // Check the request delivery rate for a fixed price
         if (balance < maxDeliveryRate) {
@@ -150,12 +147,14 @@ abstract contract BalanceTrackerFixedPriceBase {
             revert ZeroValue();
         }
 
+        // Check for delivery rate difference
         uint256 rateDiff;
         if (maxDeliveryRate > actualDeliveryRate) {
             // Return back requester overpayment debit
             rateDiff = maxDeliveryRate - actualDeliveryRate;
             mapRequesterBalances[requester] += rateDiff;
         } else {
+            // Limit the rate by the max chosen one as that is what the requester agreed on
             actualDeliveryRate = maxDeliveryRate;
         }
 

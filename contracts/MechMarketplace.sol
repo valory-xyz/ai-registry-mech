@@ -381,13 +381,6 @@ contract MechMarketplace is IErrorsMarketplace {
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
 
-        // Get balance tracker address
-        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
-        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
-
-        // Check and record mech delivery rate
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender, paymentData);
-
         // Update requester nonce
         mapNonces[msg.sender]++;
 
@@ -400,8 +393,16 @@ contract MechMarketplace is IErrorsMarketplace {
         mechDelivery.responseTimeout = responseTimeout + block.timestamp;
         // Record request account
         mechDelivery.requester = msg.sender;
-        // Record deliveryRate for request
-        mechDelivery.deliveryRate = msg.value;
+        // Record deliveryRate for request as priority mech max delivery rate
+        mechDelivery.deliveryRate = IMech(priorityMech).maxDeliveryRate();
+
+        // Get balance tracker address
+        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
+
+        // Check and record mech delivery rate
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(msg.sender,
+            mechDelivery.deliveryRate, paymentData);
 
         // Increase mech requester karma
         IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, 1);

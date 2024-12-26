@@ -259,6 +259,46 @@ describe("MechFixedPriceNative", function () {
             expect(mechKarma).to.equal(1);
         });
 
+        it("Delivering a request by a priority mech with pre-paid logic", async function () {
+            // Get request Id
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+
+            // Pre-pay the contract insufficient amount for posting a request
+            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate - 1});
+
+            // Try to create request with insufficient pre-paid amount
+            await expect(
+                mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "InsufficientBalance");
+
+            // Pre-pay the contract more for posting a request
+            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate});
+
+            // Post a request
+            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+
+            // Get the request status (requested priority)
+            status = await mechMarketplace.getRequestStatus(requestId);
+            expect(status).to.equal(1);
+
+            // Deliver a request
+            await priorityMech.deliverToMarketplace(requestId, data);
+
+            // Get the request status (delivered)
+            status = await mechMarketplace.getRequestStatus(requestId);
+            expect(status).to.equal(3);
+
+            // Try to deliver the same request again
+            await priorityMech.deliverToMarketplace(requestId, data);
+
+            // Check mech karma
+            let mechKarma = await karma.mapMechKarma(priorityMech.address);
+            expect(mechKarma).to.equal(1);
+            // Check requester mech karma
+            mechKarma = await karma.mapRequesterMechKarma(deployer.address, priorityMech.address);
+            expect(mechKarma).to.equal(1);
+        });
+
         it("Delivering a request by a different mech", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
