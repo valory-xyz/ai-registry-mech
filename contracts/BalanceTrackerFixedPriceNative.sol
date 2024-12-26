@@ -35,13 +35,17 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         wrappedNativeToken = _wrappedNativeToken;
     }
 
-    function _checkNativeValue() internal virtual override {}
-
-    function _getRequiredFunds(address, uint256 balanceDiff) internal virtual override returns (uint256) {
-        if (msg.value < balanceDiff) {
-            revert InsufficientBalance(msg.value, balanceDiff);
+    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
+        // Update balance with native value
+        if (msg.value > 0) {
+            emit Deposit(msg.sender, address(0), msg.value);
         }
+
         return msg.value;
+    }
+
+    function _getRequiredFunds(address, uint256) internal virtual override returns (uint256) {
+        return 0;
     }
 
     function _wrap(uint256 amount) internal virtual {
@@ -57,16 +61,16 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         emit Drained(wrappedNativeToken, amount);
     }
 
-    function _withdraw(uint256 balance) internal virtual override {
+    function _withdraw(address account, uint256 amount) internal virtual override {
         // solhint-disable-next-line avoid-low-level-calls
-        (bool success, ) = msg.sender.call{value: balance}("");
+        (bool success, ) = account.call{value: amount}("");
 
         // Check transfer
         if (!success) {
-            revert TransferFailed(address(0), address(this), msg.sender, balance);
+            revert TransferFailed(address(0), address(this), account, amount);
         }
 
-        emit Withdraw(msg.sender, address(0), balance);
+        emit Withdraw(msg.sender, address(0), amount);
     }
 
     // Deposits funds for requester.

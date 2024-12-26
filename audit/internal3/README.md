@@ -20,13 +20,14 @@ Most of the issues raised by instrumental analysis are outside the scope of the 
 
 ### Issue
 #### Medium. Make sure that the previous comments (internal - internal2) have been addressed.
-[]
+[x] Addressed
 
 #### Critical/Medium. checkAndRecordDeliveryRate() for native token
 ```
 function checkAndRecordDeliveryRate()
 This is not the right behavior for a case msg.value > 0 and native token contracts.
 ```
+[x] Fixed
 
 #### Low. More Reentrancy protection
 ```
@@ -34,14 +35,14 @@ function checkAndRecordDeliveryRate()
 function finalizeDeliveryRate() 
 + Reentrancy protection agains IMech(mech).maxDeliveryRate()
 ```
-[]
+[x] Fixed
 
 #### Notices. unintuitive name vs action
 ```
 function _checkNativeValue() internal virtual override
 The function name is very unintuitive. In reality, it just does a revert if the contract type is token.
 ```
-[]
+[x] Fixed
 
 #### Notices. checkAndRecordDeliveryRate why are uint256 parameters needed
 ```
@@ -53,4 +54,4 @@ Why unused params?
         uint256
 If this is abstract data for the future, it is better to replace it with bytes payload.
 ```
-[]
+[x] Fixed

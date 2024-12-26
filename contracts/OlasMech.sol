@@ -14,32 +14,14 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event Request(address indexed sender, uint256 requestId, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestId);
 
-    enum PaymentType {
-        FixedPriceNative,
-        FixedPriceToken,
-        NvmSubscription
-    }
-
-    enum RequestStatus {
-        DoesNotExist,
-        Requested,
-        Delivered
-    }
-
-    // Agent mech version number
-    string public constant VERSION = "1.1.0";
-    // Domain separator type hash
-    bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
-    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    // Original domain separator value
-    bytes32 public immutable domainSeparator;
-    // Original chain Id
-    uint256 public immutable chainId;
+    // Olas mech version number
+    string public constant VERSION = "1.0.0";
     // Mech marketplace address
     address public immutable mechMarketplace;
     // Mech payment type
-    PaymentType public immutable paymentType;
+    bytes32 public immutable paymentType;
 
+    // TODO give it a better name
     // Maximum required delivery rate
     uint256 public maxDeliveryRate;
     // Number of undelivered requests by this mech
@@ -51,36 +33,38 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Map of request counts for corresponding addresses in this agent mech
-    mapping(address => uint256) public mapRequestCounts;
-    // Map of delivery counts for corresponding addresses in this agent mech
-    mapping(address => uint256) public mapDeliveryCounts;
     // Map of undelivered requests counts for corresponding addresses in this agent mech
     mapping(address => uint256) public mapUndeliveredRequestsCounts;
     // Cyclical map of request Ids
     mapping(uint256 => uint256[2]) public mapRequestIds;
     // Map of request Id => sender address
     mapping(uint256 => address) public mapRequestAddresses;
-    // Mapping of account nonces
-    mapping(address => uint256) public mapNonces;
 
+    /// @dev OlasMech constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the registry contract.
     /// @param _serviceId Service Id.
+    /// @param _maxDeliveryRate Mech max delivery rate.
+    /// @param _paymentType Mech payment type.
     constructor(
         address _mechMarketplace,
         address _serviceRegistry,
         uint256 _serviceId,
         uint256 _maxDeliveryRate,
-        PaymentType _paymentType
+        bytes32 _paymentType
     ) {
+        // Check for zero address
+        if (_mechMarketplace == address(0)) {
+            revert ZeroAddress();
+        }
+
         // Check for zero address
         if (_serviceRegistry == address(0)) {
             revert ZeroAddress();
         }
 
         // Check for zero value
-        if (_serviceId == 0 || _maxDeliveryRate == 0) {
+        if (_serviceId == 0 || _maxDeliveryRate == 0 || _paymentType == 0) {
             revert ZeroValue();
         }
 
@@ -102,54 +86,31 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         mechMarketplace = _mechMarketplace;
         maxDeliveryRate = _maxDeliveryRate;
         paymentType = _paymentType;
-
-
-        // Record chain Id
-        chainId = block.chainid;
-        // Compute domain separator
-        domainSeparator = _computeDomainSeparator();
     }
 
-    /// @dev Computes domain separator hash.
-    /// @return Hash of the domain separator based on its name, version, chain Id and contract address.
-    function _computeDomainSeparator() internal view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                DOMAIN_SEPARATOR_TYPE_HASH,
-                keccak256("AgentMech"),
-                keccak256(abi.encode(VERSION)),
-                block.chainid,
-                address(this)
-            )
-        );
-    }
-
-    // TODO TBD
     /// @dev Performs actions before the delivery of a request.
-    /// @param account Request sender address.
+    /// @param requester Requester address.
     /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
     function _preDeliver(
-        address account,
+        address requester,
         uint256 requestId,
         bytes memory data
     ) internal virtual returns (bytes memory requestData);
 
     /// @dev Registers a request.
-    /// @param account Requester account address.
-    /// @param data Self-descriptive opaque data-blob.
+    /// @param requester Requester address.
     /// @param requestId Request Id.
+    /// @param data Self-descriptive opaque data-blob.
     function _request(
-        address account,
-        bytes memory data,
-        uint256 requestId
+        address requester,
+        uint256 requestId,
+        bytes memory data
     ) internal virtual {
-        // Increase the requests count supplied by the sender
-        mapRequestCounts[account]++;
-        mapUndeliveredRequestsCounts[account]++;
+        mapUndeliveredRequestsCounts[requester]++;
         // Record the requestId => sender correspondence
-        mapRequestAddresses[requestId] = account;
+        mapRequestAddresses[requestId] = requester;
 
         // Record the request Id in the map
         // Get previous and next request Ids of the first element
@@ -170,15 +131,15 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         // Increase the total number of requests
         numTotalRequests++;
 
-        emit Request(account, requestId, data);
+        emit Request(requester, requestId, data);
     }
 
     /// @dev Cleans the request info from all the relevant storage.
-    /// @param account Requester account address.
+    /// @param requester Requester address.
     /// @param requestId Request Id.
-    function _cleanRequestInfo(address account, uint256 requestId) internal virtual {
+    function _cleanRequestInfo(address requester, uint256 requestId) internal virtual {
         // Decrease the number of undelivered requests
-        mapUndeliveredRequestsCounts[account]--;
+        mapUndeliveredRequestsCounts[requester]--;
         numUndeliveredRequests--;
 
         // Remove delivered request Id from the request Ids map
@@ -202,15 +163,30 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
     function _deliver(uint256 requestId, bytes memory data) internal virtual returns (bytes memory requestData) {
-        // Get an account to deliver request to
-        address account = mapRequestAddresses[requestId];
+        // Get an requester to deliver request to
+        address requester = mapRequestAddresses[requestId];
 
         // Get the mech delivery info from the mech marketplace
-        IMechMarketplace.MechDelivery memory mechDelivery = IMechMarketplace(mechMarketplace).getMechDeliveryInfo(requestId);
+        IMechMarketplace.MechDelivery memory mechDelivery =
+            IMechMarketplace(mechMarketplace).mapRequestIdDeliveries(requestId);
 
-        // Instantly return if the request has been delivered
+        // Instantly return with empty data if the request has been delivered
+        // This allows not to fail batch requests transactions
         if (mechDelivery.deliveryMech != address(0)) {
-            return requestData;
+            return "";
+        }
+
+        // The requester is zero if the delivery mech is different from a priority mech, or if request does not exist
+        if (requester == address(0)) {
+            requester = mechDelivery.requester;
+            // Check if request exists in the mech marketplace
+            if (requester == address(0)) {
+                revert RequestIdNotFound(requestId);
+            }
+            // Note, revoking the request for the priority mech happens later via revokeRequest
+        } else {
+            // The requester is non-zero if it is delivered by the priority mech
+            _cleanRequestInfo(requester, requestId);
         }
 
         // Check for max delivery rate compared to requested one
@@ -218,26 +194,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             revert Overflow(maxDeliveryRate, mechDelivery.deliveryRate);
         }
 
-        // The account is zero if the delivery mech is different from a priority mech, or if request does not exist
-        if (account == address(0)) {
-            if (mechMarketplace != address(0)) {
-                account = mechDelivery.requester;
-            }
-
-            // Check if request exists in the mech marketplace or locally in the mech
-            if (account == address(0)) {
-                revert RequestIdNotFound(requestId);
-            }
-        } else {
-            // The account is non-zero if it is delivered by the priority mech
-            _cleanRequestInfo(account, requestId);
-        }
-
         // Perform a pre-delivery of the data if it needs additional parsing
-        requestData = _preDeliver(account, requestId, data);
+        requestData = _preDeliver(requester, requestId, data);
 
         // Increase the total number of deliveries, as the request is delivered by this mech
-        mapDeliveryCounts[account]++;
         numTotalDeliveries++;
 
         emit Deliver(msg.sender, requestId, requestData);
@@ -257,17 +217,17 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
     /// @dev Registers a request by a marketplace.
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
-    /// @param account Requester account address.
+    /// @param requester Requester address.
     /// @param data Self-descriptive opaque data-blob.
     /// @param requestId Request Id.
-    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external {
+    function requestFromMarketplace(address requester, bytes memory data, uint256 requestId) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceNotAuthorized(msg.sender);
         }
 
         // Perform a request
-        _request(account, data, requestId);
+        _request(requester, requestId, data);
     }
 
     /// @dev Revokes the request from the mech that does not deliver it.
@@ -279,29 +239,25 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             revert MarketplaceNotAuthorized(msg.sender);
         }
 
-        address account = mapRequestAddresses[requestId];
-        // This must never happen, as the priority mech recorded requestId => account info during the request
-        if (account == address(0)) {
+        address requester = mapRequestAddresses[requestId];
+        // This must never happen, as the priority mech recorded requestId => requester info during the request
+        if (requester == address(0)) {
             revert ZeroAddress();
         }
 
         // Clean request info
-        _cleanRequestInfo(account, requestId);
+        _cleanRequestInfo(requester, requestId);
 
-        emit RevokeRequest(account, requestId);
+        emit RevokeRequest(requester, requestId);
     }
 
     /// @dev Delivers a request by a marketplace.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestId Request id.
     /// @param data Self-descriptive opaque data-blob.
-    /// @param mechStakingInstance Mech staking instance address (optional).
-    /// @param mechServiceId Mech operator service Id.
     function deliverToMarketplace(
         uint256 requestId,
-        bytes memory data,
-        address mechStakingInstance,
-        uint256 mechServiceId
+        bytes memory data
     ) external onlyOperator {
         // Reentrancy guard
         if (_locked > 1) {
@@ -314,99 +270,57 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         // Mech marketplace delivery finalization if the request was not delivered already
         if (requestData.length > 0) {
-            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData, mechStakingInstance,
-                mechServiceId);
+            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData);
         }
 
         _locked = 1;
     }
 
+    /// @dev Sets up a mech.
+    /// @param initParams Mech initial parameters.
     function setUp(bytes memory initParams) public override {
-        require(readImmutable().length == 0, "Already initialized");
+        if (readImmutable().length != 0) {
+            revert AlreadyInitialized();
+        }
         writeImmutable(initParams);
     }
 
-    function token() public view returns (address serviceRegistry) {
+    /// @dev Gets mech token (service registry) address.
+    /// @return serviceRegistry Service registry address.
+    function token() external view returns (address serviceRegistry) {
+        // Get service registry
         serviceRegistry = abi.decode(readImmutable(), (address));
     }
 
-    function tokenId() public view returns (uint256) {
-        (, uint256 serviceId) = abi.decode(readImmutable(), (address, uint256));
-        return serviceId;
+    /// @dev Gets mech token Id (service Id).
+    /// @return serviceId Service Id.
+    function tokenId() external view returns (uint256 serviceId) {
+        // Get service Id
+        (, serviceId) = abi.decode(readImmutable(), (address, uint256));
     }
 
-    function isOperator(address signer) public view override returns (bool) {
-        (address serviceRegistry, uint256 serviceId) = abi.decode(
-            readImmutable(),
-            (address, uint256)
-        );
+    /// @dev Gets mech operator (service multisig).
+    /// @return Service multisig address.
+    function getOperator() public view returns (address) {
+        // Get service registry and service Id
+        (address serviceRegistry, uint256 serviceId) = abi.decode(readImmutable(), (address, uint256));
 
-        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
-        return multisig == signer;
-    }
+        (, address multisig, , , , , IServiceRegistry.ServiceState state) =
+            IServiceRegistry(serviceRegistry).mapServices(serviceId);
 
-    /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
-    /// @return Original or recomputed domain separator.
-    function getDomainSeparator() public view returns (bytes32) {
-        return block.chainid == chainId ? domainSeparator : _computeDomainSeparator();
-    }
-
-    /// @dev Gets the request Id.
-    /// @param account Account address.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @param nonce Nonce.
-    /// @return requestId Corresponding request Id.
-    function getRequestId(
-        address account,
-        bytes memory data,
-        uint256 nonce
-    ) public view returns (uint256 requestId) {
-        requestId = uint256(keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                getDomainSeparator(),
-                keccak256(
-                    abi.encode(
-                        account,
-                        data,
-                        nonce
-                    )
-                )
-            )
-        ));
-    }
-
-    /// @dev Gets the requests count for a specific account.
-    /// @param account Account address.
-    /// @return Requests count.
-    function getRequestsCount(address account) external view returns (uint256) {
-        return mapRequestCounts[account];
-    }
-
-    /// @dev Gets the deliveries count for a specific account.
-    /// @param account Account address.
-    /// @return Deliveries count.
-    function getDeliveriesCount(address account) external view returns (uint256) {
-        return mapDeliveryCounts[account];
-    }
-
-    /// @dev Gets the request Id status registered in this agent mech.
-    /// @notice If marketplace is not zero, use the same function in the mech marketplace contract.
-    /// @param requestId Request Id.
-    /// @return status Request status.
-    function getRequestStatus(uint256 requestId) external view returns (RequestStatus status) {
-        // Request exists if it was recorded in the requestId => account map
-        if (mapRequestAddresses[requestId] != address(0)) {
-            // Get the request info
-            uint256[2] memory requestIds = mapRequestIds[requestId];
-            // Check if the request Id was already delivered: previous and next request Ids are zero,
-            // and the zero's element previous request Id is not equal to the provided request Id
-            if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
-                status = RequestStatus.Delivered;
-            } else {
-                status = RequestStatus.Requested;
-            }
+        // Check for correct service state
+        if (state != IServiceRegistry.ServiceState.Deployed) {
+            revert WrongServiceState(uint256(state), serviceId);
         }
+
+        return multisig;
+    }
+
+    /// @dev Checks the mech operator (service multisig).
+    /// @param multisig Service multisig being checked against.
+    /// @return True, if mech service multisig matches the provided one.
+    function isOperator(address multisig) public view override returns (bool) {
+        return multisig == getOperator();
     }
 
     /// @dev Gets the set of undelivered request Ids with Nonce.
@@ -445,11 +359,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
                 curRequestId = mapRequestIds[curRequestId][1];
             }
         }
-    }
-
-
-    function getPaymentType() external view returns (uint8) {
-        return uint8(paymentType);
     }
 
     /// @dev Gets finalized delivery rate for a request Id.

@@ -48,7 +48,7 @@ next
         } - skip
 5. pass        
 ```
-[]
+[x] Outdated due to design change
 
 #### Medium. _calculatePayment not update collectedFees;
 ```
@@ -57,7 +57,7 @@ function _calculatePayment(
         uint256 payment
     ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
 ```
-[]
+[x] Outdated due to design change
 
 #### Medium. payable fallback()
 ```
@@ -65,7 +65,7 @@ Must be payable.
 fallback() external {
         // solhint-disable-next-line avoid-low-level-calls
 ```
-[]
+[x] Fixed
 
 #### Medium. Typo in check. 
 ```
@@ -78,10 +78,10 @@ constructor(address _mechMarketplace, address _serviceRegistry, uint256 _service
             revert ZeroValue();
         }
 ```
-[]
+[x] Outdated due to design change
 
 ####  Low? Notices? OlasMech.setUp(bytes) event
-[]
+[x] Noticed, internal storage writing
 
 #### Low? Notices? Karma.sol Uniform approach to location getImplementation() (proxy/implementation)
 ```
@@ -95,7 +95,7 @@ Depending on what they understand better for etherscan. Probably in proxy better
         }
     }
 ```
-[]
+[x] Noticed
 
 ### Low? improvement create2(), due to unpredictability.
 ```
@@ -125,7 +125,7 @@ bytes32 salt = keccak256(abi.encode(nonce, block.timestamp, msg.sender, serviceI
 
 same for contracts\integrations\nevermined\MechFactorySubscription.sol
 ```
-[]
+[x] Fixed
 
 ### Notices
 #### Low? Notices? No issue? initialize and constructor on MechMarketplace + frontrunning (?!) To discussion
@@ -148,7 +148,7 @@ function initialize(uint256 _fee, uint256 _minResponseTimeout, uint256 _maxRespo
 Frontrunning is possible : between constructor() -> initialize() : No issue!
 Changing the storage of implementation has no effect on changing the storage of proxy!
 ```
-[]
+[x] Noticed
 
 #### Low? Notices? No issue? frontrunning initialize() in Karma.sol. To discussion
 ```
@@ -168,14 +168,14 @@ Example:
     }
 Changing the storage of implementation has no effect on changing the storage of proxy!
 ```
-[]
+[x] Noticed, already initialized
 
 ### Notices. Variable "price". Problem of terminology
 ```
 Problem of terminology. Price is usually expressed as amount0/amount1 
 if (amount < price) {}
 ```
-[]
+[x] Outdated
 
 ### Notices. for design createMech()
 ```
@@ -183,7 +183,7 @@ Can be called by anyone, a small limitation is that it is called from the market
 function createMech()
 -> callback IMechMarketplace(mechMarketplace).mapMechFactories[mechFactory] == address(this)
 ```
-[]
+[x] Fixed
 
 ### Notices. Pure? _calculatePayment()
 ```
@@ -193,12 +193,12 @@ function _calculatePayment(
     ) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee)
     -> pure?
 ```
-[]
+[x] Outdated
 
 ### Notices. Low/Notices
 ```
 uint256 private constant FEE_BASIS_POINTS = 10_000; // 100% в bps
 ```
-[]
+[x] Fixed
 
 
