@@ -3,3 +3,4 @@ pragma solidity ^0.8.28;
 
 // Getting required ABIs
 import {MockServiceRegistry} from "../../lib/autonolas-registries/contracts/test/MockServiceRegistry.sol";
+import {ERC20Token} from "../../lib/autonolas-registries/contracts/test/ERC20Token.sol";
