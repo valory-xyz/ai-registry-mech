@@ -297,6 +297,33 @@ describe("MechFixedPriceNative", function () {
             // Check requester mech karma
             mechKarma = await karma.mapRequesterMechKarma(deployer.address, priorityMech.address);
             expect(mechKarma).to.equal(1);
+
+            // Check priority mech balance now
+            let mechBalance = await balanceTrackerFixedPriceNative.mapMechBalances(priorityMech.address);
+            expect(mechBalance).to.equal(maxDeliveryRate);
+
+            const balanceBefore = await ethers.provider.getBalance(priorityMech.address);
+            // Process payment for mech
+            await balanceTrackerFixedPriceNative.processPaymentByMultisig(priorityMech.address);
+            const balanceAfter = await ethers.provider.getBalance(priorityMech.address);
+
+            // Check charged fee
+            const collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
+            // Since the delivery rate is smaller than MAX_FEE_FACTOR, the minimal fee was charged
+            expect(collectedFees).to.equal(1);
+
+            // Check mech payout: payment - fee
+            const balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(maxDeliveryRate - 1);
+
+            // Check requester leftover balance
+            let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
+            expect(requesterBalance).to.equal(maxDeliveryRate - 1);
+
+            // Withdraw requester balances
+            await balanceTrackerFixedPriceNative.withdraw();
+            requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
+            expect(requesterBalance).to.equal(0);
         });
 
         it("Delivering a request by a different mech", async function () {

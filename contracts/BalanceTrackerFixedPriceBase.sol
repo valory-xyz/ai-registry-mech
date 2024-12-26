@@ -52,8 +52,8 @@ abstract contract BalanceTrackerFixedPriceBase {
     event Withdraw(address indexed account, address indexed token, uint256 amount);
     event Drained(address indexed token, uint256 collectedFees);
 
-    // Max marketplace fee
-    uint256 public constant MAX_FEE = 10_000;
+    // Max marketplace fee factor (100%)
+    uint256 public constant MAX_FEE_FACTOR = 10_000;
 
     // Mech marketplace address
     address public immutable mechMarketplace;
@@ -189,10 +189,33 @@ abstract contract BalanceTrackerFixedPriceBase {
         _locked = 1;
     }
 
-    function _withdraw(uint256 balance) internal virtual;
+    function _withdraw(address mech, uint256 balance) internal virtual;
 
-    /// @dev Processes mech payment by withdrawing funds.
-    function processPayment() external returns (uint256 mechPayment, uint256 marketplaceFee) {
+    /// @dev Processes mech payment by mech service multisig.
+    /// @param mech Mech address.
+    /// @return Mech payment.
+    /// @return Marketplace fee.
+    function processPaymentByMultisig(address mech) external returns (uint256, uint256) {
+        // Check for mech service multisig address
+        if (!IMech(mech).isOperator(msg.sender)) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        return _processPayment(mech);
+    }
+
+    /// @dev Processes mech payment.
+    /// @return Mech payment.
+    /// @return Marketplace fee.
+    function processPayment() external returns (uint256, uint256) {
+        return _processPayment(msg.sender);
+    }
+
+    /// @dev Process mech payment.
+    /// @param mech Mech address.
+    /// @return mechPayment Mech payment.
+    /// @return marketplaceFee Marketplace fee.
+    function _processPayment(address mech) internal returns (uint256 mechPayment, uint256 marketplaceFee) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -200,7 +223,7 @@ abstract contract BalanceTrackerFixedPriceBase {
         _locked = 2;
 
         // Get mech balance
-        uint256 balance = mapMechBalances[msg.sender];
+        uint256 balance = mapMechBalances[mech];
         if (balance == 0) {
             revert ZeroValue();
         }
@@ -211,7 +234,7 @@ abstract contract BalanceTrackerFixedPriceBase {
         // If requested balance is too small, charge the minimal fee
         // ceil(a, b) = (a + b - 1) / b
         // This formula will always get at least a fee of 1
-        marketplaceFee = (balance * fee + (MAX_FEE - 1)) / MAX_FEE;
+        marketplaceFee = (balance * fee + (MAX_FEE_FACTOR - 1)) / MAX_FEE_FACTOR;
 
         // Calculate mech payment
         mechPayment = balance - marketplaceFee;
@@ -225,10 +248,10 @@ abstract contract BalanceTrackerFixedPriceBase {
         collectedFees += marketplaceFee;
 
         // Clear balances
-        mapMechBalances[msg.sender] = 0;
+        mapMechBalances[mech] = 0;
 
         // Process withdraw
-        _withdraw(balance);
+        _withdraw(mech, mechPayment);
 
         _locked = 1;
     }
@@ -251,7 +274,7 @@ abstract contract BalanceTrackerFixedPriceBase {
         mapRequesterBalances[msg.sender] = 0;
 
         // Process withdraw
-        _withdraw(balance);
+        _withdraw(msg.sender, balance);
 
         _locked = 1;
     }

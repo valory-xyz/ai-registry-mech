@@ -172,7 +172,8 @@ contract BalanceTrackerNvmSubscription {
         _locked = 1;
     }
 
-    /// @dev Processes payment.
+    /// @dev Processes requester credits.
+    /// @param requester Requester address.
     function processPayment(address requester) external {
         // Reentrancy guard
         if (_locked > 1) {
