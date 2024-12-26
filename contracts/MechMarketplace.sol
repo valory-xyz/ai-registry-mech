@@ -61,8 +61,8 @@ contract MechMarketplace is IErrorsMarketplace {
     // Domain separator type hash
     bytes32 public constant DOMAIN_SEPARATOR_TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    // Max marketplace fee
-    uint256 public constant MAX_FEE = 10_000;
+    // Max marketplace fee factor (100%)
+    uint256 public constant MAX_FEE_FACTOR = 10_000;
 
     // Original domain separator value
     bytes32 public immutable domainSeparator;
@@ -160,8 +160,8 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Check for fee value
-        if (newFee > MAX_FEE) {
-            revert Overflow(newFee, MAX_FEE);
+        if (newFee > MAX_FEE_FACTOR) {
+            revert Overflow(newFee, MAX_FEE_FACTOR);
         }
 
         // Check for sanity values
@@ -381,13 +381,6 @@ contract MechMarketplace is IErrorsMarketplace {
         // Get the request Id
         requestId = getRequestId(msg.sender, data, mapNonces[msg.sender]);
 
-        // Get balance tracker address
-        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
-        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
-
-        // Check and record mech delivery rate
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(priorityMech, msg.sender, paymentData);
-
         // Update requester nonce
         mapNonces[msg.sender]++;
 
@@ -400,8 +393,16 @@ contract MechMarketplace is IErrorsMarketplace {
         mechDelivery.responseTimeout = responseTimeout + block.timestamp;
         // Record request account
         mechDelivery.requester = msg.sender;
-        // Record deliveryRate for request
-        mechDelivery.deliveryRate = msg.value;
+        // Record deliveryRate for request as priority mech max delivery rate
+        mechDelivery.deliveryRate = IMech(priorityMech).maxDeliveryRate();
+
+        // Get balance tracker address
+        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
+
+        // Check and record mech delivery rate
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(msg.sender,
+            mechDelivery.deliveryRate, paymentData);
 
         // Increase mech requester karma
         IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, 1);

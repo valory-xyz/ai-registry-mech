@@ -76,15 +76,15 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
         emit Drained(olas, amount);
     }
 
-    function _withdraw(uint256 balance) internal virtual override {
-        bool success = IToken(olas).transfer(msg.sender, balance);
+    function _withdraw(address account, uint256 amount) internal virtual override {
+        bool success = IToken(olas).transfer(account, amount);
 
         // Check transfer
         if (!success) {
-            revert TransferFailed(olas, address(this), msg.sender, balance);
+            revert TransferFailed(olas, address(this), account, amount);
         }
 
-        emit Withdraw(msg.sender, olas, balance);
+        emit Withdraw(msg.sender, olas, amount);
     }
 
     // Deposits token funds for requester.

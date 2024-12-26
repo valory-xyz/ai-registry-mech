@@ -61,16 +61,16 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         emit Drained(wrappedNativeToken, amount);
     }
 
-    function _withdraw(uint256 balance) internal virtual override {
+    function _withdraw(address account, uint256 amount) internal virtual override {
         // solhint-disable-next-line avoid-low-level-calls
-        (bool success, ) = msg.sender.call{value: balance}("");
+        (bool success, ) = account.call{value: amount}("");
 
         // Check transfer
         if (!success) {
-            revert TransferFailed(address(0), address(this), msg.sender, balance);
+            revert TransferFailed(address(0), address(this), account, amount);
         }
 
-        emit Withdraw(msg.sender, address(0), balance);
+        emit Withdraw(msg.sender, address(0), amount);
     }
 
     // Deposits funds for requester.

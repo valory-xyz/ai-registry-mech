@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 interface IBalanceTracker {
     // Check and record delivery rate
     /// @param paymentData Additional payment-related request data, if applicable.
-    function checkAndRecordDeliveryRate(address mech, address requester, bytes memory paymentData) external payable;
+    function checkAndRecordDeliveryRate(address requester, uint256 maxDeliveryRate, bytes memory paymentData) external payable;
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
     /// @param mech Delivery mech address.
