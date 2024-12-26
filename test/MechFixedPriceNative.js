@@ -278,7 +278,7 @@ describe("MechFixedPriceNative", function () {
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
-            status = await mechMarketplace.getRequestStatus(requestId);
+            let status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(1);
 
             // Deliver a request
