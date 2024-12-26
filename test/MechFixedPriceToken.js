@@ -5,7 +5,6 @@ const { ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("MechFixedPriceToken", function () {
-    let MechFixedPriceToken;
     let priorityMechAddress;
     let priorityMech;
     let deliveryMechAddress;
@@ -18,7 +17,6 @@ describe("MechFixedPriceToken", function () {
     let balanceTrackerFixedPriceToken;
     let signers;
     let deployer;
-    const AddressZero = ethers.constants.AddressZero;
     const initMint = "1" + "0".repeat(25);
     const maxDeliveryRate = 1000;
     const data = "0x00";
@@ -86,7 +84,6 @@ describe("MechFixedPriceToken", function () {
         // Pseudo-create a requester service
         await serviceRegistry.setServiceOwner(requesterServiceId + 3, signers[1].address);
 
-        MechFixedPriceToken = await ethers.getContractFactory("MechFixedPriceToken");
         // Create default priority mech
         let tx = await mechMarketplace.create(mechServiceId, mechFactoryFixedPrice.address, mechCreationData);
         let res = await tx.wait();
@@ -132,7 +129,7 @@ describe("MechFixedPriceToken", function () {
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
-            status = await mechMarketplace.getRequestStatus(requestId);
+            let status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(1);
 
             // Deliver a request
@@ -249,7 +246,7 @@ describe("MechFixedPriceToken", function () {
             ).to.be.revertedWithCustomError(mechMarketplace, "PriorityMechResponseTimeout");
 
             // Get the request status (requested priority)
-            status = await mechMarketplace.getRequestStatus(requestId);
+            let status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(1);
 
             // Increase the time such that the request expires for a priority mech
