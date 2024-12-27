@@ -3,7 +3,9 @@ pragma solidity ^0.8.28;
 
 /// @dev Escrow interface
 interface IBalanceTracker {
-    // Check and record delivery rate
+    /// @dev Checks and records delivery rate.
+    /// @param requester Requester address.
+    /// @param maxDeliveryRate Request max delivery rate.
     /// @param paymentData Additional payment-related request data, if applicable.
     function checkAndRecordDeliveryRate(address requester, uint256 maxDeliveryRate, bytes memory paymentData) external payable;
 

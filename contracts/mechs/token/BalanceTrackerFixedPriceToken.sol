@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceBase, ZeroAddress, NoDepositAllowed, TransferFailed} from "./BalanceTrackerFixedPriceBase.sol";
-import {IMech} from "./interfaces/IMech.sol";
+import {BalanceTrackerFixedPriceBase, ZeroAddress, NoDepositAllowed, TransferFailed} from "../../BalanceTrackerFixedPriceBase.sol";
+import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
     /// @dev Transfers the token amount.
@@ -43,6 +43,17 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
         olas = _olas;
     }
 
+    /// @dev Drains specified amount.
+    /// @param amount Token amount.
+    function _drain(uint256 amount) internal virtual override {
+        // Transfer to Buy back burner
+        IToken(olas).transfer(buyBackBurner, amount);
+
+        emit Drained(olas, amount);
+    }
+
+    /// @dev Gets native token value or restricts receiving one.
+    /// @return Received value.
     function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
         // Check for msg.value
         if (msg.value > 0) {
@@ -52,30 +63,30 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
         return 0;
     }
 
-    function _getRequiredFunds(address requester, uint256 balanceDiff) internal virtual override returns (uint256) {
+    /// @dev Gets required token funds.
+    /// @param requester Requester address.
+    /// @param amount Token amount.
+    /// @return Received amount.
+    function _getRequiredFunds(address requester, uint256 amount) internal virtual override returns (uint256) {
         uint256 balanceBefore = IToken(olas).balanceOf(address(this));
         // Get tokens from requester
-        IToken(olas).transferFrom(requester, address(this), balanceDiff);
+        IToken(olas).transferFrom(requester, address(this), amount);
         uint256 balanceAfter = IToken(olas).balanceOf(address(this));
 
         // Check the balance
         uint256 diff = balanceAfter - balanceBefore;
-        if (diff != balanceDiff) {
-            revert TransferFailed(olas, requester, address(this), balanceDiff);
+        if (diff != amount) {
+            revert TransferFailed(olas, requester, address(this), amount);
         }
 
-        emit Deposit(msg.sender, olas, balanceDiff);
+        emit Deposit(msg.sender, olas, amount);
 
-        return balanceDiff;
+        return amount;
     }
 
-    function _drain(uint256 amount) internal virtual override {
-        // Transfer to Buy back burner
-        IToken(olas).transfer(buyBackBurner, amount);
-
-        emit Drained(olas, amount);
-    }
-
+    /// @dev Withdraws funds.
+    /// @param account Account address.
+    /// @param amount Token amount.
     function _withdraw(address account, uint256 amount) internal virtual override {
         bool success = IToken(olas).transfer(account, amount);
 
@@ -87,7 +98,8 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
         emit Withdraw(msg.sender, olas, amount);
     }
 
-    // Deposits token funds for requester.
+    /// @dev Deposits token funds for requester.
+    /// @param amount Token amount.
     function deposit(uint256 amount) external {
         IToken(olas).transferFrom(msg.sender, address(this), amount);
 

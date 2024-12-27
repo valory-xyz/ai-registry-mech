@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {OlasMech} from "./OlasMech.sol";
+import {OlasMech} from "../../OlasMech.sol";
 
-/// @title MechFixedPriceToken - Smart contract for OlasMech that accepts a fixed price payment for services in native token.
-contract MechFixedPriceToken is OlasMech {
-    // keccak256(FixedPriceToken) = 3679d66ef546e66ce9057c4a052f317b135bc8e8c509638f7966edfd4fcf45e9
-    bytes32 public constant PAYMENT_TYPE = 0x3679d66ef546e66ce9057c4a052f317b135bc8e8c509638f7966edfd4fcf45e9;
+/// @title MechFixedPriceNative - Smart contract for OlasMech that accepts a fixed price payment for services in native token.
+contract MechFixedPriceNative is OlasMech {
+    // keccak256(FixedPriceNative) = ba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1
+    bytes32 public constant PAYMENT_TYPE = 0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1;
 
     /// @dev AgentMech constructor.
     /// @param _mechMarketplace Mech marketplace address.

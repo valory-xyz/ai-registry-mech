@@ -82,11 +82,73 @@ abstract contract BalanceTrackerFixedPriceBase {
         buyBackBurner = _buyBackBurner;
     }
 
+    /// @dev Drains specified amount.
+    function _drain(uint256 amount) internal virtual;
+
+    /// @dev Gets native token value or restricts receiving one.
+    /// @return Received value.
     function _getOrRestrictNativeValue() internal virtual returns (uint256);
 
-    function _getRequiredFunds(address requester, uint256 balanceDiff) internal virtual returns (uint256);
+    /// @dev Gets required token funds.
+    /// @param requester Requester address.
+    /// @param amount Token amount.
+    /// @return Received amount.
+    function _getRequiredFunds(address requester, uint256 amount) internal virtual returns (uint256);
 
-    // Check and record delivery rate
+    /// @dev Process mech payment.
+    /// @param mech Mech address.
+    /// @return mechPayment Mech payment.
+    /// @return marketplaceFee Marketplace fee.
+    function _processPayment(address mech) internal returns (uint256 mechPayment, uint256 marketplaceFee) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Get mech balance
+        uint256 balance = mapMechBalances[mech];
+        // If balance is 1, the marketplace fee is still 1, and thus mech payment will be zero
+        if (balance < 2) {
+            revert ZeroValue();
+        }
+
+        // Calculate mech payment and marketplace fee
+        uint256 fee = IMechMarketplace(mechMarketplace).fee();
+
+        // If requested balance is too small, charge the minimal fee
+        // ceil(a, b) = (a + b - 1) / b
+        // This formula will always get at least a fee of 1
+        marketplaceFee = (balance * fee + (MAX_FEE_FACTOR - 1)) / MAX_FEE_FACTOR;
+
+        // Calculate mech payment
+        mechPayment = balance - marketplaceFee;
+
+        // Check for zero value, although this must never happen
+        if (marketplaceFee == 0 || mechPayment == 0) {
+            revert ZeroValue();
+        }
+
+        // Adjust marketplace fee
+        collectedFees += marketplaceFee;
+
+        // Clear balances
+        mapMechBalances[mech] = 0;
+
+        // Process withdraw
+        _withdraw(mech, mechPayment);
+
+        _locked = 1;
+    }
+
+    /// @dev Withdraws funds.
+    /// @param account Account address.
+    /// @param amount Token amount.
+    function _withdraw(address account, uint256 amount) internal virtual;
+
+    /// @dev Checks and records delivery rate.
+    /// @param requester Requester address.
+    /// @param maxDeliveryRate Request max delivery rate.
     function checkAndRecordDeliveryRate(
         address requester,
         uint256 maxDeliveryRate,
@@ -164,8 +226,6 @@ abstract contract BalanceTrackerFixedPriceBase {
         emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
     }
 
-    function _drain(uint256 amount) internal virtual;
-
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
     function drain() external {
         // Reentrancy guard
@@ -189,8 +249,6 @@ abstract contract BalanceTrackerFixedPriceBase {
         _locked = 1;
     }
 
-    function _withdraw(address mech, uint256 balance) internal virtual;
-
     /// @dev Processes mech payment by mech service multisig.
     /// @param mech Mech address.
     /// @return Mech payment.
@@ -209,52 +267,6 @@ abstract contract BalanceTrackerFixedPriceBase {
     /// @return Marketplace fee.
     function processPayment() external returns (uint256, uint256) {
         return _processPayment(msg.sender);
-    }
-
-    /// @dev Process mech payment.
-    /// @param mech Mech address.
-    /// @return mechPayment Mech payment.
-    /// @return marketplaceFee Marketplace fee.
-    function _processPayment(address mech) internal returns (uint256 mechPayment, uint256 marketplaceFee) {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get mech balance
-        uint256 balance = mapMechBalances[mech];
-        // If balance is 1, the marketplace fee is still 1, and thus mech payment will be zero
-        if (balance < 2) {
-            revert ZeroValue();
-        }
-
-        // Calculate mech payment and marketplace fee
-        uint256 fee = IMechMarketplace(mechMarketplace).fee();
-
-        // If requested balance is too small, charge the minimal fee
-        // ceil(a, b) = (a + b - 1) / b
-        // This formula will always get at least a fee of 1
-        marketplaceFee = (balance * fee + (MAX_FEE_FACTOR - 1)) / MAX_FEE_FACTOR;
-
-        // Calculate mech payment
-        mechPayment = balance - marketplaceFee;
-
-        // Check for zero value, although this must never happen
-        if (marketplaceFee == 0 || mechPayment == 0) {
-            revert ZeroValue();
-        }
-
-        // Adjust marketplace fee
-        collectedFees += marketplaceFee;
-
-        // Clear balances
-        mapMechBalances[mech] = 0;
-
-        // Process withdraw
-        _withdraw(mech, mechPayment);
-
-        _locked = 1;
     }
 
     /// @dev Withdraws funds for a specific requester account.
