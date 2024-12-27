@@ -86,7 +86,9 @@ contract BalanceTrackerNvmSubscription {
         subscriptionTokenId = _subscriptionTokenId;
     }
 
-    // Check and record delivery rate
+    /// @dev Checks and records delivery rate.
+    /// @param requester Requester address.
+    /// @param maxDeliveryRate Request max delivery rate.
     function checkAndRecordDeliveryRate(
         address requester,
         uint256 maxDeliveryRate,

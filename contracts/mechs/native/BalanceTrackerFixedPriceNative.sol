@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceBase, ZeroAddress, InsufficientBalance, TransferFailed} from "./BalanceTrackerFixedPriceBase.sol";
-import {IMech} from "./interfaces/IMech.sol";
+import {BalanceTrackerFixedPriceBase, ZeroAddress, InsufficientBalance, TransferFailed} from "../../BalanceTrackerFixedPriceBase.sol";
+import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
     /// @dev Transfers the token amount.
@@ -35,23 +35,8 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         wrappedNativeToken = _wrappedNativeToken;
     }
 
-    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
-        // Update balance with native value
-        if (msg.value > 0) {
-            emit Deposit(msg.sender, address(0), msg.value);
-        }
-
-        return msg.value;
-    }
-
-    function _getRequiredFunds(address, uint256) internal virtual override returns (uint256) {
-        return 0;
-    }
-
-    function _wrap(uint256 amount) internal virtual {
-        IWrappedToken(wrappedNativeToken).deposit{value: amount}();
-    }
-
+    /// @dev Drains specified amount.
+    /// @param amount Token amount.
     function _drain(uint256 amount) internal virtual override {
         // Wrap native tokens
         _wrap(amount);
@@ -61,6 +46,26 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         emit Drained(wrappedNativeToken, amount);
     }
 
+    /// @dev Gets native token value or restricts receiving one.
+    /// @return Received value.
+    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
+        // Update balance with native value
+        if (msg.value > 0) {
+            emit Deposit(msg.sender, address(0), msg.value);
+        }
+
+        return msg.value;
+    }
+
+    /// @dev Gets required token funds.
+    /// @return Received amount.
+    function _getRequiredFunds(address, uint256) internal virtual override returns (uint256) {
+        return 0;
+    }
+
+    /// @dev Withdraws funds.
+    /// @param account Account address.
+    /// @param amount Token amount.
     function _withdraw(address account, uint256 amount) internal virtual override {
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, ) = account.call{value: amount}("");
@@ -73,7 +78,13 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
         emit Withdraw(msg.sender, address(0), amount);
     }
 
-    // Deposits funds for requester.
+    /// @dev Wraps native token.
+    /// @param amount Token amount.
+    function _wrap(uint256 amount) internal virtual {
+        IWrappedToken(wrappedNativeToken).deposit{value: amount}();
+    }
+
+    /// @dev Deposits funds for requester.
     receive() external payable {
         // Update account balances
         mapRequesterBalances[msg.sender] += msg.value;
