@@ -224,7 +224,8 @@ abstract contract BalanceTrackerFixedPriceBase {
 
         // Get mech balance
         uint256 balance = mapMechBalances[mech];
-        if (balance == 0) {
+        // If balance is 1, the marketplace fee is still 1, and thus mech payment will be zero
+        if (balance < 2) {
             revert ZeroValue();
         }
 
