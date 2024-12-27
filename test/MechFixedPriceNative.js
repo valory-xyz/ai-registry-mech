@@ -326,6 +326,57 @@ describe("MechFixedPriceNative", function () {
             expect(requesterBalance).to.equal(0);
         });
 
+        it("Delivering a request by a priority mech with pre-paid logic with sufficient balance", async function () {
+            // Get request Id
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+
+            // Pre-pay the contract insufficient amount for posting a request
+            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate});
+
+            // Post a request
+            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+
+            // Try to withdraw mech zero balances
+            await expect(
+                balanceTrackerFixedPriceNative.withdraw()
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
+
+            // Try to withdraw zero balances
+            await expect(
+                balanceTrackerFixedPriceNative.processPaymentByMultisig(priorityMech.address)
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
+
+            // Deliver a request
+            await priorityMech.deliverToMarketplace(requestId, data);
+
+            // Check priority mech balance now
+            let mechBalance = await balanceTrackerFixedPriceNative.mapMechBalances(priorityMech.address);
+            expect(mechBalance).to.equal(maxDeliveryRate);
+
+            const balanceBefore = await ethers.provider.getBalance(priorityMech.address);
+            // Process payment for mech
+            await balanceTrackerFixedPriceNative.processPaymentByMultisig(priorityMech.address);
+            const balanceAfter = await ethers.provider.getBalance(priorityMech.address);
+
+            // Check charged fee
+            const collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
+            // Since the delivery rate is smaller than MAX_FEE_FACTOR, the minimal fee was charged
+            expect(collectedFees).to.equal(1);
+
+            // Check mech payout: payment - fee
+            const balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(maxDeliveryRate - 1);
+
+            // Check requester leftover balance
+            let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
+            expect(requesterBalance).to.equal(0);
+
+            // Try to withdraw zero balances
+            await expect(
+                balanceTrackerFixedPriceNative.withdraw()
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
+        });
+
         it("Delivering a request by a different mech", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
