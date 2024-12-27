@@ -11,9 +11,10 @@ interface IErrorsMech {
     /// @dev The contract is already initialized.
     error AlreadyInitialized();
 
-    /// @dev Mech marketplace is not authorized.
-    /// @param mechMarketplace Mech marketplace address.
-    error MarketplaceNotAuthorized(address mechMarketplace);
+    /// @dev Only `marketplace` has a privilege, but the `sender` was provided.
+    /// @param sender Sender address.
+    /// @param marketplace Required marketplace address.
+    error MarketplaceOnly(address sender, address marketplace);
 
     /// @dev Request Id not found.
     /// @param requestId Request Id.

@@ -57,6 +57,10 @@ describe("MechMarketplace", function () {
         const mechMarketplaceProxy = await MechMarketplaceProxy.deploy(mechMarketplace.address, proxyData);
         await mechMarketplaceProxy.deployed();
 
+        // Get implementation
+        const implementation = await mechMarketplaceProxy.getImplementation();
+        expect(implementation).to.equal(mechMarketplace.address);
+
         mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxy.address);
 
         // Deploy mech factory
@@ -148,7 +152,7 @@ describe("MechMarketplace", function () {
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
 
             // Changing the implementation
-            await mechMarketplace.connect(deployer).changeOwner(mechMarketplace.address);
+            await mechMarketplace.connect(deployer).changeImplementation(mechMarketplace.address);
         });
 
         it("Change marketplace params", async function () {
@@ -183,6 +187,9 @@ describe("MechMarketplace", function () {
             await expect(
                 mechMarketplace.changeMarketplaceParams(10, 10, maxUint96)
             ).to.be.revertedWithCustomError(mechMarketplace, "Overflow");
+
+            // Change params
+            await mechMarketplace.changeMarketplaceParams(fee, minResponseTimeout, maxResponseTimeout);
         });
 
         it("Factories and balance trackers", async function () {

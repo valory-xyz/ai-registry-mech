@@ -223,7 +223,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     function requestFromMarketplace(address requester, bytes memory data, uint256 requestId) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
-            revert MarketplaceNotAuthorized(msg.sender);
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Perform a request
@@ -236,7 +236,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     function revokeRequest(uint256 requestId) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
-            revert MarketplaceNotAuthorized(msg.sender);
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         address requester = mapRequestAddresses[requestId];

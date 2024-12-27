@@ -143,7 +143,7 @@ describe("MechFixedPriceNative", function () {
             // Try to post a request directly to the mech
             await expect(
                 priorityMech.requestFromMarketplace(deployer.address, data, 0)
-            ).to.be.revertedWithCustomError(priorityMech, "MarketplaceNotAuthorized");
+            ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
 
             // Response time is out of bounds
             await expect(
@@ -224,6 +224,11 @@ describe("MechFixedPriceNative", function () {
                 priorityMech.deliverToMarketplace(requestId, data)
             ).to.be.revertedWithCustomError(priorityMech, "RequestIdNotFound");
 
+            // Try to check and record delivery rate not by marketplace
+            await expect(
+                balanceTrackerFixedPriceNative.checkAndRecordDeliveryRate(deployer.address, 0, "0x")
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "MarketplaceOnly");
+
             // Create a request
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
 
@@ -231,6 +236,11 @@ describe("MechFixedPriceNative", function () {
             await expect(
                 priorityMech.connect(signers[1]).deliverToMarketplace(requestId, data)
             ).to.be.reverted;
+
+            // Try to finalize delivery rate not by marketplace
+            await expect(
+                balanceTrackerFixedPriceNative.finalizeDeliveryRate(priorityMech.address, deployer.address, 0, 0)
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "MarketplaceOnly");
 
             // Get the request status (requested priority)
             status = await mechMarketplace.getRequestStatus(requestId);
@@ -301,6 +311,17 @@ describe("MechFixedPriceNative", function () {
             // Check priority mech balance now
             let mechBalance = await balanceTrackerFixedPriceNative.mapMechBalances(priorityMech.address);
             expect(mechBalance).to.equal(maxDeliveryRate);
+
+            // Try to collect fees before any payment processing
+            await expect(
+                balanceTrackerFixedPriceNative.drain()
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
+
+            // Try to process payment for mech not by its service multisig
+            await expect(
+                balanceTrackerFixedPriceNative.connect(signers[1]).processPaymentByMultisig(priorityMech.address)
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "UnauthorizedAccount");
+
 
             const balanceBefore = await ethers.provider.getBalance(priorityMech.address);
             // Process payment for mech
