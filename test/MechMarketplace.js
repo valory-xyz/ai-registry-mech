@@ -2,6 +2,7 @@
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("MechMarketplace", function () {
     let MechMarketplace;
@@ -12,11 +13,15 @@ describe("MechMarketplace", function () {
     let karma;
     let mechFactoryFixedPrice;
     let balanceTrackerFixedPriceNative;
+    let mockMech;
+    let mockMechFactory;
     let signers;
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
     const maxDeliveryRate = 1000;
     const fee = 10;
+    const data = "0x00";
+    const defaultRequestId = 1;
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
@@ -97,6 +102,19 @@ describe("MechMarketplace", function () {
         // Whitelist balance tracker
         paymentTypeHash = await priorityMech.paymentType();
         await mechMarketplace.setPaymentTypeBalanceTrackers([paymentTypeHash], [balanceTrackerFixedPriceNative.address]);
+
+        // Deploy mock mech
+        const MockMech = await ethers.getContractFactory("MockMech");
+        mockMech = await MockMech.deploy(mechMarketplace.address);
+        await mockMech.deployed();
+
+        // Deploy mock mech factory
+        const MockMechFactory = await ethers.getContractFactory("MockMechFactory");
+        mockMechFactory = await MockMechFactory.deploy(mechMarketplace.address);
+        await mockMechFactory.deployed();
+
+        // Whitelist mock mech factory
+        await mechMarketplace.setMechFactoryStatuses([mockMechFactory.address], [true]);
     });
 
     context("Initialization", async function () {
@@ -198,7 +216,7 @@ describe("MechMarketplace", function () {
                 mechMarketplace.create(mechServiceId, deployer.address, mechCreationData)
             ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
 
-            // Trying to set mech factory statuses and balance trackersnot by the owner
+            // Trying to set mech factory statuses and balance trackers not by the owner
             await expect(
                 mechMarketplace.connect(signers[1]).setMechFactoryStatuses([AddressZero], [true])
             ).to.be.revertedWithCustomError(mechMarketplace, "OwnerOnly");
@@ -226,6 +244,72 @@ describe("MechMarketplace", function () {
                 mechMarketplace.setPaymentTypeBalanceTrackers([ethers.constants.HashZero], [deployer.address])
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
         });
+
+        it("Try to deliver by a mock mech", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Trying to deliver by a random mech
+            await expect(
+                mockMech.deliverMarketplace(defaultRequestId, data)
+            ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
+
+            // Create mock mech via the factory
+            let mockServiceId = await mockMech.tokenId();
+            let tx = await mechMarketplace.create(mockServiceId, mockMechFactory.address, data);
+            let res = await tx.wait();
+            // Get mech contract address from the event
+            const mechMockAddress = "0x" + res.logs[0].topics[1].slice(26);
+            // Get mech contract instance
+            const mechMock = await ethers.getContractAt("MockMech", mechMockAddress);
+
+            // Try to deliver a non-existent request
+            await expect(
+                mechMock.deliverMarketplace(defaultRequestId, data)
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
+
+            // Request in priority mech
+            // Get request Id
+            const requestId = await mechMarketplace.getRequestId(mechMock.address, data, 0);
+
+            // Change mock service Id not to be within deployed ones (id-s 100+ in MockServiceRegistry)
+            mockServiceId = mockServiceId.add(1);
+            await mechMock.setServiceId(mockServiceId);
+
+            // Try to post a request from a requester service that is not deployed
+            await expect(
+                mechMock.request(data, mechServiceId, mockServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate})
+            ).to.be.revertedWithCustomError(mechMarketplace, "WrongServiceState");
+
+            // Change mock service Id to be back within deployed ones (0 to 99 in MockServiceRegistry)
+            mockServiceId = mockServiceId.sub(1);
+            await mechMock.setServiceId(mockServiceId);
+
+            // Try to post a request not by a correct requester multisig
+            await expect(
+                mechMock.request(data, mechServiceId, mockServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate})
+            ).to.be.revertedWithCustomError(mechMarketplace, "OwnerOnly");
+
+            // Pseudo-create and deploy requester service
+            await serviceRegistry.setServiceOwner(mockServiceId, mechMock.address);
+
+            // Post a request
+            await mechMock.request(data, mechServiceId, mockServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
+
+            // Increase the time such that the request expires for a priority mech
+            await helpers.time.increase(maxResponseTimeout);
+
+            // Try to deliver directly via a marketplace
+            await mechMock.deliverMarketplace(requestId, data);
+
+            // Try to deliver the same request once again
+            await expect(
+                mechMock.deliverMarketplace(requestId, data)
+            ).to.be.revertedWithCustomError(mechMarketplace, "AlreadyDelivered");
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
+        });
     });
 
     context("Request checks", async function () {
@@ -240,6 +324,8 @@ describe("MechMarketplace", function () {
                 mechMarketplace.checkRequester(deployer.address, requesterServiceId)
             ).to.be.revertedWithCustomError(mechMarketplace, "OwnerOnly");
 
+            // Check requester
+            await mechMarketplace.checkRequester(signers[1].address, requesterServiceId);
         });
     });
 });
