@@ -221,11 +221,6 @@ describe("MechFixedPriceToken", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceToken.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(maxDeliveryRate - 1);
-
-            // Withdraw requester balances
-            await balanceTrackerFixedPriceToken.withdraw();
-            requesterBalance = await balanceTrackerFixedPriceToken.mapRequesterBalances(deployer.address);
-            expect(requesterBalance).to.equal(0);
         });
 
         it("Delivering a request by a different mech", async function () {

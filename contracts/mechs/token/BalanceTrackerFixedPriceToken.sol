@@ -99,6 +99,7 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     }
 
     /// @dev Deposits token funds for requester.
+    /// @notice Requester deposited funds are not reversible and must be used up.
     /// @param amount Token amount.
     function deposit(uint256 amount) external {
         IToken(olas).transferFrom(msg.sender, address(this), amount);

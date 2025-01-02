@@ -268,27 +268,4 @@ abstract contract BalanceTrackerFixedPriceBase {
     function processPayment() external returns (uint256, uint256) {
         return _processPayment(msg.sender);
     }
-
-    /// @dev Withdraws funds for a specific requester account.
-    function withdraw() external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get account balance
-        uint256 balance = mapRequesterBalances[msg.sender];
-        if (balance == 0) {
-            revert ZeroValue();
-        }
-
-        // Clear balances
-        mapRequesterBalances[msg.sender] = 0;
-
-        // Process withdraw
-        _withdraw(msg.sender, balance);
-
-        _locked = 1;
-    }
 }

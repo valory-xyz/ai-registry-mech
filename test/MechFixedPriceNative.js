@@ -340,11 +340,6 @@ describe("MechFixedPriceNative", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(maxDeliveryRate - 1);
-
-            // Withdraw requester balances
-            await balanceTrackerFixedPriceNative.withdraw();
-            requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
-            expect(requesterBalance).to.equal(0);
         });
 
         it("Delivering a request by a priority mech with pre-paid logic with sufficient balance", async function () {
@@ -358,11 +353,6 @@ describe("MechFixedPriceNative", function () {
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
 
             // Try to withdraw mech zero balances
-            await expect(
-                balanceTrackerFixedPriceNative.withdraw()
-            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
-
-            // Try to withdraw zero balances
             await expect(
                 balanceTrackerFixedPriceNative.processPaymentByMultisig(priorityMech.address)
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
@@ -391,11 +381,6 @@ describe("MechFixedPriceNative", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(0);
-
-            // Try to withdraw zero balances
-            await expect(
-                balanceTrackerFixedPriceNative.withdraw()
-            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
         });
 
         it("Delivering a request by a different mech", async function () {

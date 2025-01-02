@@ -85,6 +85,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
     }
 
     /// @dev Deposits funds for requester.
+    /// @notice Requester deposited funds are not reversible and must be used up.
     receive() external payable {
         // Update account balances
         mapRequesterBalances[msg.sender] += msg.value;
