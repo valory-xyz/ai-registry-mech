@@ -16,7 +16,7 @@ error MarketplaceOnly(address sender, address marketplace);
 /// @dev Provided zero address.
 error ZeroAddress();
 
-/// @title Mech Factory Basic - Periphery smart contract for managing basic mech creation
+/// @title MechFactoryFixedPriceToken - Periphery smart contract for managing fixed price token mech creation
 contract MechFactoryFixedPriceToken {
     event CreateFixedPriceMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
 
