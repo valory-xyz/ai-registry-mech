@@ -1,4 +1,4 @@
-# Internal audit of autonolas-staking-programmes
+# Internal audit of ai-registry-mech
 The review has been performed based on the contract code in the following repository:<br>
 `https://github.com/valory-xyz/ai-registry-mech` <br>
 commit: 4f5c44c069e5c94435420abbbac6e0f0cba67c39 (tag: v0.4.0-pre-internal-audit3) <br> 
