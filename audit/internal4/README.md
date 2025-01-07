@@ -43,6 +43,7 @@ Question:
         if OK new subscriptionBalance = subscriptionBalance - balance ?
         So,
         IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
+Re-check all balance logic.
 ```
 []
 
