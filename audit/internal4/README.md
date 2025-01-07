@@ -19,6 +19,38 @@ Most of the issues raised by instrumental analysis are outside the scope of the 
 
 
 ### Issue
+#### Medium/Notes (docstring) issue: There is no official ERC or EIP that mandates the behavior or interface of wrapped tokens.
+```
+The interface for WETH or any wrapped native token (like wETH, wBNB, wMATIC, wFTM, etc.) is not universally standardized across all EVM-compatible chains.
+Here's an overview of major L2 networks and the compatibility of this pattern:
+- Optimism
+- Arbitrum
+- Polygon
+- Base (as OP)
+Needed re-check and possible in-compatibility
+- zkSync
+- StarkNet
+- Avalanche
+- Celo
+Example code for CELO
+/// @dev Drains the specified amount.
+/// @param amount Token amount.
+function _drain(uint256 amount) internal virtual override {
+    // Transfer CELO directly to the Buy back burner
+    IToken(wrappedNativeToken).transfer(buyBackBurner, amount);
+
+    emit Drained(wrappedNativeToken, amount);
+}
+
+Ref code:
+    /// @dev Wraps native token.
+    /// @param amount Token amount.
+    function _wrap(uint256 amount) internal virtual {
+        IWrappedToken(wrappedNativeToken).deposit{value: amount}();
+    }
+```
+[]
+
 #### Low issue: Not checking mech != address(0) in checkMech
 ```
 function checkMech(address mech) public view returns (address multisig) {
@@ -35,4 +67,115 @@ function checkMech(address mech) public view returns (address multisig) {
     }
 Not checking mech != address(0)
 ```
+[]
+
+
+#### Low issue: An asymmetric pattern for using function of OLAS (included L2-version) token. issue "transfer"
+```
+in function _withdraw(address account, uint256 amount) internal virtual override {
+        bool success = IToken(olas).transfer(account, amount);
+-> checking status
+-> not checking status in
+~/valory/ai-registry-mech$ grep -r ".transfer" ./contracts/ | grep IToken
+./contracts/mechs/token/BalanceTrackerFixedPriceToken.sol:        IToken(olas).transfer(buyBackBurner, amount);
+./contracts/mechs/token/BalanceTrackerFixedPriceToken.sol:        IToken(olas).transferFrom(requester, address(this), amount);
+./contracts/mechs/token/BalanceTrackerFixedPriceToken.sol:        IToken(olas).transferFrom(msg.sender, address(this), amount);
+./contracts/mechs/native/BalanceTrackerFixedPriceNative.sol:        IToken(wrappedNativeToken).transfer(buyBackBurner, amount);
+~/valory/ai-registry-mech$ 
+
+```
+[]
+
+#### Low issue: An asymmetric pattern for using function of OLAS (included L2-version) token. issue "re-base (?!)" "OLAS"
+```
+function _getRequiredFunds(address requester, uint256 amount) internal virtual override returns (uint256) {
+        uint256 balanceBefore = IToken(olas).balanceOf(address(this));
+        // Get tokens from requester
+        IToken(olas).transferFrom(requester, address(this), amount);
+        uint256 balanceAfter = IToken(olas).balanceOf(address(this));
+
+        // Check the balance
+        uint256 diff = balanceAfter - balanceBefore;
+        if (diff != amount) {
+            revert TransferFailed(olas, requester, address(this), amount);
+        }
+Only here is it additionally checked that the action actually changes the balances correctly. 
+This raises questions, since in one case it is considered possible, and in others it is not. 
+OLAS does not belong to the family of tokens ERC-20, where this behavior is possible.
+```
+[]
+
+#### Low issue: Not CEI in *Token.sol
+```
+/// @dev Withdraws funds.
+    /// @param account Account address.
+    /// @param amount Token amount.
+    function _withdraw(address account, uint256 amount) internal virtual override {
+        bool success = IToken(olas).transfer(account, amount);
+
+        // Check transfer
+        if (!success) {
+            revert TransferFailed(olas, address(this), account, amount);
+        }
+
+        emit Withdraw(msg.sender, olas, amount);
+    }
+
+    /// @dev Deposits token funds for requester.
+    /// @param amount Token amount.
+    function deposit(uint256 amount) external {
+        IToken(olas).transferFrom(msg.sender, address(this), amount);
+
+        // Update account balances
+        mapRequesterBalances[msg.sender] += amount;
+
+        emit Deposit(msg.sender, olas, amount);
+    }
+}
+Correct:
+Check: First, validate all the conditions necessary for the function to proceed.
+Effects: Then, update the state of the contract.
+Interactions: Finally, interact with external contracts or send Ether.
+
+```
+[]
+
+#### Low issue: Predicted msg.sender in createMech()
+```
+Most likely it was meant as an idea that in keccak256(abi.encode(block.timestamp, msg.sender, serviceId, localNonce)) msg.sender is random.
+But, de-facto msg.sender is always eq mechMarketplace
+Using tx.origin is generally not recommended for any critical logic, even for something as seemingly harmless as including it in a salt for keccak256. 
+Instead:
+- Stick with msg.sender or parameters directly provided by the caller (e.g., user-provided data in payload).
+- Use block.number for ensuring uniqueness.
+- Do nothing (documented it)
+Ref:
+function createMech(
+        address serviceRegistry,
+        uint256 serviceId,
+        bytes memory payload
+    ) external returns (address mech) {
+        ...
+        if (msg.sender != mechMarketplace) {
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        }
+        ...
+        // Get salt
+        bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId, localNonce))
+```
+[]
+
+#### Notes/Issue? creditsToBurn to zero is revert
+```
+/// @dev Processes requester credits.
+    /// @param requester Requester address.
+    function processPayment(address requester) external {
+        // Get credits to burn
+        uint256 creditsToBurn = subscriptionBalance - balance;
+        if (creditsToBurn == 0) {
+            revert InsufficientBalance(0, 0);
+        }
+Why does writing off exactly to zero cause revert()
+```
+[]
 
