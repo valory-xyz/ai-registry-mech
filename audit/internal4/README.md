@@ -19,6 +19,33 @@ Most of the issues raised by instrumental analysis are outside the scope of the 
 
 
 ### Issue
+#### Medium/Issue? Bug in processPayment(address requester) ? 
+```
+        // Get credits to burn
+        uint256 creditsToBurn = subscriptionBalance - balance;
+        if (creditsToBurn == 0) {
+            revert InsufficientBalance(0, 0);
+        }
+
+        // Clear balances
+        mapRequesterBalances[requester] = 0;
+
+        // Burn credits of the request Id sender upon delivery
+        IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, creditsToBurn);
+Question:
+        // Get requester credit balance
+        uint256 balance = mapRequesterBalances[requester];
+        // Get requester actual subscription balance
+        uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(requester, subscriptionTokenId);
+
+        Let balance = A
+        subscriptionBalance = B
+        if OK new subscriptionBalance = subscriptionBalance - balance ?
+        So,
+        IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
+```
+[]
+
 #### Medium/Notes (docstring) issue: There is no official ERC or EIP that mandates the behavior or interface of wrapped tokens.
 ```
 The interface for WETH or any wrapped native token (like wETH, wBNB, wMATIC, wFTM, etc.) is not universally standardized across all EVM-compatible chains.
@@ -167,6 +194,7 @@ function createMech(
 
 #### Notes/Issue? creditsToBurn to zero is revert
 ```
+See, above
 /// @dev Processes requester credits.
     /// @param requester Requester address.
     function processPayment(address requester) external {
