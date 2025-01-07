@@ -1,0 +1,40 @@
+'solc --version' running
+'solc ./MechMarketplace-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./Karma-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./BalanceTrackerFixedPriceBase-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./OlasMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+INFO:Printers:Call Graph: ./MechMarketplace-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./MechMarketplace-flatten.sol.IBalanceTracker.call-graph.dot
+Call Graph: ./MechMarketplace-flatten.sol.IKarma.call-graph.dot
+Call Graph: ./MechMarketplace-flatten.sol.IMech.call-graph.dot
+Call Graph: ./MechMarketplace-flatten.sol.IServiceRegistry.call-graph.dot
+Call Graph: ./MechMarketplace-flatten.sol.IMechFactory.call-graph.dot
+Call Graph: ./MechMarketplace-flatten.sol.MechMarketplace.call-graph.dot
+
+INFO:Printers:Call Graph: ./Karma-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./Karma-flatten.sol.Karma.call-graph.dot
+
+INFO:Printers:Call Graph: ./BalanceTrackerFixedPriceBase-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./BalanceTrackerFixedPriceBase-flatten.sol.IMech.call-graph.dot
+Call Graph: ./BalanceTrackerFixedPriceBase-flatten.sol.IMechMarketplace.call-graph.dot
+Call Graph: ./BalanceTrackerFixedPriceBase-flatten.sol.BalanceTrackerFixedPriceBase.call-graph.dot
+
+INFO:Printers:Call Graph: ./OlasMech-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.UserOperationLib.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.IAggregator.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.IEntryPoint.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.Math.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.SignedMath.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.Strings.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.ECDSA.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.IMechMarketplace.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.IServiceRegistry.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.console.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.WriteOnce.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.Enum.call-graph.dot
+Call Graph: ./OlasMech-flatten.sol.OlasMech.call-graph.dot
+
+INFO:Slither:. analyzed (38 contracts)
