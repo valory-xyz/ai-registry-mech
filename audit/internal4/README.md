@@ -47,6 +47,32 @@ Re-check all balance logic.
 ```
 []
 
+#### Medium/Notes. Design of balance update.
+```
+        // Adjust account balance
+        balance -= maxDeliveryRate;
+        mapRequesterBalances[requester] = balance;
+
+        vs
+
+                // Check for delivery rate difference
+        uint256 rateDiff;
+        if (maxDeliveryRate > actualDeliveryRate) {
+            // Return back requester overpayment debit
+            rateDiff = maxDeliveryRate - actualDeliveryRate;
+            mapRequesterBalances[requester] += rateDiff;
+        } else {
+            // Limit the rate by the max chosen one as that is what the requester agreed on
+            actualDeliveryRate = maxDeliveryRate;
+        }
+
+        // Record payment into mech balance
+        mapMechBalances[mech] += actualDeliveryRate;
+    Atomic (IMO) operation that is spread over two different time actions. 
+    Isn't it more correct to update balances at one time and in one function than to do crediting
+```
+[]
+
 #### Medium/Notes (docstring) issue: There is no official ERC or EIP that mandates the behavior or interface of wrapped tokens.
 ```
 The interface for WETH or any wrapped native token (like wETH, wBNB, wMATIC, wFTM, etc.) is not universally standardized across all EVM-compatible chains.
