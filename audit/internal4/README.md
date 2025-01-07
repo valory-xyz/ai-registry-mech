@@ -14,9 +14,8 @@ Flatten version of contracts. [contracts](https://github.com/valory-xyz/ai-regis
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal4/analysis/slither_full.txt) 
+[slither-full](https://github.com/valory-xyz/autonolas-staking-programmes/blob/main/audits/internal4/analysis/slither_full.txt) <br>
 Most of the issues raised by instrumental analysis are outside the scope of the audit. <br>
-
 
 ### Issue
 #### Medium/Issue? Bug in processPayment(address requester) ? 
