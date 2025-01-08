@@ -314,6 +314,11 @@ describe("MechMarketplace", function () {
 
     context("Request checks", async function () {
         it("Check mech and requester", async function () {
+            // Zero address check
+            await expect(
+                mechMarketplace.checkMech(AddressZero)
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
+
             // Mech that was not registered by the whitelisted factory
             await expect(
                 mechMarketplace.checkMech(deployer.address)
