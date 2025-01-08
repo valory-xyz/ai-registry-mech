@@ -79,6 +79,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
     }
 
     /// @dev Wraps native token.
+    /// @notice Pay attention and override, if necessary.
     /// @param amount Token amount.
     function _wrap(uint256 amount) internal virtual {
         IWrappedToken(wrappedNativeToken).deposit{value: amount}();

@@ -68,16 +68,8 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     /// @param amount Token amount.
     /// @return Received amount.
     function _getRequiredFunds(address requester, uint256 amount) internal virtual override returns (uint256) {
-        uint256 balanceBefore = IToken(olas).balanceOf(address(this));
         // Get tokens from requester
         IToken(olas).transferFrom(requester, address(this), amount);
-        uint256 balanceAfter = IToken(olas).balanceOf(address(this));
-
-        // Check the balance
-        uint256 diff = balanceAfter - balanceBefore;
-        if (diff != amount) {
-            revert TransferFailed(olas, requester, address(this), amount);
-        }
 
         emit Deposit(msg.sender, olas, amount);
 
@@ -88,23 +80,20 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     /// @param account Account address.
     /// @param amount Token amount.
     function _withdraw(address account, uint256 amount) internal virtual override {
-        bool success = IToken(olas).transfer(account, amount);
-
-        // Check transfer
-        if (!success) {
-            revert TransferFailed(olas, address(this), account, amount);
-        }
+        // Transfer tokens
+        IToken(olas).transfer(account, amount);
 
         emit Withdraw(msg.sender, olas, amount);
     }
 
     /// @dev Deposits token funds for requester.
     /// @param amount Token amount.
-    function deposit(uint256 amount) external {
-        IToken(olas).transferFrom(msg.sender, address(this), amount);
-
+    function deposit(uint256 amount) external virtual {
         // Update account balances
         mapRequesterBalances[msg.sender] += amount;
+
+        // Get tokens
+        IToken(olas).transferFrom(msg.sender, address(this), amount);
 
         emit Deposit(msg.sender, olas, amount);
     }

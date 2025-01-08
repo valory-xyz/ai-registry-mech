@@ -190,22 +190,21 @@ contract BalanceTrackerNvmSubscription {
 
         // This must never happen
         if (subscriptionBalance < balance) {
-            revert InsufficientBalance(subscriptionBalance, balance);
+            balance = subscriptionBalance;
         }
 
-        // Get credits to burn
-        uint256 creditsToBurn = subscriptionBalance - balance;
-        if (creditsToBurn == 0) {
-            revert InsufficientBalance(0, 0);
+        // Check for zero value
+        if (balance == 0) {
+            revert ZeroValue();
         }
 
         // Clear balances
         mapRequesterBalances[requester] = 0;
 
         // Burn credits of the request Id sender upon delivery
-        IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, creditsToBurn);
+        IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
 
-        emit CreditsAccounted(requester, creditsToBurn);
+        emit CreditsAccounted(requester, balance);
 
         _locked = 1;
     }

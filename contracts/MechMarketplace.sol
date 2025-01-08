@@ -531,6 +531,11 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param mech Mech contract address.
     /// @return multisig Mech service multisig address.
     function checkMech(address mech) public view returns (address multisig) {
+        // Check for zero address
+        if (mech == address(0)) {
+            revert ZeroAddress();
+        }
+
         uint256 mechServiceId = IMech(mech).tokenId();
 
         // Check mech validity as it must be created and recorded via this marketplace

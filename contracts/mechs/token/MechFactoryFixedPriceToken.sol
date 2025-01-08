@@ -59,7 +59,7 @@ contract MechFactoryFixedPriceToken {
 
         uint256 localNonce = _nonce;
         // Get salt
-        bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId, localNonce));
+        bytes32 salt = keccak256(abi.encode(block.timestamp, payload, serviceId, localNonce));
         _nonce = localNonce + 1;
 
         // Service multisig is isOperator() for the mech
