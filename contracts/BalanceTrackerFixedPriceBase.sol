@@ -30,15 +30,6 @@ error ReentrancyGuard();
 /// @param account Account address.
 error UnauthorizedAccount(address account);
 
-/// @dev No incoming msg.value is allowed.
-/// @param amount Value amount.
-error NoDepositAllowed(uint256 amount);
-
-/// @dev Payload length is incorrect.
-/// @param provided Provided payload length.
-/// @param expected Expected payload length.
-error InvalidPayloadLength(uint256 provided, uint256 expected);
-
 /// @dev Failure of a transfer.
 /// @param token Address of a token.
 /// @param from Address `from`.

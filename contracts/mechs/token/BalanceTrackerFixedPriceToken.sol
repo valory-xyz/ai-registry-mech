@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceBase, ZeroAddress, NoDepositAllowed, TransferFailed} from "../../BalanceTrackerFixedPriceBase.sol";
+import {BalanceTrackerFixedPriceBase, ZeroAddress} from "../../BalanceTrackerFixedPriceBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
@@ -23,6 +23,10 @@ interface IToken {
     /// @return Amount of tokens owned.
     function balanceOf(address account) external view returns (uint256);
 }
+
+/// @dev No incoming msg.value is allowed.
+/// @param amount Value amount.
+error NoDepositAllowed(uint256 amount);
 
 contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     // OLAS token address
