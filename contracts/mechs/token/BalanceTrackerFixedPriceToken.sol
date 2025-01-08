@@ -17,11 +17,6 @@ interface IToken {
     /// @param amount Amount to transfer to.
     /// @return True if the function execution is successful.
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
-
-    /// @dev Gets the amount of tokens owned by a specified account.
-    /// @param account Account address.
-    /// @return Amount of tokens owned.
-    function balanceOf(address account) external view returns (uint256);
 }
 
 /// @dev No incoming msg.value is allowed.
