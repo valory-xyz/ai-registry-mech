@@ -41,10 +41,6 @@ error Overflow(uint256 provided, uint256 max);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
-/// @dev Account is unauthorized.
-/// @param account Account address.
-error UnauthorizedAccount(address account);
-
 /// @dev No incoming msg.value is allowed.
 /// @param amount Value amount.
 error NoDepositAllowed(uint256 amount);
