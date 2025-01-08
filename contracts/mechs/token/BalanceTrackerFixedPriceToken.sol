@@ -24,31 +24,31 @@ interface IToken {
 error NoDepositAllowed(uint256 amount);
 
 contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
-    // OLAS token address
-    address public immutable olas;
+    // Token address
+    address public immutable token;
 
     /// @dev BalanceTrackerFixedPrice constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _buyBackBurner Buy back burner address.
-    /// @param _olas OLAS token address.
-    constructor(address _mechMarketplace, address _buyBackBurner, address _olas)
+    /// @param _token Token address.
+    constructor(address _mechMarketplace, address _buyBackBurner, address _token)
         BalanceTrackerFixedPriceBase(_mechMarketplace, _buyBackBurner)
     {
         // Check for zero address
-        if (_olas == address(0)) {
+        if (_token == address(0)) {
             revert ZeroAddress();
         }
 
-        olas = _olas;
+        token = _token;
     }
 
     /// @dev Drains specified amount.
     /// @param amount Token amount.
     function _drain(uint256 amount) internal virtual override {
         // Transfer to Buy back burner
-        IToken(olas).transfer(buyBackBurner, amount);
+        IToken(token).transfer(buyBackBurner, amount);
 
-        emit Drained(olas, amount);
+        emit Drained(token, amount);
     }
 
     /// @dev Gets native token value or restricts receiving one.
@@ -68,9 +68,9 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     /// @return Received amount.
     function _getRequiredFunds(address requester, uint256 amount) internal virtual override returns (uint256) {
         // Get tokens from requester
-        IToken(olas).transferFrom(requester, address(this), amount);
+        IToken(token).transferFrom(requester, address(this), amount);
 
-        emit Deposit(msg.sender, olas, amount);
+        emit Deposit(msg.sender, token, amount);
 
         return amount;
     }
@@ -80,9 +80,9 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     /// @param amount Token amount.
     function _withdraw(address account, uint256 amount) internal virtual override {
         // Transfer tokens
-        IToken(olas).transfer(account, amount);
+        IToken(token).transfer(account, amount);
 
-        emit Withdraw(msg.sender, olas, amount);
+        emit Withdraw(msg.sender, token, amount);
     }
 
     /// @dev Deposits token funds for requester.
@@ -92,8 +92,8 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
         mapRequesterBalances[msg.sender] += amount;
 
         // Get tokens
-        IToken(olas).transferFrom(msg.sender, address(this), amount);
+        IToken(token).transferFrom(msg.sender, address(this), amount);
 
-        emit Deposit(msg.sender, olas, amount);
+        emit Deposit(msg.sender, token, amount);
     }
 }

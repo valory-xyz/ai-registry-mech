@@ -34,17 +34,12 @@ contract MechNvmSubscription is OlasMech {
     // Mapping for requestId => finalized delivery rates
     mapping(uint256 => uint256) public mapRequestIdFinalizedRates;
 
-    /// @dev AgentMechSubscription constructor.
+    /// @dev MechNvmSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the token contract.
     /// @param _serviceId Service Id.
     /// @param _maxDeliveryRate The maximum delivery rate.
-    constructor(
-        address _mechMarketplace,
-        address _serviceRegistry,
-        uint256 _serviceId,
-        uint256 _maxDeliveryRate
-    )
+    constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId,uint256 _maxDeliveryRate)
         OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PAYMENT_TYPE)
     {}
 
