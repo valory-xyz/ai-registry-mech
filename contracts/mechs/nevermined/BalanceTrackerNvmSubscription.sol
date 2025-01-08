@@ -201,7 +201,7 @@ contract BalanceTrackerNvmSubscription {
         // Clear balances
         mapRequesterBalances[requester] = 0;
 
-        // Burn credits of the request Id sender upon delivery
+        // Burn requester credit balance
         IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
 
         emit CreditsAccounted(requester, balance);
