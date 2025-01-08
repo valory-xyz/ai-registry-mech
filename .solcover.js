@@ -1,7 +1,9 @@
 module.exports = {
     skipFiles: [
         "test/ImportsSetup.sol",
-        "test/MockServiceStaking.sol",
-        "test/MechReentrancyAttacker.sol"
+        "test/MechReentrancyAttacker.sol",
+        "test/MockMech.sol",
+        "test/MockMechFactory.sol",
+        "test/MockServiceStaking.sol"
     ]
 };
