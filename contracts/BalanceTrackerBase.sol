@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {IMech} from "./interfaces/IMech.sol";
 
 interface IMechMarketplace {
-    function fee() external returns(uint256);
+    function fee() external view returns(uint256);
 }
 
 /// @dev Only `marketplace` has a privilege, but the `sender` was provided.
@@ -37,7 +37,7 @@ error UnauthorizedAccount(address account);
 /// @param amount Amount value.
 error TransferFailed(address token, address from, address to, uint256 amount);
 
-abstract contract BalanceTrackerFixedPriceBase {
+abstract contract BalanceTrackerBase {
     event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
     event Deposit(address indexed account, address indexed token, uint256 amount);
     event Withdraw(address indexed account, address indexed token, uint256 amount);
@@ -55,9 +55,9 @@ abstract contract BalanceTrackerFixedPriceBase {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Map of requester => current debit balance
+    // Map of requester => current balance
     mapping(address => uint256) public mapRequesterBalances;
-    // Map of mech => => current debit balance
+    // Map of mech => => current balance
     mapping(address => uint256) public mapMechBalances;
 
     /// @dev BalanceTrackerFixedPrice constructor.
@@ -73,8 +73,47 @@ abstract contract BalanceTrackerFixedPriceBase {
         buyBackBurner = _buyBackBurner;
     }
 
+    /// @dev Adjusts initial requester balance accounting for max request delivery rate (debit).
+    /// @param balance Initial requester balance.
+    /// @param maxDeliveryRate Max delivery rate.
+    function _adjustInitialBalance(
+        address requester,
+        uint256 balance,
+        uint256 maxDeliveryRate,
+        bytes memory
+    ) internal virtual returns (uint256) {
+        // Check the request delivery rate for a fixed price
+        if (balance < maxDeliveryRate) {
+            // Get balance difference
+            uint256 balanceDiff = maxDeliveryRate - balance;
+            // Adjust balance
+            balance += _getRequiredFunds(requester, balanceDiff);
+        }
+
+        if (balance < maxDeliveryRate) {
+            revert InsufficientBalance(balance, maxDeliveryRate);
+        }
+
+        // Adjust account balance
+        return (balance - maxDeliveryRate);
+    }
+
+    /// @dev Adjusts final requester balance accounting for possible delivery rate difference (debit).
+    /// @param requester Requester address.
+    /// @param rateDiff Delivery rate difference.
+    /// @return Adjusted balance.
+    function _adjustFinalBalance(address requester, uint256 rateDiff) internal virtual returns (uint256) {
+        return mapRequesterBalances[requester] + rateDiff;
+    }
+
     /// @dev Drains specified amount.
+    /// @param amount Amount value.
     function _drain(uint256 amount) internal virtual;
+
+    /// @dev Gets fee composed of marketplace fee and another one, if applicable.
+    function _getFee() internal view virtual returns (uint256) {
+        return IMechMarketplace(mechMarketplace).fee();
+    }
 
     /// @dev Gets native token value or restricts receiving one.
     /// @return Received value.
@@ -105,7 +144,7 @@ abstract contract BalanceTrackerFixedPriceBase {
         }
 
         // Calculate mech payment and marketplace fee
-        uint256 fee = IMechMarketplace(mechMarketplace).fee();
+        uint256 fee = _getFee();
 
         // If requested balance is too small, charge the minimal fee
         // ceil(a, b) = (a + b - 1) / b
@@ -144,7 +183,7 @@ abstract contract BalanceTrackerFixedPriceBase {
         address requester,
         uint256 maxDeliveryRate,
         bytes memory
-    ) external payable {
+    ) external virtual payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -162,20 +201,8 @@ abstract contract BalanceTrackerFixedPriceBase {
         // Get account balance
         uint256 balance = mapRequesterBalances[requester] + initAmount;
 
-        // Check the request delivery rate for a fixed price
-        if (balance < maxDeliveryRate) {
-            // Get balance difference
-            uint256 balanceDiff = maxDeliveryRate - balance;
-            // Adjust balance
-            balance += _getRequiredFunds(requester, balanceDiff);
-        }
-
-        if (balance < maxDeliveryRate) {
-            revert InsufficientBalance(balance, maxDeliveryRate);
-        }
-
         // Adjust account balance
-        balance -= maxDeliveryRate;
+        balance = _adjustInitialBalance(requester, balance, maxDeliveryRate, "");
         mapRequesterBalances[requester] = balance;
 
         _locked = 1;
@@ -203,9 +230,12 @@ abstract contract BalanceTrackerFixedPriceBase {
         // Check for delivery rate difference
         uint256 rateDiff;
         if (maxDeliveryRate > actualDeliveryRate) {
-            // Return back requester overpayment debit
+            // Return back requester overpayment debit / credit
             rateDiff = maxDeliveryRate - actualDeliveryRate;
-            mapRequesterBalances[requester] += rateDiff;
+
+            // Adjust requester balance
+            uint256 balance = _adjustFinalBalance(requester, rateDiff);
+            mapRequesterBalances[requester] = balance;
         } else {
             // Limit the rate by the max chosen one as that is what the requester agreed on
             actualDeliveryRate = maxDeliveryRate;

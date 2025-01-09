@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceBase, ZeroAddress} from "../../BalanceTrackerFixedPriceBase.sol";
+import {BalanceTrackerBase, ZeroAddress} from "../../BalanceTrackerBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
@@ -23,7 +23,7 @@ interface IToken {
 /// @param amount Value amount.
 error NoDepositAllowed(uint256 amount);
 
-contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
+contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
     // Token address
     address public immutable token;
 
@@ -32,7 +32,7 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     /// @param _buyBackBurner Buy back burner address.
     /// @param _token Token address.
     constructor(address _mechMarketplace, address _buyBackBurner, address _token)
-        BalanceTrackerFixedPriceBase(_mechMarketplace, _buyBackBurner)
+        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
     {
         // Check for zero address
         if (_token == address(0)) {

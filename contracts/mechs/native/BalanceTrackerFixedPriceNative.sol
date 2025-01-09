@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceBase, ZeroAddress, InsufficientBalance, TransferFailed} from "../../BalanceTrackerFixedPriceBase.sol";
+import {BalanceTrackerBase, ZeroAddress, InsufficientBalance, TransferFailed} from "../../BalanceTrackerBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
@@ -16,7 +16,7 @@ interface IWrappedToken {
     function deposit() external payable;
 }
 
-contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
+contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
     // Wrapped native token address
     address public immutable wrappedNativeToken;
 
@@ -25,7 +25,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
     /// @param _buyBackBurner Buy back burner address.
     /// @param _wrappedNativeToken Wrapped native token address.
     constructor(address _mechMarketplace, address _buyBackBurner, address _wrappedNativeToken)
-        BalanceTrackerFixedPriceBase(_mechMarketplace, _buyBackBurner)
+        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
     {
         // Check for zero address
         if (_wrappedNativeToken == address(0)) {
