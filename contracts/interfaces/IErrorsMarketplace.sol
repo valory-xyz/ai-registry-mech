@@ -77,4 +77,27 @@ interface IErrorsMarketplace {
     /// @param to Address `to`.
     /// @param amount Amount value.
     error TransferFailed(address token, address from, address to, uint256 amount);
+
+    /// @dev Incorrect signature length provided.
+    /// @param signature Signature bytes.
+    /// @param provided Provided signature length.
+    /// @param expected Expected signature length.
+    error IncorrectSignatureLength(bytes signature, uint256 provided, uint256 expected);
+
+    /// @dev Hash is not validated.
+    /// @param requester Requester contract address.
+    /// @param msgHash Message hash.
+    /// @param signature Signature bytes associated with the message hash.
+    error HashNotValidated(address requester, bytes32 msgHash, bytes signature);
+
+    /// @dev Hash is not approved.
+    /// @param requester Requester address.
+    /// @param msgHash Message hash.
+    /// @param signature Signature bytes associated with the message hash.
+    error HashNotApproved(address requester, bytes32 msgHash, bytes signature);
+
+    /// @dev Obtained wrong requester address.
+    /// @param provided Provided address.
+    /// @param expected Expected address.
+    error WrongRequesterAddress(address provided, address expected);
 }

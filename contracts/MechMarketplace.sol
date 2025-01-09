@@ -7,6 +7,7 @@ import {IKarma} from "./interfaces/IKarma.sol";
 import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 
+// Mech Factory interface
 interface IMechFactory {
     /// @dev Registers service as a mech.
     /// @param serviceRegistry Service registry address.
@@ -15,6 +16,18 @@ interface IMechFactory {
     /// @return mech The created mech instance address.
     function createMech(address serviceRegistry, uint256 serviceId, bytes memory payload)
         external returns (address mech);
+}
+
+// Signature Validator interface
+interface ISignatureValidator {
+    /// @dev Should return whether the signature provided is valid for the provided hash.
+    /// @notice MUST return the bytes4 magic value 0x1626ba7e when function passes.
+    ///         MUST NOT modify state (using STATICCALL for solc < 0.5, view modifier for solc > 0.5).
+    ///         MUST allow external calls.
+    /// @param hash Hash of the data to be signed.
+    /// @param signature Signature byte array associated with hash.
+    /// @return magicValue bytes4 magic value.
+    function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4 magicValue);
 }
 
 // Mech delivery info struct
@@ -43,8 +56,11 @@ contract MechMarketplace is IErrorsMarketplace {
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
     event SetPaymentTypeBalanceTrackers(bytes32[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed requester, address indexed requestedMech, uint256 requestId, bytes data);
-    event MarketplaceDeliver(address indexed priorityMech, address indexed actualMech, address indexed requester,
+    event MarketplaceDeliver(address indexed priorityMech, address indexed deliveryMech, address indexed requester,
         uint256 requestId, bytes data);
+    event MarketplaceDeliverBatch(address indexed priorityMech, address indexed deliveryMech, address indexed requester,
+        uint256[] requestIds, bytes[] datas);
+    event RequesterHashApproved(address indexed requester, bytes32 hash);
 
     enum RequestStatus {
         DoesNotExist,
@@ -55,6 +71,8 @@ contract MechMarketplace is IErrorsMarketplace {
 
     // Contract version number
     string public constant VERSION = "1.1.0";
+    // Value for the contract signature validation: bytes4(keccak256("isValidSignature(bytes32,bytes)")
+    bytes4 constant internal MAGIC_VALUE = 0x1626ba7e;
     // Code position in storage is keccak256("MECH_MARKETPLACE_PROXY") = "0xe6194b93a7bff0a54130ed8cd277223408a77f3e48bb5104a9db96d334f962ca"
     bytes32 public constant MECH_MARKETPLACE_PROXY = 0xe6194b93a7bff0a54130ed8cd277223408a77f3e48bb5104a9db96d334f962ca;
     // Domain separator type hash
@@ -110,6 +128,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => uint256) public mapNonces;
     // Mapping of service ids to mechs
     mapping(uint256 => address) public mapServiceIdMech;
+    // Mapping requester address => approved hashes status
+    mapping(address => mapping(bytes32 => bool)) public mapRequesterApprovedHashes;
 
 
     /// @dev MechMarketplace constructor.
@@ -425,10 +445,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @notice This function can only be called by the mech delivering the request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
-    function deliverMarketplace(
-        uint256 requestId,
-        bytes memory requestData
-    ) external {
+    function deliverMarketplace(uint256 requestId, bytes memory requestData) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -490,6 +507,135 @@ contract MechMarketplace is IErrorsMarketplace {
             mechDelivery.deliveryRate);
 
         emit MarketplaceDeliver(priorityMech, msg.sender, mechDelivery.requester, requestId, requestData);
+
+        _locked = 1;
+    }
+
+    /// @dev Verifies provided request hash against its signature.
+    /// @param requester Requester address.
+    /// @param requestHash Request hash.
+    /// @param signature Signature bytes associated with the signed request hash.
+    function _verifySignedHash(address requester, bytes32 requestHash, bytes memory signature) internal view {
+        // Check for zero address
+        if (requester == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for the signature length
+        if (signature.length != 65) {
+            revert IncorrectSignatureLength(signature, signature.length, 65);
+        }
+
+        // Decode the signature
+        uint8 v = uint8(signature[64]);
+        // For the correct ecrecover() function execution, the v value must be set to {0,1} + 27
+        // Although v in a very rare case can be equal to {2,3} (with a probability of 3.73e-37%)
+        // If v is set to just 0 or 1 when signing  by the EOA, it is most likely signed by the ledger and must be adjusted
+        if (v < 4 && requester.code.length == 0) {
+            // In case of a non-contract, adjust v to follow the standard ecrecover case
+            v += 27;
+        }
+        bytes32 r;
+        bytes32 s;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+        }
+
+        address recRequester;
+        // Go through signature cases based on the value of v
+        if (v == 4) {
+            // Contract signature case, where the address of the contract is encoded into r
+            recRequester = address(uint160(uint256(r)));
+
+            // Check for the signature validity in the contract
+            if (ISignatureValidator(recRequester).isValidSignature(requestHash, signature) != MAGIC_VALUE) {
+                revert HashNotValidated(recRequester, requestHash, signature);
+            }
+        } else if (v == 5) {
+            // Case of an approved hash, where the address of the requester is encoded into r
+            recRequester = address(uint160(uint256(r)));
+
+            // Hashes have been pre-approved by the requester via a separate tx, see requesterApproveHash() function
+            if (!mapRequesterApprovedHashes[recRequester][requestHash]) {
+                revert HashNotApproved(recRequester, requestHash, signature);
+            }
+        } else {
+            // Case of ecrecover with the request hash for EOA signatures
+            recRequester = ecrecover(requestHash, v, r, s);
+        }
+
+        // Final check is for the requester address itself
+        if (recRequester != requester) {
+            revert WrongRequesterAddress(recRequester, requester);
+        }
+    }
+
+    /// @dev Approves request hash for requester address.
+    /// @param hash Provided request hash to approve.
+    function requesterApproveHash(bytes32 hash) external {
+        mapRequesterApprovedHashes[msg.sender][hash] = true;
+        emit RequesterHashApproved(msg.sender, hash);
+    }
+    
+    /// @dev Delivers signed requests.
+    /// @notice This function can only be called by mech delivering requests.
+    /// @param requester Requester address.
+    /// @param requestIds Request ids / hashes.
+    /// @param signatures Corresponding set of signatures.
+    /// @param requestDatas Corresponding set of self-descriptive opaque data-blobs.
+    /// @param actualDeliveryRate Actual charged delivery rate for each request.
+    function deliverMarketplaceWithSignatures(
+        address requester,
+        uint256[] memory requestIds,
+        bytes32[] memory signatures,
+        bytes[] memory requestDatas,
+        uint256 deliveryRate
+    ) external {
+        // Check mech
+        address mechServiceMultisig = checkMech(msg.sender);
+
+        // TODO array length checks
+
+        // TODO check requester?
+
+        // Traverse all request Ids
+        for (uint256 i = 0; i < requestIds.length; ++i) {
+            // Verify the signed hash against the operator address
+            _verifySignedHash(requester, bytes32(requestIds[i]), signatures[i]);
+
+            // Assign mech delivery info struct values
+            mapRequestIdDeliveries[requestIds[i]] = MechDelivery(msg.sender, msg.sender, requester, 0, deliveryRate);
+
+            // Update nonce value
+            nonce++;
+        }
+
+        // TODO update mech stats, or start from mech itself first
+        //IMech(msg.sender).updateNumRequests(requestIds.length)
+
+        // Adjust requester nonce values
+        mapNonces[requester] += requestIds.length;
+
+        // Increase the amount of requester delivered requests
+        mapDeliveryCounts[requester]++;
+        // Increase the amount of mech delivery counts
+        mapMechDeliveryCounts[msg.sender]++;
+        // Increase the amount of mech service multisig delivered requests
+        mapMechServiceDeliveryCounts[mechServiceMultisig]++;
+
+        // Increase mech karma that delivers the request
+        IKarma(karma).changeMechKarma(msg.sender, 1);
+
+        // Get balance tracker address
+        bytes32 mechPaymentType = IMech(msg.sender).paymentType();
+        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
+
+        // Process payment
+        IBalanceTracker(balanceTracker).finalizeDeliveryRateBatch(msg.sender, requester, requestIds, deliveryRate);
+
+        emit MarketplaceDeliverBatch(msg.sender, msg.sender, requester, requestIds, requestDatas);
 
         _locked = 1;
     }
@@ -589,6 +735,14 @@ contract MechMarketplace is IErrorsMarketplace {
                 status = RequestStatus.Delivered;
             }
         }
+    }
+
+    /// @dev Checks if the hash provided by the requester is approved.
+    /// @param requester Requester address.
+    /// @param hash Message hash.
+    /// @return True, if the hash provided by the requester is approved.
+    function isRequesterHashApproved(address requester, bytes32 hash) external view returns (bool) {
+        return mapRequesterApprovedHashes[requester][hash];
     }
 }
 
