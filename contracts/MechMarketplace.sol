@@ -528,10 +528,12 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Decode the signature
         uint8 v = uint8(signature[64]);
+        bytes32 r;
+        bytes32 s;
 
         address recRequester;
+        // Special case of approved hash, where the address of the requester is encoded into r
         if (v == 4) {
-            // Case of an approved hash, where the address of the requester is encoded into r
             recRequester = address(uint160(uint256(r)));
 
             // Hashes have been pre-approved by the requester via a separate tx, see requesterApproveHash() function
@@ -543,10 +545,12 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Check EIP-1271 signature validity if requester is a contract
-        if (requester.code.length > 0 && ISignatureValidator(requester).isValidSignature(requestHash, signature) != MAGIC_VALUE) {
-            revert HashNotValidated(requester, requestHash, signature);
-        } else {
-            return;
+        if (requester.code.length > 0) {
+            if (ISignatureValidator(requester).isValidSignature(requestHash, signature) == MAGIC_VALUE) {
+                return;
+            } else {
+                revert HashNotValidated(requester, requestHash, signature);
+            }
         }
 
         // For the correct ecrecover() function execution, the v value must be set to {0,1} + 27
@@ -556,8 +560,6 @@ contract MechMarketplace is IErrorsMarketplace {
             // In case of a non-contract, adjust v to follow the standard ecrecover case
             v += 27;
         }
-        bytes32 r;
-        bytes32 s;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             r := mload(add(signature, 32))
@@ -581,19 +583,21 @@ contract MechMarketplace is IErrorsMarketplace {
     }
     
     /// @dev Delivers signed requests.
-    /// @notice This function can only be called by mech delivering requests.
+    /// @notice This function must be called by mech delivering requests.
     /// @param requester Requester address.
     /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
     /// @param signatures Corresponding set of signatures.
-    /// @param deliveryDatas Corresponding set of self-descriptive opaque delivery data-blobs.
     /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param deliveryDatas Corresponding set of self-descriptive opaque delivery data-blobs.
+    /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceBatchWithSignatures(
         address requester,
         bytes[] memory requestDatas,
-        bytes32[] memory signatures,
+        bytes[] memory signatures,
+        bytes[] memory deliveryDatas,
         uint256[] memory deliveryRates,
-        bytes[] memory deliveryDatas
-    ) external {
+        bytes memory paymentData
+    ) external payable {
         // Check mech
         address mechServiceMultisig = checkMech(msg.sender);
 
@@ -601,8 +605,13 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // TODO check requester?
 
+        // Get number of requests
+        // Allocate set for request Ids
         uint256[] memory requestIds = new uint256[](requestDatas.length);
+
+        uint256 totalDeliveryRate;
         uint256 nonce = mapNonces[requester];
+
         // Traverse all request Ids
         for (uint256 i = 0; i < requestDatas.length; ++i) {
             requestIds[i] = getRequestId(requester, requestDatas[i], nonce);
@@ -613,11 +622,12 @@ contract MechMarketplace is IErrorsMarketplace {
             // Assign mech delivery info struct values
             mapRequestIdDeliveries[requestIds[i]] = MechDelivery(msg.sender, msg.sender, requester, 0, deliveryRates[i]);
 
+            // Increase total rate
+            totalDeliveryRate += deliveryRates[i];
+
+            // Increase nonce
             nonce++;
         }
-
-        // TODO update mech stats, or start from mech itself first
-        //IMech(msg.sender).updateNumRequests(requestIds.length)
 
         // Adjust requester nonce values
         mapNonces[requester] = nonce;
@@ -630,16 +640,20 @@ contract MechMarketplace is IErrorsMarketplace {
         mapMechServiceDeliveryCounts[mechServiceMultisig]++;
 
         // Increase mech karma that delivers the request
-        IKarma(karma).changeMechKarma(msg.sender, requestDatas.length);
+        IKarma(karma).changeMechKarma(msg.sender, int256(requestDatas.length));
 
         // Get balance tracker address
         bytes32 mechPaymentType = IMech(msg.sender).paymentType();
         address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
 
         // Process payment
-        IBalanceTracker(balanceTracker).finalizeDeliveryRateBatch(msg.sender, requester, requestIds, deliveryRates);
+        IBalanceTracker(balanceTracker).adjustRequesterMechBalances{value: msg.value}(msg.sender, requester,
+            totalDeliveryRate, paymentData);
 
-        emit MarketplaceDeliverBatch(msg.sender, msg.sender, requester, requestIds, requestDatas);
+        // Update mech stats
+        IMech(msg.sender).updateNumRequests(requestDatas.length);
+
+        emit MarketplaceDeliverBatch(msg.sender, msg.sender, requester, requestIds, deliveryDatas);
 
         _locked = 1;
     }
