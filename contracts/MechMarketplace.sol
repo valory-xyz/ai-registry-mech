@@ -397,7 +397,7 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check requester
         checkRequester(msg.sender, requesterServiceId);
 
-        // Get the request Id
+        // Calculate request Id
         requestId = getRequestId(msg.sender, requestData, mapNonces[msg.sender]);
 
         // Update requester nonce
@@ -598,6 +598,12 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256[] memory deliveryRates,
         bytes memory paymentData
     ) external payable {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+        
         // Check mech
         address mechServiceMultisig = checkMech(msg.sender);
 
@@ -614,6 +620,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Traverse all request Ids
         for (uint256 i = 0; i < requestDatas.length; ++i) {
+            // Calculate request Id
             requestIds[i] = getRequestId(requester, requestDatas[i], nonce);
 
             // Verify the signed hash against the operator address
