@@ -183,7 +183,7 @@ abstract contract BalanceTrackerBase {
         address requester,
         uint256 maxDeliveryRate,
         bytes memory
-    ) external virtual payable {
+    ) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();

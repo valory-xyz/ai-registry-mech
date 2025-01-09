@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import {BalanceTrackerBase, ZeroAddress, ZeroValue, InsufficientBalance, ReentrancyGuard} from "../../BalanceTrackerBase.sol";
-import {IMech} from "../../interfaces/IMech.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -16,6 +15,13 @@ interface IERC1155 {
     /// @param tokenId Token Id.
     /// @param amount Amount of tokens.
     function burn(address account, uint256 tokenId, uint256 amount) external;
+
+    /// @dev Transfers tokens.
+    /// @param from Source address.
+    /// @param to Destination address.
+    /// @param id Token Id.
+    /// @param amount Token amount.
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata) external;
 }
 
 /// @dev Value overflow.
@@ -28,6 +34,7 @@ error Overflow(uint256 provided, uint256 max);
 error NoDepositAllowed(uint256 amount);
 
 contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
+    event WithdrawSubscription(address indexed account, address indexed token, uint256 indexed tokenId, uint256 amount);
     event RequesterCreditsRedeemed(address indexed account, uint256 amount);
 
     // TODO: setup, taken from subscription?
@@ -124,7 +131,14 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
     }
 
     /// @dev Withdraws funds.
-    function _withdraw(address, uint256) internal virtual override {}
+    /// @param account Account address.
+    /// @param amount Token amount.
+    function _withdraw(address account, uint256 amount) internal virtual override {
+        // Transfer tokens
+        IERC1155(subscriptionNFT).safeTransferFrom(address(this), account, subscriptionTokenId, amount, "");
+
+        emit WithdrawSubscription(msg.sender, subscriptionNFT, subscriptionTokenId, amount);
+    }
 
     /// @dev Redeem requester credits.
     /// @param requester Requester address.
