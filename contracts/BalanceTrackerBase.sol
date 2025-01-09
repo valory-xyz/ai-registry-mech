@@ -129,13 +129,7 @@ abstract contract BalanceTrackerBase {
     /// @param mech Mech address.
     /// @return mechPayment Mech payment.
     /// @return marketplaceFee Marketplace fee.
-    function _processPayment(address mech) internal returns (uint256 mechPayment, uint256 marketplaceFee) {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
+    function _processPayment(address mech) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
         // Get mech balance
         uint256 balance = mapMechBalances[mech];
         // If balance is 1, the marketplace fee is still 1, and thus mech payment will be zero
@@ -143,6 +137,7 @@ abstract contract BalanceTrackerBase {
             revert ZeroValue();
         }
 
+        // TODO Separate between total fee and marketplace fee when NVM solution is ready
         // Calculate mech payment and marketplace fee
         uint256 fee = _getFee();
 
@@ -154,6 +149,7 @@ abstract contract BalanceTrackerBase {
         // Calculate mech payment
         mechPayment = balance - marketplaceFee;
 
+        // TODO If fee is charged beforehand, this is irrelevant
         // Check for zero value, although this must never happen
         if (marketplaceFee == 0 || mechPayment == 0) {
             revert ZeroValue();
@@ -167,8 +163,6 @@ abstract contract BalanceTrackerBase {
 
         // Process withdraw
         _withdraw(mech, mechPayment);
-
-        _locked = 1;
     }
 
     /// @dev Withdraws funds.
@@ -272,22 +266,38 @@ abstract contract BalanceTrackerBase {
 
     /// @dev Processes mech payment by mech service multisig.
     /// @param mech Mech address.
-    /// @return Mech payment.
-    /// @return Marketplace fee.
-    function processPaymentByMultisig(address mech) external returns (uint256, uint256) {
+    /// @return mechPayment Mech payment.
+    /// @return marketplaceFee Marketplace fee.
+    function processPaymentByMultisig(address mech) external returns (uint256 mechPayment, uint256 marketplaceFee) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for mech service multisig address
         if (!IMech(mech).isOperator(msg.sender)) {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        return _processPayment(mech);
+        (mechPayment, marketplaceFee) = _processPayment(mech);
+
+        _locked = 1;
     }
 
     /// @dev Processes mech payment.
-    /// @return Mech payment.
-    /// @return Marketplace fee.
-    function processPayment() external returns (uint256, uint256) {
-        return _processPayment(msg.sender);
+    /// @return mechPayment Mech payment.
+    /// @return marketplaceFee Marketplace fee.
+    function processPayment() external returns (uint256 mechPayment, uint256 marketplaceFee) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        (mechPayment, marketplaceFee) = _processPayment(msg.sender);
+
+        _locked = 1;
     }
 
     /// @dev Withdraws funds for a specific requester account.
