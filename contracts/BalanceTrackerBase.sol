@@ -344,25 +344,4 @@ abstract contract BalanceTrackerBase {
 
         (mechPayment, marketplaceFee) = _processPayment(msg.sender);
     }
-
-    /// @dev Withdraws funds for a specific requester account.
-    function withdraw() external {
-        // Reentrancy guard
-        if (locked) {
-            revert ReentrancyGuard();
-        }
-        locked = true;
-
-        // Get account balance
-        uint256 balance = mapRequesterBalances[msg.sender];
-        if (balance == 0) {
-            revert ZeroValue();
-        }
-
-        // Clear balances
-        mapRequesterBalances[msg.sender] = 0;
-
-        // Process withdraw
-        _withdraw(msg.sender, balance);
-    }
 }
