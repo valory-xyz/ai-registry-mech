@@ -48,7 +48,6 @@ contract MechNvmSubscription is OlasMech {
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
     function _preDeliver(
-        address,
         uint256 requestId,
         bytes memory data
     ) internal override returns (bytes memory requestData) {
@@ -64,7 +63,7 @@ contract MechNvmSubscription is OlasMech {
     /// @dev Gets finalized delivery rate for a request Id.
     /// @param requestId Request Id.
     /// @return Finalized delivery rate.
-    function getFinalizedDeliveryRate(uint256 requestId) external virtual override returns (uint256) {
+    function getFinalizedDeliveryRate(uint256 requestId) public virtual override returns (uint256) {
         return mapRequestIdFinalizedRates[requestId];
     }
 }

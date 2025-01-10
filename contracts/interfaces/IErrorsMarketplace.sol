@@ -69,6 +69,10 @@ interface IErrorsMarketplace {
     /// @param max Maximum possible value.
     error OutOfBounds(uint256 provided, uint256 min, uint256 max);
 
+    /// @dev The request is already requested.
+    /// @param requestId Request Id.
+    error AlreadyRequested(uint256 requestId);
+
     /// @dev The request is already delivered.
     /// @param requestId Request Id.
     error AlreadyDelivered(uint256 requestId);

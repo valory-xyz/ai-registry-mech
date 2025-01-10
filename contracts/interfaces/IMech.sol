@@ -3,16 +3,11 @@ pragma solidity ^0.8.28;
 
 /// @dev Mech interface
 interface IMech {
-    /// @dev Registers a request by a marketplace.
-    /// @param account Requester account address.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @param requestId Request Id.
-    function requestFromMarketplace(address account, bytes memory data, uint256 requestId) external;
-
-    /// @dev Revokes the request from the mech that does not deliver it.
-    /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
-    /// @param requestId Request Id.
-    function revokeRequest(uint256 requestId) external;
+    /// @dev Registers marketplace requests.
+    /// @param requester Requester address.
+    /// @param requestIds Set of request Ids.
+    /// @param datas Set of corresponding self-descriptive opaque data-blobs.
+    function requestFromMarketplace(address requester, uint256[] memory requestIds, bytes[] memory datas) external;
 
     /// @dev Updates number of requests delivered directly via Marketplace.
     /// @param numRequests Number of requests.

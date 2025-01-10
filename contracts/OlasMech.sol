@@ -12,7 +12,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
-    event RevokeRequest(address indexed sender, uint256 requestId);
+    event RevokeRequest(uint256 requestId);
     event NumRequestsIncrease(uint256 numRequests);
 
     // Olas mech version number
@@ -32,14 +32,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Number of total deliveries by this mech
     uint256 public numTotalDeliveries;
     // Reentrancy lock
-    uint256 internal _locked = 1;
+    bool transient locked;
 
-    // Map of undelivered requests counts for corresponding addresses in this agent mech
-    mapping(address => uint256) public mapUndeliveredRequestsCounts;
+    // TODO Check if needed as requests are checked by Marketplace
     // Cyclical map of request Ids
     mapping(uint256 => uint256[2]) public mapRequestIds;
-    // Map of request Id => sender address
-    mapping(uint256 => address) public mapRequestAddresses;
 
     /// @dev OlasMech constructor.
     /// @param _mechMarketplace Mech marketplace address.
@@ -90,118 +87,94 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     }
 
     /// @dev Performs actions before the delivery of a request.
-    /// @param requester Requester address.
     /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(
-        address requester,
-        uint256 requestId,
-        bytes memory data
-    ) internal virtual returns (bytes memory requestData);
+    function _preDeliver(uint256 requestId, bytes memory data) internal virtual returns (bytes memory requestData);
 
     /// @dev Registers a request.
     /// @param requester Requester address.
-    /// @param requestId Request Id.
-    /// @param data Self-descriptive opaque data-blob.
+    /// @param requestIds Set of request Ids.
+    /// @param datas Set of corresponding self-descriptive opaque data-blobs.
     function _request(
         address requester,
-        uint256 requestId,
-        bytes memory data
+        uint256[] memory requestIds,
+        bytes[] memory datas
     ) internal virtual {
-        mapUndeliveredRequestsCounts[requester]++;
-        // Record the requestId => sender correspondence
-        mapRequestAddresses[requestId] = requester;
+        uint256 numRequests = requestIds.length;
 
-        // Record the request Id in the map
-        // Get previous and next request Ids of the first element
-        uint256[2] storage requestIds = mapRequestIds[0];
-        // Create the new element
-        uint256[2] storage newRequestIds = mapRequestIds[requestId];
+        for (uint256 i = 0; i < requestIds.length; ++i) {
+            uint256 requestId = requestIds[i];
 
-        // Previous element will be zero, next element will be the current next element
-        uint256 curNextRequestId = requestIds[1];
-        newRequestIds[1] = curNextRequestId;
-        // Next element of the zero element will be the newly created element
-        requestIds[1] = requestId;
-        // Previous element of the current next element will be the newly created element
-        mapRequestIds[curNextRequestId][0] = requestId;
+            // TODO optimize or remove?
+            // Record the request Id in the map
+            // Get previous and next request Ids of the first element
+            uint256[2] storage requestIdLinks = mapRequestIds[0];
+            // Create the new element
+            uint256[2] storage newRequestIdLinks = mapRequestIds[requestId];
+
+            // Previous element will be zero, next element will be the current next element
+            uint256 curNextRequestIdLink = newRequestIdLinks[1];
+            newRequestIdLinks[1] = curNextRequestIdLink;
+            // Next element of the zero element will be the newly created element
+            requestIds[1] = requestId;
+            // Previous element of the current next element will be the newly created element
+            mapRequestIds[curNextRequestIdLink][0] = requestId;
+
+            emit Request(requester, requestId, datas[i]);
+        }
 
         // Increase the number of undelivered requests
-        numUndeliveredRequests++;
+        numUndeliveredRequests += numRequests;
         // Increase the total number of requests
-        numTotalRequests++;
-
-        emit Request(requester, requestId, data);
+        numTotalRequests += numRequests;
     }
 
     /// @dev Cleans the request info from all the relevant storage.
-    /// @param requester Requester address.
     /// @param requestId Request Id.
-    function _cleanRequestInfo(address requester, uint256 requestId) internal virtual {
-        // Decrease the number of undelivered requests
-        mapUndeliveredRequestsCounts[requester]--;
-        numUndeliveredRequests--;
-
-        // Remove delivered request Id from the request Ids map
-        uint256[2] memory requestIds = mapRequestIds[requestId];
-        // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
-        // and the zero's element previous request Id is not equal to the provided request Id
-        if (requestIds[0] == 0 && requestIds[1] == 0 && mapRequestIds[0][0] != requestId) {
-            revert RequestIdNotFound(requestId);
-        }
+    function _cleanRequestInfo(uint256 requestId) internal virtual {
+        // Get request Id from the request Ids map
+        uint256[2] memory requestIdLinks = mapRequestIds[requestId];
 
         // Re-link previous and next elements between themselves
-        mapRequestIds[requestIds[0]][1] = requestIds[1];
-        mapRequestIds[requestIds[1]][0] = requestIds[0];
+        mapRequestIds[requestIdLinks[0]][1] = requestIdLinks[1];
+        mapRequestIds[requestIdLinks[1]][0] = requestIdLinks[0];
 
         // Delete the delivered element from the map
         delete mapRequestIds[requestId];
     }
 
-    /// @dev Delivers a request.
+    /// @dev Prepares delivery of requests.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
-    /// @param requestId Request id.
-    /// @param data Self-descriptive opaque data-blob.
-    function _deliver(uint256 requestId, bytes memory data) internal virtual returns (bytes memory requestData) {
-        // Get an requester to deliver request to
-        address requester = mapRequestAddresses[requestId];
+    /// @param requestIds Set of request Ids.
+    /// @param datas Corresponding set of self-descriptive opaque delivery data-blobs.
+    function _prepareDeliveries(
+        uint256[] memory requestIds,
+        bytes[] memory datas
+    ) internal virtual returns (uint256[] memory deliveryRates, bytes[] memory deliveryDatas) {
+        uint256 numRequests = requestIds.length;
+        deliveryRates = new uint256[](numRequests);
+        deliveryDatas = new bytes[](numRequests);
 
-        // Get the mech delivery info from the mech marketplace
-        IMechMarketplace.MechDelivery memory mechDelivery =
-            IMechMarketplace(mechMarketplace).mapRequestIdDeliveries(requestId);
+        // Traverse requests
+        for (uint256 i = 0; i < numRequests; ++i) {
+            uint256 requestId = requestIds[i];
 
-        // Instantly return with empty data if the request has been delivered
-        // This allows not to fail batch requests transactions
-        if (mechDelivery.deliveryMech != address(0)) {
-            return "";
-        }
+            // Get request Id from the request Ids map
+            uint256[2] memory requestIdLinks = mapRequestIds[requestId];
 
-        // The requester is zero if the delivery mech is different from a priority mech, or if request does not exist
-        if (requester == address(0)) {
-            requester = mechDelivery.requester;
-            // Check if request exists in the mech marketplace
-            if (requester == address(0)) {
+            // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
+            // and the zero's element previous request Id is not equal to the provided request Id
+            if (requestIdLinks[0] == 0 && requestIdLinks[1] == 0 && mapRequestIds[0][0] != requestId) {
                 revert RequestIdNotFound(requestId);
             }
-            // Note, revoking the request for the priority mech happens later via revokeRequest
-        } else {
-            // The requester is non-zero if it is delivered by the priority mech
-            _cleanRequestInfo(requester, requestId);
+
+            // Perform a pre-delivery of the data if it needs additional parsing
+            deliveryDatas[i] = _preDeliver(requestId, datas[i]);
+
+            // Get finalized delivery rate
+            deliveryRates[i] = getFinalizedDeliveryRate(requestId);
         }
-
-        // Check for max delivery rate compared to requested one
-        if (maxDeliveryRate > mechDelivery.deliveryRate) {
-            revert Overflow(maxDeliveryRate, mechDelivery.deliveryRate);
-        }
-
-        // Perform a pre-delivery of the data if it needs additional parsing
-        requestData = _preDeliver(requester, requestId, data);
-
-        // Increase the total number of deliveries, as the request is delivered by this mech
-        numTotalDeliveries++;
-
-        emit Deliver(msg.sender, requestId, requestData);
     }
 
     /// @dev Sets the new max delivery rate.
@@ -216,40 +189,19 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         emit MaxDeliveryRateUpdated(newMaxDeliveryRate);
     }
 
-    /// @dev Registers a request by a marketplace.
+    /// @dev Registers marketplace requests.
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
     /// @param requester Requester address.
-    /// @param data Self-descriptive opaque data-blob.
-    /// @param requestId Request Id.
-    function requestFromMarketplace(address requester, bytes memory data, uint256 requestId) external {
+    /// @param requestIds Set of request Ids.
+    /// @param datas Set of corresponding self-descriptive opaque data-blobs.
+    function requestFromMarketplace(address requester, uint256[] memory requestIds, bytes[] memory datas) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
-        // Perform a request
-        _request(requester, requestId, data);
-    }
-
-    /// @dev Revokes the request from the mech that does not deliver it.
-    /// @notice Only marketplace can call this function if the request is not delivered by the chosen priority mech.
-    /// @param requestId Request Id.
-    function revokeRequest(uint256 requestId) external {
-        // Check for marketplace access
-        if (msg.sender != mechMarketplace) {
-            revert MarketplaceOnly(msg.sender, mechMarketplace);
-        }
-
-        address requester = mapRequestAddresses[requestId];
-        // This must never happen, as the priority mech recorded requestId => requester info during the request
-        if (requester == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Clean request info
-        _cleanRequestInfo(requester, requestId);
-
-        emit RevokeRequest(requester, requestId);
+        // Perform requests
+        _request(requester, requestIds, datas);
     }
 
     /// @dev Updates number of requests delivered directly via Marketplace.
@@ -268,27 +220,50 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
     /// @dev Delivers a request by a marketplace.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
-    /// @param requestId Request id.
-    /// @param data Self-descriptive opaque data-blob.
+    /// @param requestIds Set of request ids.
+    /// @param datas Corresponding set of self-descriptive opaque delivery data-blobs.
     function deliverToMarketplace(
-        uint256 requestId,
-        bytes memory data
+        uint256[] memory requestIds,
+        bytes[] memory datas
     ) external onlyOperator {
         // Reentrancy guard
-        if (_locked > 1) {
+        if (locked) {
             revert ReentrancyGuard();
         }
-        _locked = 2;
+        locked = true;
 
-        // Request delivery
-        bytes memory requestData = _deliver(requestId, data);
+        // TODO Check array sizes
 
-        // Mech marketplace delivery finalization if the request was not delivered already
-        if (requestData.length > 0) {
-            IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData);
+        // Preliminary delivery processing
+        (uint256[] memory deliveryRates, bytes[] memory deliveryDatas) = _prepareDeliveries(requestIds, datas);
+
+        // Mech marketplace delivery finalization
+        // Some of deliveries might be front-run by other mechs, and thus only actually delivered ones are recorded
+        bool[] memory deliveredRequests = IMechMarketplace(mechMarketplace).deliverMarketplace(requestIds,
+            deliveryRates, deliveryDatas);
+
+        uint256 numRequests = requestIds.length;
+        uint256 numDeliveries;
+        // Traverse all requests to select delivered ones
+        for (uint256 i = 0; i < numRequests; ++i) {
+            uint256 requestId = requestIds[i];
+            if (deliveredRequests[i]) {
+                numDeliveries++;
+
+                emit Deliver(msg.sender, requestId, deliveryDatas[i]);
+            } else {
+                // Clean request info as it was not delivered
+                _cleanRequestInfo(requestId);
+
+                emit RevokeRequest(requestId);
+            }
         }
 
-        _locked = 1;
+        // Increase the total number of deliveries actually delivered by this mech
+        numTotalDeliveries += numDeliveries;
+
+        // Decrease the number of undelivered requests
+        numUndeliveredRequests -= numRequests;
     }
 
     /// @dev Sets up a mech.
@@ -338,6 +313,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         return multisig == getOperator();
     }
 
+    // TODO remove?
     /// @dev Gets the set of undelivered request Ids with Nonce.
     /// @param size Maximum batch size of a returned requests Id set. If the size is zero, the whole set is returned.
     /// @param offset The number of skipped requests that are not going to be part of the returned requests Id set.
@@ -379,5 +355,5 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @dev Gets finalized delivery rate for a request Id.
     /// @param requestId Request Id.
     /// @return Finalized delivery rate.
-    function getFinalizedDeliveryRate(uint256 requestId) external virtual returns (uint256);
+    function getFinalizedDeliveryRate(uint256 requestId) public virtual returns (uint256);
 }
