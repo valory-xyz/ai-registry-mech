@@ -259,6 +259,7 @@ abstract contract BalanceTrackerBase {
     }
 
     /// @dev Adjusts requester and mech balances for direct batch request processing.
+    /// @notice This function can be called by the Mech Marketplace only.
     /// @param mech Mech address.
     /// @param requester Requester address.
     /// @param totalDeliveryRate Total batch delivery rate.
