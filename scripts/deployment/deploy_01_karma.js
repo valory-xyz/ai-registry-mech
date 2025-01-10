@@ -41,7 +41,7 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("4. EOA to deploy Karma");
+    console.log("1. EOA to deploy Karma");
     console.log("You are signing the following transaction: Karma.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const Karma = await ethers.getContractFactory("Karma");

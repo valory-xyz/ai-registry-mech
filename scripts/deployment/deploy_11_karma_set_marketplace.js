@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const karmaProxyAddress = parsedData.karmaProxyAddress;
-    const mechMarketplaceAddress = parsedData.mechMarketplaceAddress;
+    const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -46,10 +46,10 @@ async function main() {
     const karma = await ethers.getContractAt("Karma", karmaProxyAddress);
 
     // Transaction signing and execution
-    console.log("7. EOA to set Mech Marketplace statuses");
+    console.log("11. EOA to set Mech Marketplace statuses");
     console.log("You are signing the following transaction: KarmaProxy.connect(EOA).setMechMarketplaceStatuses()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await karma.connect(EOA).setMechMarketplaceStatuses([mechMarketplaceAddress], [true], { gasPrice });
+    const result = await karma.connect(EOA).setMechMarketplaceStatuses([mechMarketplaceProxyAddress], [true], { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: KarmaProxy");

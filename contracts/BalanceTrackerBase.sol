@@ -139,7 +139,6 @@ abstract contract BalanceTrackerBase {
             revert ZeroValue();
         }
 
-        // TODO Separate between total fee and marketplace fee when NVM solution is ready
         // Calculate mech payment and marketplace fee
         uint256 fee = _getFee();
 
@@ -151,7 +150,6 @@ abstract contract BalanceTrackerBase {
         // Calculate mech payment
         mechPayment = balance - marketplaceFee;
 
-        // TODO If fee is charged beforehand, this is irrelevant
         // Check for zero value, although this must never happen
         if (marketplaceFee == 0 || mechPayment == 0) {
             revert ZeroValue();

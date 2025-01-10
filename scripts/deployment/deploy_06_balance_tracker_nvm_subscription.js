@@ -12,8 +12,7 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const agentRegistryAddress = parsedData.agentRegistryAddress;
-    const agentType = parsedData.agentType;
+    const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -43,41 +42,33 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("2. EOA to deploy AgentFactory pointed to AgentRegistry");
-    let AgentFactory;
-    if (agentType === "subscription") {
-        AgentFactory = await ethers.getContractFactory("AgentFactorySubscription");
-    } else {
-        AgentFactory = await ethers.getContractFactory("AgentFactory");
-    }
-    console.log("You are signing the following transaction: AgentFactory.connect(EOA).deploy()");
+    console.log("5. EOA to deploy Balance Tracker NVM Subscription");
+    console.log("You are signing the following transaction: BalanceTrackerNvmSubscription.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const agentFactory = await AgentFactory.connect(EOA).deploy(agentRegistryAddress, { gasPrice });
+    const BalanceTrackerNvmSubscription = await ethers.getContractFactory("BalanceTrackerNvmSubscription");
+    // TODO Decide on buyBackBurner, now just mechMarketplace address
+    const balanceTrackerNvmSubscription = await BalanceTrackerNvmSubscription.connect(EOA).deploy(mechMarketplaceProxyAddress,
+        mechMarketplaceProxyAddress, { gasPrice });
     // In case when gas calculation is not working correctly on Arbitrum
     //const gasLimit = 60000000;
-    //const agentFactory = await AgentFactory.connect(EOA).deploy(agentRegistryAddress, { gasLimit });
-    const result = await agentFactory.deployed();
+    const result = await balanceTrackerNvmSubscription.deployed();
 
     // Transaction details
-    console.log("Contract deployment: AgentFactory");
-    console.log("Contract address:", agentFactory.address);
+    console.log("Contract deployment: BalanceTrackerNvmSubscription");
+    console.log("Contract address:", balanceTrackerNvmSubscription.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // Wait for half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    if (agentType === "subscription") {
-        parsedData.agentFactorySubscriptionAddress = agentFactory.address;
-    } else {
-        parsedData.agentFactoryAddress = agentFactory.address;
-    }
+    parsedData.balanceTrackerNvmSubscriptionAddress = balanceTrackerNvmSubscription.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_02_agent_factory.js --network " + providerName + " " + agentFactory.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_06_balance_tracker_nvm_subscription.js --network " + providerName + " " + balanceTrackerNvmSubscription.address, { encoding: "utf-8" });
     }
 }
 
