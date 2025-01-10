@@ -169,7 +169,7 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 newMaxResponseTimeout
     ) internal {
         // Check for zero values
-        if (newFee == 0 || newMinResponseTimeout == 0 || newMaxResponseTimeout == 0) {
+        if (newMinResponseTimeout == 0 || newMaxResponseTimeout == 0) {
             revert ZeroValue();
         }
 
