@@ -102,7 +102,9 @@ contract MechMarketplace is IErrorsMarketplace {
     // Number of mechs
     uint256 public numMechs;
     // Reentrancy lock
-    bool transient locked;
+    bool private locked;
+// TODO
+//bool transient locked;
 
     // Contract owner
     address public owner;
@@ -349,108 +351,21 @@ contract MechMarketplace is IErrorsMarketplace {
         emit SetPaymentTypeBalanceTrackers(paymentTypes, balanceTrackers);
     }
 
-//    /// @dev Registers a request.
-//    /// @notice The request is going to be registered for a specified priority mech.
-//    /// @param requestData Self-descriptive opaque request data-blob.
-//    /// @param priorityMechServiceId Priority mech service Id.
-//    /// @param requesterServiceId Requester service Id, or zero if EOA.
-//    /// @param responseTimeout Relative response time in sec.
-//    /// @param paymentData Additional payment-related request data (optional).
-//    /// @return requestId Request Id.
-//    function request(
-//        bytes memory requestData,
-//        uint256 priorityMechServiceId,
-//        uint256 requesterServiceId,
-//        uint256 responseTimeout,
-//        bytes memory paymentData
-//    ) external payable returns (uint256 requestId) {
-//        // Reentrancy guard
-//        if (locked) {
-//            revert ReentrancyGuard();
-//        }
-//        locked = true;
-//
-//        // Response timeout limits
-//        if (responseTimeout + block.timestamp > type(uint32).max) {
-//            revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
-//        }
-//
-//        // Response timeout bounds
-//        if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
-//            revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
-//        }
-//
-//        // Check for non-zero data
-//        if (requestData.length == 0) {
-//            revert ZeroValue();
-//        }
-//
-//        // Check priority mech
-//        address priorityMech = mapServiceIdMech[priorityMechServiceId];
-//        if (priorityMech == address(0)) {
-//            revert ZeroAddress();
-//        }
-//
-//        // Check requester
-//        checkRequester(msg.sender, requesterServiceId);
-//
-//        // Calculate request Id
-//        requestId = getRequestId(msg.sender, requestData, mapNonces[msg.sender]);
-//
-//        // Update requester nonce
-//        mapNonces[msg.sender]++;
-//
-//        // Get mech delivery info struct
-//        MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
-//
-//        // Record priorityMech and response timeout
-//        mechDelivery.priorityMech = priorityMech;
-//        // responseTimeout from relative time to absolute time
-//        mechDelivery.responseTimeout = responseTimeout + block.timestamp;
-//        // Record request account
-//        mechDelivery.requester = msg.sender;
-//        // Record deliveryRate for request as priority mech max delivery rate
-//        mechDelivery.deliveryRate = IMech(priorityMech).maxDeliveryRate();
-//
-//        // Get balance tracker address
-//        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
-//        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
-//
-//        // Check and record mech delivery rate
-//        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRate{value: msg.value}(msg.sender,
-//            mechDelivery.deliveryRate, paymentData);
-//
-//        // Increase mech requester karma
-//        IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, 1);
-//
-//        // Record the request count
-//        mapRequestCounts[msg.sender]++;
-//        // Increase the number of undelivered requests
-//        numUndeliveredRequests++;
-//        // Increase the total number of requests
-//        numTotalRequests++;
-//
-//        // Process request by a specified priority mech
-//        IMech(priorityMech).requestFromMarketplace(msg.sender, requestIds, requestDatas);
-//
-//        emit MarketplaceRequest(msg.sender, priorityMech, requestIds, requestDatas);
-//    }
-
-    /// @dev Registers a request.
+    /// @dev Registers batch of requests.
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
     /// @param priorityMechServiceId Priority mech service Id.
     /// @param requesterServiceId Requester service Id, or zero if EOA.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
-    /// @return requestId Request Id.
-    function requestBatch(
+    /// @return requestIds Set of request Ids.
+    function _requestBatch(
         bytes[] memory requestDatas,
         uint256 priorityMechServiceId,
         uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
-    ) external payable returns (uint256 requestId) {
+    ) internal returns (uint256[] memory requestIds) {
         // Reentrancy guard
         if (locked) {
             revert ReentrancyGuard();
@@ -483,7 +398,7 @@ contract MechMarketplace is IErrorsMarketplace {
         checkRequester(msg.sender, requesterServiceId);
 
         // Allocate set of requestIds
-        uint256[] memory requestIds = new uint256[](numRequests);
+        requestIds = new uint256[](numRequests);
 
         // Get deliveryRate as priority mech max delivery rate
         uint256 deliveryRate = IMech(priorityMech).maxDeliveryRate();
@@ -502,7 +417,7 @@ contract MechMarketplace is IErrorsMarketplace {
             requestIds[i] = getRequestId(msg.sender, requestDatas[i], nonce);
 
             // Get mech delivery info struct
-            MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestId];
+            MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIds[i]];
 
             // Check for request Id record
             if (mechDelivery.priorityMech != address(0)) {
@@ -516,7 +431,7 @@ contract MechMarketplace is IErrorsMarketplace {
             // Record request account
             mechDelivery.requester = msg.sender;
             // Record deliveryRate for request as priority mech max delivery rate
-            mechDelivery.deliveryRate = IMech(priorityMech).maxDeliveryRate();
+            mechDelivery.deliveryRate = deliveryRate;
 
             nonce++;
         }
@@ -525,15 +440,11 @@ contract MechMarketplace is IErrorsMarketplace {
         mapNonces[msg.sender] = nonce;
 
         // Get balance tracker address
-        bytes32 mechPaymentType = IMech(priorityMech).paymentType();
-        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
-
-        // Total requester delivery rate is number of requests coming to a selected priority mech
-        uint256 totalDeliveryRate = deliveryRate * numRequests;
+        address balanceTracker = mapPaymentTypeBalanceTrackers[IMech(priorityMech).paymentType()];
 
         // Check and record mech delivery rate
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRates{value: msg.value}(msg.sender, totalDeliveryRate,
-            paymentData);
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRates{value: msg.value}(msg.sender, numRequests,
+            deliveryRate, paymentData);
 
         // Increase mech requester karma
         IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, int256(numRequests));
@@ -549,6 +460,61 @@ contract MechMarketplace is IErrorsMarketplace {
         IMech(priorityMech).requestFromMarketplace(msg.sender, requestIds, requestDatas);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestIds, requestDatas);
+    }
+
+    /// @dev Registers a request.
+    /// @notice The request is going to be registered for a specified priority mech.
+    /// @param requestData Self-descriptive opaque request data-blob.
+    /// @param priorityMechServiceId Priority mech service Id.
+    /// @param requesterServiceId Requester service Id, or zero if EOA.
+    /// @param responseTimeout Relative response time in sec.
+    /// @param paymentData Additional payment-related request data (optional).
+    /// @return requestId Request Id.
+    function request(
+        bytes memory requestData,
+        uint256 priorityMechServiceId,
+        uint256 requesterServiceId,
+        uint256 responseTimeout,
+        bytes memory paymentData
+    ) external payable returns (uint256 requestId) {
+        // Reentrancy guard
+        if (locked) {
+            revert ReentrancyGuard();
+        }
+        locked = true;
+
+        // Allocate arrays
+        bytes[] memory requestDatas = new bytes[](1);
+        uint256[] memory requestIds = new uint256[](1);
+
+        requestDatas[0] = requestData;
+        requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
+
+        requestId = requestIds[0];
+    }
+
+    /// @dev Registers batch of requests.
+    /// @notice The request is going to be registered for a specified priority mech.
+    /// @param requestDatas Set of self-descriptive opaque request data-blobs.
+    /// @param priorityMechServiceId Priority mech service Id.
+    /// @param requesterServiceId Requester service Id, or zero if EOA.
+    /// @param responseTimeout Relative response time in sec.
+    /// @param paymentData Additional payment-related request data (optional).
+    /// @return requestIds Set of request Ids.
+    function requestBatch(
+        bytes[] memory requestDatas,
+        uint256 priorityMechServiceId,
+        uint256 requesterServiceId,
+        uint256 responseTimeout,
+        bytes memory paymentData
+    ) external payable returns (uint256[] memory requestIds) {
+        // Reentrancy guard
+        if (locked) {
+            revert ReentrancyGuard();
+        }
+        locked = true;
+
+        requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
     }
 
     /// @dev Delivers requests.
@@ -567,7 +533,11 @@ contract MechMarketplace is IErrorsMarketplace {
         }
         locked = true;
 
-        // TODO Array checks
+        // Check array lengths
+        if (requestIds.length == 0 || requestIds.length != mechDeliveryRates.length ||
+            requestIds.length != deliveryDatas.length) {
+            revert WrongArrayLength3(requestIds.length, mechDeliveryRates.length, deliveryDatas.length);
+        }
 
         // Check delivery mech and get its service multisig
         address mechServiceMultisig = checkMech(msg.sender);
@@ -581,6 +551,7 @@ contract MechMarketplace is IErrorsMarketplace {
             MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIds[i]];
             address priorityMech = mechDelivery.priorityMech;
 
+            // TODO continue instead of revert?
             // Check for request existence
             if (priorityMech == address(0)) {
                 revert ZeroAddress();
@@ -591,6 +562,7 @@ contract MechMarketplace is IErrorsMarketplace {
                 continue;
             }
 
+            // TODO continue instead of revert?
             // Check for actual mech delivery rate
             requesterDeliveryRates[i] = mechDelivery.deliveryRate;
             if (mechDeliveryRates[i] > requesterDeliveryRates[i]) {
@@ -605,6 +577,7 @@ contract MechMarketplace is IErrorsMarketplace {
                     // Needs to stay atomic as each different priorityMech can be any address
                     IKarma(karma).changeMechKarma(priorityMech, -1);
                 } else {
+                    // TODO continue instead of revert?
                     // Priority mech responseTimeout is still >= block.timestamp
                     revert PriorityMechResponseTimeout(mechDelivery.responseTimeout, block.timestamp);
                 }
@@ -714,7 +687,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes[] memory deliveryDatas,
         uint256[] memory deliveryRates,
         bytes memory paymentData
-    ) external payable {
+    ) external {
         // Reentrancy guard
         if (locked) {
             revert ReentrancyGuard();

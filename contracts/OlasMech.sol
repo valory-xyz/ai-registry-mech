@@ -114,10 +114,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             uint256[2] storage newRequestIdLinks = mapRequestIds[requestId];
 
             // Previous element will be zero, next element will be the current next element
-            uint256 curNextRequestIdLink = newRequestIdLinks[1];
+            uint256 curNextRequestIdLink = requestIdLinks[1];
             newRequestIdLinks[1] = curNextRequestIdLink;
             // Next element of the zero element will be the newly created element
-            requestIds[1] = requestId;
+            requestIdLinks[1] = requestId;
             // Previous element of the current next element will be the newly created element
             mapRequestIds[curNextRequestIdLink][0] = requestId;
 

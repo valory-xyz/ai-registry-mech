@@ -5,9 +5,10 @@ pragma solidity ^0.8.28;
 interface IBalanceTracker {
     /// @dev Checks and records delivery rate.
     /// @param requester Requester address.
-    /// @param totalDeliveryRate Total request delivery rate.
+    /// @param numRequests Number of requests.
+    /// @param deliveryRate Single request delivery rate.
     /// @param paymentData Additional payment-related request data, if applicable.
-    function checkAndRecordDeliveryRates(address requester, uint256 totalDeliveryRate,
+    function checkAndRecordDeliveryRates(address requester, uint256 numRequests, uint256 deliveryRate,
         bytes memory paymentData) external payable;
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
@@ -20,7 +21,6 @@ interface IBalanceTracker {
         uint256[] memory mechDeliveryRates, uint256[] memory requesterDeliveryRates) external;
 
     /// @dev Adjusts mech and requester balances for direct batch request processing.
-    /// @notice This function can be called by the Mech Marketplace only.
     /// @param mech Mech address.
     /// @param requester Requester address.
     /// @param mechDeliveryRates Set of actual charged delivery rates for each request.

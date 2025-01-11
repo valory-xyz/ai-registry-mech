@@ -21,6 +21,12 @@ interface IErrorsMarketplace {
     /// @param numValues2 Number of values in a second array.
     error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
+    /// @dev Wrong length of three arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    /// @param numValues3 Number of values in a third array.
+    error WrongArrayLength3(uint256 numValues1, uint256 numValues2, uint256 numValues3);
+
     /// @dev Wrong length of four arrays.
     /// @param numValues1 Number of values in a first array.
     /// @param numValues2 Number of values in a second array.

@@ -173,13 +173,15 @@ abstract contract BalanceTrackerBase {
 
     /// @dev Checks and records delivery rate.
     /// @param requester Requester address.
-    /// @param totalDeliveryRate Total request delivery rate.
+    /// @param numRequests Number of requests.
+    /// @param deliveryRate Single request delivery rate.
     /// @param paymentData Additional payment-related request data, if applicable.
     function checkAndRecordDeliveryRates(
         address requester,
-        uint256 totalDeliveryRate,
+        uint256 numRequests,
+        uint256 deliveryRate,
         bytes memory paymentData
-    ) external payable {
+    ) external virtual payable {
         // Reentrancy guard
         if (locked) {
             revert ReentrancyGuard();
@@ -196,6 +198,9 @@ abstract contract BalanceTrackerBase {
 
         // Get account balance
         uint256 balance = mapRequesterBalances[requester] + initAmount;
+
+        // Total requester delivery rate is number of requests coming to a selected mech
+        uint256 totalDeliveryRate = deliveryRate * numRequests;
 
         // Adjust account balance
         balance = _adjustInitialBalance(requester, balance, totalDeliveryRate, paymentData);
@@ -216,7 +221,7 @@ abstract contract BalanceTrackerBase {
         bool[] memory deliveredRequests,
         uint256[] memory mechDeliveryRates,
         uint256[] memory requesterDeliveryRates
-    ) external {
+    ) external virtual {
         // Reentrancy guard
         if (locked) {
             revert ReentrancyGuard();
@@ -273,13 +278,12 @@ abstract contract BalanceTrackerBase {
     /// @param mech Mech address.
     /// @param requester Requester address.
     /// @param mechDeliveryRates Set of actual charged delivery rates for each request.
-    /// @param paymentData Additional payment-related request data, if applicable.
     function adjustMechRequesterBalances(
         address mech,
         address requester,
         uint256[] memory mechDeliveryRates,
-        bytes memory paymentData
-    ) external {
+        bytes memory
+    ) external virtual {
         // Reentrancy guard
         if (locked) {
             revert ReentrancyGuard();
