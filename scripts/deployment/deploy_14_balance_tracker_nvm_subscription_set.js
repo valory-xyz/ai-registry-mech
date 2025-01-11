@@ -54,8 +54,8 @@ async function main() {
         subscriptionTokenId, { gasPrice });
 
     // Transaction details
-    console.log("Contract deployment: MechMarketplaceProxy");
-    console.log("Contract address:", mechMarketplace.address);
+    console.log("Contract deployment: BalanceTrackerNvmSubscription");
+    console.log("Contract address:", balanceTrackerNvmSubscription.address);
     console.log("Transaction:", result.hash);
 }
 
