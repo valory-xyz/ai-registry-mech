@@ -148,12 +148,12 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestIds Set of request Ids.
     /// @param datas Corresponding set of self-descriptive opaque delivery data-blobs.
+    /// @return deliveryDatas Corresponding set of processed delivery datas.
     function _prepareDeliveries(
         uint256[] memory requestIds,
         bytes[] memory datas
-    ) internal virtual returns (uint256[] memory deliveryRates, bytes[] memory deliveryDatas) {
+    ) internal virtual returns (bytes[] memory deliveryDatas) {
         uint256 numRequests = requestIds.length;
-        deliveryRates = new uint256[](numRequests);
         deliveryDatas = new bytes[](numRequests);
 
         // Traverse requests
@@ -171,9 +171,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
             // Perform a pre-delivery of the data if it needs additional parsing
             deliveryDatas[i] = _preDeliver(requestId, datas[i]);
-
-            // Get finalized delivery rate
-            deliveryRates[i] = getFinalizedDeliveryRate(requestId);
         }
     }
 
@@ -235,7 +232,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         // TODO Check array sizes
 
         // Preliminary delivery processing
-        (uint256[] memory deliveryRates, bytes[] memory deliveryDatas) = _prepareDeliveries(requestIds, datas);
+        bytes[] memory deliveryDatas = _prepareDeliveries(requestIds, datas);
+
+        // Get finalized delivery rates
+        uint256[] memory deliveryRates = getFinalizedDeliveryRates(requestIds);
 
         // Mech marketplace delivery finalization
         // Some of deliveries might be front-run by other mechs, and thus only actually delivered ones are recorded
@@ -352,8 +352,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         }
     }
 
-    /// @dev Gets finalized delivery rate for a request Id.
-    /// @param requestId Request Id.
-    /// @return Finalized delivery rate.
-    function getFinalizedDeliveryRate(uint256 requestId) public virtual returns (uint256);
+    /// @dev Gets finalized delivery rates for request Ids.
+    /// @param requestIds Set of request Ids.
+    /// @return deliveryRates Set of corresponding finalized delivery rates.
+    function getFinalizedDeliveryRates(uint256[] memory requestIds) public view virtual returns (uint256[] memory deliveryRates);
 }

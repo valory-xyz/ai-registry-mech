@@ -52,7 +52,7 @@ contract MockMech {
         return address(this);
     }
 
-    function getFinalizedDeliveryRate(uint256) external pure returns (uint256) {
+    function getFinalizedDeliveryRates(uint256) external pure returns (uint256) {
         return 1;
     }
 }

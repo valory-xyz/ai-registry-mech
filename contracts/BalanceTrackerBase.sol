@@ -54,7 +54,9 @@ abstract contract BalanceTrackerBase {
     // Collected fees
     uint256 public collectedFees;
     // Reentrancy lock
-    bool transient locked;
+    bool internal locked;
+// TODO
+//bool transient locked;
 
     // Map of requester => current balance
     mapping(address => uint256) public mapRequesterBalances;
@@ -173,11 +175,11 @@ abstract contract BalanceTrackerBase {
     /// @param requester Requester address.
     /// @param totalDeliveryRate Total request delivery rate.
     /// @param paymentData Additional payment-related request data, if applicable.
-    function checkAndRecordDeliveryRate(
+    function checkAndRecordDeliveryRates(
         address requester,
         uint256 totalDeliveryRate,
         bytes memory paymentData
-    ) public payable {
+    ) external payable {
         // Reentrancy guard
         if (locked) {
             revert ReentrancyGuard();
@@ -204,14 +206,16 @@ abstract contract BalanceTrackerBase {
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
     /// @param mech Delivery mech address.
-    /// @param requester Requester address.
-    /// @param requestIds Set of Request Ids.
-    /// @param totalDeliveryRate Total requested delivery rate.
-    function finalizeDeliveryRate(
+    /// @param requesters Requester addresses.
+    /// @param deliveredRequests Set of mech request Id statuses: delivered / undelivered.
+    /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param requesterDeliveryRates Corresponding set of requester agreed delivery rates for each request.
+    function finalizeDeliveryRates(
         address mech,
-        address requester,
-        uint256[] memory requestIds,
-        uint256 totalDeliveryRate
+        address[] memory requesters,
+        bool[] memory deliveredRequests,
+        uint256[] memory mechDeliveryRates,
+        uint256[] memory requesterDeliveryRates
     ) external {
         // Reentrancy guard
         if (locked) {
@@ -224,47 +228,56 @@ abstract contract BalanceTrackerBase {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
-        // Get actual delivery rate
-        uint256 actualDeliveryRate = IMech(mech).getFinalizedDeliveryRate(requestIds);
+        uint256 numRequests = deliveredRequests.length;
+        uint256 balance;
 
-        // Check for zero value
-        if (actualDeliveryRate == 0) {
-            revert ZeroValue();
+        // Get total mech and requester delivery rates
+        uint256 totalMechDeliveryRate;
+        uint256 totalRequesterDeliveryRate;
+        uint256 totalRateDiff;
+        for (uint256 i = 0; i < numRequests; ++i) {
+            // Check if request was delivered
+            if (deliveredRequests[i]) {
+                totalMechDeliveryRate += mechDeliveryRates[i];
+                totalRequesterDeliveryRate += requesterDeliveryRates[i];
+
+                // Check for delivery rate difference
+                uint256 rateDiff;
+                if (requesterDeliveryRates[i] > mechDeliveryRates[i]) {
+                    // Return back requester overpayment debit / credit
+                    rateDiff = requesterDeliveryRates[i] - mechDeliveryRates[i];
+                    totalRateDiff += rateDiff;
+
+                    // Adjust requester balance
+                    balance = _adjustFinalBalance(requesters[i], rateDiff);
+                    mapRequesterBalances[requesters[i]] = balance;
+                }
+            }
         }
 
-        // Check for delivery rate difference
-        uint256 rateDiff;
-        uint256 balance;
-        if (totalDeliveryRate > actualDeliveryRate) {
-            // Return back requester overpayment debit / credit
-            rateDiff = totalDeliveryRate - actualDeliveryRate;
-
-            // Adjust requester balance
-            balance = _adjustFinalBalance(requester, rateDiff);
-            mapRequesterBalances[requester] = balance;
-        } else {
-            // Limit the rate by the max chosen one as that is what the requester agreed on
-            actualDeliveryRate = totalDeliveryRate;
+        // Check for zero value
+        if (totalMechDeliveryRate == 0) {
+            revert ZeroValue();
         }
 
         // Record payment into mech balance
         balance = mapMechBalances[mech];
-        balance += actualDeliveryRate;
+        balance += totalMechDeliveryRate;
         mapMechBalances[mech] = balance;
 
-        emit MechBalanceAdjusted(mech, actualDeliveryRate, balance, rateDiff);
+        emit MechBalanceAdjusted(mech, totalMechDeliveryRate, balance, totalRateDiff);
     }
 
     /// @dev Adjusts mech and requester balances for direct batch request processing.
     /// @notice This function can be called by the Mech Marketplace only.
     /// @param mech Mech address.
     /// @param requester Requester address.
-    /// @param totalDeliveryRate Total batch delivery rate.
+    /// @param mechDeliveryRates Set of actual charged delivery rates for each request.
     /// @param paymentData Additional payment-related request data, if applicable.
     function adjustMechRequesterBalances(
         address mech,
         address requester,
-        uint256 totalDeliveryRate,
+        uint256[] memory mechDeliveryRates,
         bytes memory paymentData
     ) external {
         // Reentrancy guard
@@ -273,23 +286,29 @@ abstract contract BalanceTrackerBase {
         }
         locked = true;
 
+        // Get total mech delivery rate
+        uint256 totalMechDeliveryRate;
+        for (uint256 i = 0; i < mechDeliveryRates.length; ++i) {
+            totalMechDeliveryRate += mechDeliveryRates[i];
+        }
+
         // Get requester balance
         uint256 requesterBalance = mapRequesterBalances[requester];
         // Check requester balance
-        if (requesterBalance < totalDeliveryRate) {
-            revert InsufficientBalance(requesterBalance, totalDeliveryRate);
+        if (requesterBalance < totalMechDeliveryRate) {
+            revert InsufficientBalance(requesterBalance, totalMechDeliveryRate);
         }
         // Adjust requester balance
-        requesterBalance -= totalDeliveryRate;
+        requesterBalance -= totalMechDeliveryRate;
         mapRequesterBalances[requester] = requesterBalance;
 
         // Record payment into mech balance
         uint256 mechBalance = mapMechBalances[mech];
-        mechBalance += totalDeliveryRate;
+        mechBalance += totalMechDeliveryRate;
         mapMechBalances[mech] = mechBalance;
 
-        emit RequesterBalanceAdjusted(requester, totalDeliveryRate, requesterBalance);
-        emit MechBalanceAdjusted(mech, totalDeliveryRate, mechBalance, 0);
+        emit RequesterBalanceAdjusted(requester, totalMechDeliveryRate, requesterBalance);
+        emit MechBalanceAdjusted(mech, totalMechDeliveryRate, mechBalance, 0);
     }
 
     /// @dev Drains collected fees by sending them to a Buy back burner contract.

@@ -21,11 +21,6 @@ interface IMech {
     /// @return Mech payment type hash.
     function paymentType() external returns (bytes32);
 
-    /// @dev Gets finalized delivery rate for a request Id.
-    /// @param requestId Request Id.
-    /// @return Finalized delivery rate.
-    function getFinalizedDeliveryRate(uint256 requestId) external returns (uint256);
-
     /// @dev Gets mech token Id (service Id).
     /// @return serviceId Service Id.
     function tokenId() external view returns (uint256);
