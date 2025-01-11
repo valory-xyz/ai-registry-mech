@@ -549,7 +549,7 @@ contract MechMarketplace is IErrorsMarketplace {
             MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIds[i]];
             address priorityMech = mechDelivery.priorityMech;
 
-            // TODO continue instead of revert?
+            // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
             // Check for request existence
             if (priorityMech == address(0)) {
                 revert ZeroAddress();
@@ -560,7 +560,7 @@ contract MechMarketplace is IErrorsMarketplace {
                 continue;
             }
 
-            // TODO continue instead of revert?
+            // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
             // Check for actual mech delivery rate
             requesterDeliveryRates[i] = mechDelivery.deliveryRate;
             if (mechDeliveryRates[i] > requesterDeliveryRates[i]) {
@@ -575,7 +575,7 @@ contract MechMarketplace is IErrorsMarketplace {
                     // Needs to stay atomic as each different priorityMech can be any address
                     IKarma(karma).changeMechKarma(priorityMech, -1);
                 } else {
-                    // TODO continue instead of revert?
+                    // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
                     // Priority mech responseTimeout is still >= block.timestamp
                     revert PriorityMechResponseTimeout(mechDelivery.responseTimeout, block.timestamp);
                 }

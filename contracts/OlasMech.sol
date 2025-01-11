@@ -229,7 +229,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         }
         locked = true;
 
-        // TODO Check array sizes
+        // Check array sizes
+        if (requestIds.length == 0 || requestIds.length != datas.length) {
+            revert WrongArrayLength(requestIds.length, datas.length);
+        }
 
         // Preliminary delivery processing
         bytes[] memory deliveryDatas = _prepareDeliveries(requestIds, datas);
