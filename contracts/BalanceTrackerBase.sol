@@ -54,9 +54,7 @@ abstract contract BalanceTrackerBase {
     // Collected fees
     uint256 public collectedFees;
     // Reentrancy lock
-    bool internal locked;
-// TODO
-//bool transient locked;
+    bool transient locked;
 
     // Map of requester => current balance
     mapping(address => uint256) public mapRequesterBalances;

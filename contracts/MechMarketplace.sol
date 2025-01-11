@@ -102,9 +102,7 @@ contract MechMarketplace is IErrorsMarketplace {
     // Number of mechs
     uint256 public numMechs;
     // Reentrancy lock
-    bool private locked;
-// TODO
-//bool transient locked;
+    bool transient locked;
 
     // Contract owner
     address public owner;
