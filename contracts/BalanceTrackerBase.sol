@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {IMech} from "./interfaces/IMech.sol";
+interface IMech {
+    /// @dev Checks the mech operator (service multisig).
+    /// @param multisig Service multisig being checked against.
+    /// @return True, if mech service multisig matches the provided one.
+    function isOperator(address multisig) external view returns (bool);
+}
 
 interface IMechMarketplace {
+    /// @dev Gets Mech Marketplace fee.
+    /// @return Mech Marketplace fee.
     function fee() external view returns(uint256);
 }
 
