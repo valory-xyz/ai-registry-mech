@@ -462,7 +462,7 @@ contract MechMarketplace is IErrorsMarketplace {
         numTotalRequests += numRequests;
 
         // Process request by a specified priority mech
-        IMech(priorityMech).requestFromMarketplace(msg.sender, requestIds, requestDatas);
+        IMech(priorityMech).requestFromMarketplace(requestIds, requestDatas);
 
         emit MarketplaceRequest(msg.sender, priorityMech, requestIds, requestDatas);
     }

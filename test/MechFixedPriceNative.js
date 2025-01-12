@@ -139,10 +139,10 @@ describe("MechFixedPriceNative", function () {
     });
 
     context("Request", async function () {
-        it("Creating an agent mech and doing a request", async function () {
+        it.only("Creating an agent mech and performing a request", async function () {
             // Try to post a request directly to the mech
             await expect(
-                priorityMech.requestFromMarketplace(deployer.address, data, 0)
+                priorityMech.requestFromMarketplace([data], [0])
             ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
 
             // Response time is out of bounds

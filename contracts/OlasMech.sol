@@ -21,7 +21,7 @@ interface IMechMarketplace {
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
     event Deliver(address indexed sender, uint256 requestId, bytes data);
-    event Request(address indexed sender, uint256 requestId, bytes data);
+    event Request(uint256 requestId, bytes data);
     event RevokeRequest(uint256 requestId);
     event NumRequestsIncrease(uint256 numRequests);
 
@@ -103,11 +103,9 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     function _preDeliver(uint256 requestId, bytes memory data) internal virtual returns (bytes memory requestData);
 
     /// @dev Registers a request.
-    /// @param requester Requester address.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
     function _request(
-        address requester,
         uint256[] memory requestIds,
         bytes[] memory datas
     ) internal virtual {
@@ -131,7 +129,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             // Previous element of the current next element will be the newly created element
             mapRequestIds[curNextRequestIdLink][0] = requestId;
 
-            emit Request(requester, requestId, datas[i]);
+            emit Request(requestId, datas[i]);
         }
 
         // Increase the number of undelivered requests
@@ -198,17 +196,16 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
     /// @dev Registers marketplace requests.
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
-    /// @param requester Requester address.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
-    function requestFromMarketplace(address requester, uint256[] memory requestIds, bytes[] memory datas) external {
+    function requestFromMarketplace(uint256[] memory requestIds, bytes[] memory datas) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
         // Perform requests
-        _request(requester, requestIds, datas);
+        _request(requestIds, datas);
     }
 
     /// @dev Updates number of requests delivered directly via Marketplace.

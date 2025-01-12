@@ -4,10 +4,9 @@ pragma solidity ^0.8.28;
 /// @dev Mech interface
 interface IMech {
     /// @dev Registers marketplace requests.
-    /// @param requester Requester address.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
-    function requestFromMarketplace(address requester, uint256[] memory requestIds, bytes[] memory datas) external;
+    function requestFromMarketplace(uint256[] memory requestIds, bytes[] memory datas) external;
 
     /// @dev Updates number of requests delivered directly via Marketplace.
     /// @param numRequests Number of requests.
