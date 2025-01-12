@@ -212,6 +212,8 @@ abstract contract BalanceTrackerBase {
         mapRequesterBalances[requester] = balance;
 
         emit RequesterBalanceAdjusted(requester, totalDeliveryRate, balance);
+
+        locked = false;
     }
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
@@ -276,6 +278,8 @@ abstract contract BalanceTrackerBase {
         mapMechBalances[mech] = balance;
 
         emit MechBalanceAdjusted(mech, totalMechDeliveryRate, balance, totalRateDiff);
+
+        locked = false;
     }
 
     /// @dev Adjusts mech and requester balances for direct batch request processing.
@@ -318,6 +322,8 @@ abstract contract BalanceTrackerBase {
 
         emit RequesterBalanceAdjusted(requester, totalMechDeliveryRate, requesterBalance);
         emit MechBalanceAdjusted(mech, totalMechDeliveryRate, mechBalance, 0);
+
+        locked = false;
     }
 
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
@@ -339,6 +345,8 @@ abstract contract BalanceTrackerBase {
 
         // Drain
         _drain(localCollectedFees);
+
+        locked = false;
     }
 
     /// @dev Processes mech payment by mech service multisig.
@@ -371,5 +379,7 @@ abstract contract BalanceTrackerBase {
         locked = true;
 
         (mechPayment, marketplaceFee) = _processPayment(msg.sender);
+
+        locked = false;
     }
 }

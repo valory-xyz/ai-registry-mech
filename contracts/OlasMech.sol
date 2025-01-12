@@ -269,11 +269,15 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             }
         }
 
-        // Increase the total number of deliveries actually delivered by this mech
-        numTotalDeliveries += numDeliveries;
+        if (numDeliveries > 0) {
+            // Increase the total number of deliveries actually delivered by this mech
+            numTotalDeliveries += numDeliveries;
 
-        // Decrease the number of undelivered requests
-        numUndeliveredRequests -= numRequests;
+            // Decrease the number of undelivered requests
+            numUndeliveredRequests -= numRequests;
+        }
+
+        locked = false;
     }
 
     /// @dev Sets up a mech.

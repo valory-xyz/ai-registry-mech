@@ -139,7 +139,7 @@ describe("MechFixedPriceNative", function () {
     });
 
     context("Request", async function () {
-        it.only("Creating an agent mech and performing a request", async function () {
+        it("Creating an agent mech and performing a request", async function () {
             // Try to post a request directly to the mech
             await expect(
                 priorityMech.requestFromMarketplace([data], [0])
@@ -200,8 +200,6 @@ describe("MechFixedPriceNative", function () {
             // Get the requests count
             let requestsCount = await mechMarketplace.mapRequestCounts(deployer.address);
             expect(requestsCount).to.equal(1);
-            requestsCount = await priorityMech.mapUndeliveredRequestsCounts(deployer.address);
-            expect(requestsCount).to.equal(1);
             requestsCount = await mechMarketplace.numTotalRequests();
             expect(requestsCount).to.equal(1);
 
@@ -212,7 +210,7 @@ describe("MechFixedPriceNative", function () {
     });
 
     context("Deliver", async function () {
-        it("Delivering a request by a priority mech", async function () {
+        it("Delivering request by a priority mech", async function () {
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Get the non-existent request status
@@ -221,12 +219,12 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver a non existent request
             await expect(
-                priorityMech.deliverToMarketplace(requestId, data)
+                priorityMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(priorityMech, "RequestIdNotFound");
 
             // Try to check and record delivery rate not by marketplace
             await expect(
-                balanceTrackerFixedPriceNative.checkAndRecordDeliveryRate(deployer.address, 0, "0x")
+                balanceTrackerFixedPriceNative.checkAndRecordDeliveryRates(deployer.address, 0, 0, "0x")
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "MarketplaceOnly");
 
             // Create a request
@@ -234,12 +232,12 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver not by the service multisig (agent owner)
             await expect(
-                priorityMech.connect(signers[1]).deliverToMarketplace(requestId, data)
+                priorityMech.connect(signers[1]).deliverToMarketplace([requestId], [data])
             ).to.be.reverted;
 
             // Try to finalize delivery rate not by marketplace
             await expect(
-                balanceTrackerFixedPriceNative.finalizeDeliveryRate(priorityMech.address, deployer.address, 0, 0)
+                balanceTrackerFixedPriceNative.finalizeDeliveryRates(priorityMech.address, [deployer.address], [0], [0], [0])
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "MarketplaceOnly");
 
             // Get the request status (requested priority)
@@ -248,18 +246,18 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver request not by the mech
             await expect(
-                mechMarketplace.deliverMarketplace(requestId, data)
+                mechMarketplace.deliverMarketplace([requestId], [0], [data])
             ).to.be.reverted;
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
 
             // Try to deliver the same request again
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check mech karma
             let mechKarma = await karma.mapMechKarma(priorityMech.address);
@@ -292,14 +290,14 @@ describe("MechFixedPriceNative", function () {
             expect(status).to.equal(1);
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
 
             // Try to deliver the same request again
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check mech karma
             let mechKarma = await karma.mapMechKarma(priorityMech.address);
@@ -340,11 +338,6 @@ describe("MechFixedPriceNative", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(maxDeliveryRate - 1);
-
-            // Withdraw requester balances
-            await balanceTrackerFixedPriceNative.withdraw();
-            requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
-            expect(requesterBalance).to.equal(0);
         });
 
         it("Delivering a request by a priority mech with pre-paid logic with sufficient balance", async function () {
@@ -359,16 +352,11 @@ describe("MechFixedPriceNative", function () {
 
             // Try to withdraw mech zero balances
             await expect(
-                balanceTrackerFixedPriceNative.withdraw()
-            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
-
-            // Try to withdraw zero balances
-            await expect(
                 balanceTrackerFixedPriceNative.processPaymentByMultisig(priorityMech.address)
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check priority mech balance now
             let mechBalance = await balanceTrackerFixedPriceNative.mapMechBalances(priorityMech.address);
@@ -391,14 +379,9 @@ describe("MechFixedPriceNative", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(0);
-
-            // Try to withdraw zero balances
-            await expect(
-                balanceTrackerFixedPriceNative.withdraw()
-            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
         });
 
-        it("Delivering a request by a different mech", async function () {
+        it.only("Delivering request by a different mech", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -406,10 +389,10 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver a non-existent request
             await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
+                deliveryMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "RequestIdNotFound");
             await expect(
-                mechMarketplace.deliverMarketplace(requestId, data)
+                mechMarketplace.deliverMarketplace([requestId], [0], [data])
             ).to.be.reverted;
 
             // Get the non-existent request status
@@ -421,7 +404,7 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver by a delivery mech right away
             await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
+                deliveryMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "PriorityMechResponseTimeout");
 
             // Get the request status (requested priority)
@@ -438,17 +421,17 @@ describe("MechFixedPriceNative", function () {
             // Try to deliver by a mech with bigger max Delivery rate
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate + 1);
             await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
+                deliveryMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "Overflow");
 
             // Change max delivery rate back
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate);
 
             // Deliver a request by the delivery mech
-            await deliveryMech.deliverToMarketplace(requestId, data);
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Try to deliver the same request again (gets empty data)
-            await deliveryMech.deliverToMarketplace(requestId, data);
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);

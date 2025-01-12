@@ -366,12 +366,6 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 responseTimeout,
         bytes memory paymentData
     ) internal returns (uint256[] memory requestIds) {
-        // Reentrancy guard
-        if (locked) {
-            revert ReentrancyGuard();
-        }
-        locked = true;
-
         // Response timeout limits
         if (responseTimeout + block.timestamp > type(uint32).max) {
             revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
@@ -496,6 +490,8 @@ contract MechMarketplace is IErrorsMarketplace {
         requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
 
         requestId = requestIds[0];
+
+        locked = false;
     }
 
     /// @dev Registers batch of requests.
@@ -520,16 +516,18 @@ contract MechMarketplace is IErrorsMarketplace {
         locked = true;
 
         requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
+
+        locked = false;
     }
 
     /// @dev Delivers requests.
     /// @notice This function can only be called by the mech delivering the request.
     /// @param requestIds Set of request ids.
-    /// @param requestInfoRates Corresponding set of actual charged delivery rates for each request.
+    /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
     /// @param deliveryDatas Set of corresponding self-descriptive opaque delivery data-blobs.
     function deliverMarketplace(
         uint256[] memory requestIds,
-        uint256[] memory requestInfoRates,
+        uint256[] memory deliveryRates,
         bytes[] memory deliveryDatas
     ) external returns (bool[] memory deliveredRequests) {
         // Reentrancy guard
@@ -539,9 +537,9 @@ contract MechMarketplace is IErrorsMarketplace {
         locked = true;
 
         // Check array lengths
-        if (requestIds.length == 0 || requestIds.length != requestInfoRates.length ||
+        if (requestIds.length == 0 || requestIds.length != deliveryRates.length ||
             requestIds.length != deliveryDatas.length) {
-            revert WrongArrayLength3(requestIds.length, requestInfoRates.length, deliveryDatas.length);
+            revert WrongArrayLength3(requestIds.length, deliveryRates.length, deliveryDatas.length);
         }
 
         // Check delivery mech and get its service multisig
@@ -549,6 +547,8 @@ contract MechMarketplace is IErrorsMarketplace {
 
         uint256 numDeliveries;
         uint256 numRequests = requestIds.length;
+        // Allocate delivered requests array
+        deliveredRequests = new bool[](numRequests);
         // Allocate requester related arrays
         address[] memory requesters = new address[](numRequests);
         uint256[] memory requesterDeliveryRates = new uint256[](numRequests);
@@ -583,8 +583,8 @@ contract MechMarketplace is IErrorsMarketplace {
             // TODO Additional thought: The price between posting requests and delivering could have changed, thus just continue such that mech cleans those request info on their side
             // Check for actual mech delivery rate
             requesterDeliveryRates[i] = requestInfo.deliveryRate;
-            if (requestInfoRates[i] > requesterDeliveryRates[i]) {
-                revert Overflow(requestInfoRates[i], requestInfo.deliveryRate);
+            if (deliveryRates[i] > requesterDeliveryRates[i]) {
+                revert Overflow(deliveryRates[i], requestInfo.deliveryRate);
             }
 
             // If delivery mech is different from the priority one
@@ -616,24 +616,28 @@ contract MechMarketplace is IErrorsMarketplace {
             numDeliveries++;
         }
 
-        // Decrease the number of undelivered requests
-        numUndeliveredRequests -= numDeliveries;
-        // Increase the amount of mech delivery counts
-        mapMechDeliveryCounts[msg.sender] += numDeliveries;
-        // Increase the amount of mech service multisig delivered requests
-        mapMechServiceDeliveryCounts[mechServiceMultisig] += numDeliveries;
+        if (numDeliveries > 0) {
+            // Decrease the number of undelivered requests
+            numUndeliveredRequests -= numDeliveries;
+            // Increase the amount of mech delivery counts
+            mapMechDeliveryCounts[msg.sender] += numDeliveries;
+            // Increase the amount of mech service multisig delivered requests
+            mapMechServiceDeliveryCounts[mechServiceMultisig] += numDeliveries;
 
-        // Increase mech karma that delivers the request
-        IKarma(karma).changeMechKarma(msg.sender, int256(numDeliveries));
+            // Increase mech karma that delivers the request
+            IKarma(karma).changeMechKarma(msg.sender, int256(numDeliveries));
 
-        // Get balance tracker address
-        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
+            // Get balance tracker address
+            address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
 
-        // Process payment
-        IBalanceTracker(balanceTracker).finalizeDeliveryRates(msg.sender, requesters, deliveredRequests,
-            requestInfoRates, requesterDeliveryRates);
+            // Process payment
+            IBalanceTracker(balanceTracker).finalizeDeliveryRates(msg.sender, requesters, deliveredRequests,
+                deliveryRates, requesterDeliveryRates);
 
-        emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas);
+            emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas);
+        }
+
+        locked = false;
     }
 
     /// @dev Verifies provided request hash against its signature.
@@ -784,6 +788,8 @@ contract MechMarketplace is IErrorsMarketplace {
         IMech(msg.sender).updateNumRequests(numRequests);
 
         emit MarketplaceDeliveryWithSignatures(msg.sender, requester, requestIds, deliveryDatas);
+
+        locked = false;
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
