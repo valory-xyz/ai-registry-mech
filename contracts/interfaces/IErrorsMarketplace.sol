@@ -83,6 +83,10 @@ interface IErrorsMarketplace {
     /// @param requestId Request Id.
     error AlreadyDelivered(uint256 requestId);
 
+    /// @dev Wrong payment type.
+    /// @param paymentType Payment type.
+    error WrongPaymentType(bytes32 paymentType);
+
     /// @dev Priority mech response timeout is not yet met.
     /// @param expected Expected timestamp.
     /// @param current Current timestamp.

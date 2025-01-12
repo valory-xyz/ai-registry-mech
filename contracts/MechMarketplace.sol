@@ -30,8 +30,8 @@ interface ISignatureValidator {
     function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4 magicValue);
 }
 
-// Mech delivery info struct
-struct MechDelivery {
+// Request info struct
+struct RequestInfo {
     // Priority mech address
     address priorityMech;
     // Delivery mech address
@@ -42,6 +42,8 @@ struct MechDelivery {
     uint256 responseTimeout;
     // Delivery rate
     uint256 deliveryRate;
+    // Payment type
+    bytes32 paymentType;
 }
 
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by mechs
@@ -115,8 +117,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(address => uint256) public mapMechDeliveryCounts;
     // Map of delivery counts for corresponding mech service multisig
     mapping(address => uint256) public mapMechServiceDeliveryCounts;
-    // Mapping of request Id => mech delivery information
-    mapping(uint256 => MechDelivery) public mapRequestIdDeliveries;
+    // Mapping of request Id => request information
+    mapping(uint256 => RequestInfo) public mapRequestIdInfos;
     // Mapping of whitelisted mech factories
     mapping(address => bool) public mapMechFactories;
     // Map of mech => its creating factory
@@ -401,6 +403,9 @@ contract MechMarketplace is IErrorsMarketplace {
         // Get deliveryRate as priority mech max delivery rate
         uint256 deliveryRate = IMech(priorityMech).maxDeliveryRate();
 
+        // Get priority mech payment type
+        bytes32 paymentType = IMech(priorityMech).paymentType();
+
         // Get nonce
         uint256 nonce = mapNonces[msg.sender];
 
@@ -414,22 +419,24 @@ contract MechMarketplace is IErrorsMarketplace {
             // Calculate request Id
             requestIds[i] = getRequestId(msg.sender, requestDatas[i], nonce);
 
-            // Get mech delivery info struct
-            MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIds[i]];
+            // Get request info struct
+            RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
 
             // Check for request Id record
-            if (mechDelivery.priorityMech != address(0)) {
+            if (requestInfo.priorityMech != address(0)) {
                 revert AlreadyRequested(requestIds[i]);
             }
 
             // Record priorityMech and response timeout
-            mechDelivery.priorityMech = priorityMech;
+            requestInfo.priorityMech = priorityMech;
             // responseTimeout from relative time to absolute time
-            mechDelivery.responseTimeout = responseTimeout + block.timestamp;
+            requestInfo.responseTimeout = responseTimeout + block.timestamp;
             // Record request account
-            mechDelivery.requester = msg.sender;
+            requestInfo.requester = msg.sender;
             // Record deliveryRate for request as priority mech max delivery rate
-            mechDelivery.deliveryRate = deliveryRate;
+            requestInfo.deliveryRate = deliveryRate;
+            // Record priority mech payment type
+            requestInfo.paymentType = paymentType;
 
             nonce++;
         }
@@ -438,7 +445,7 @@ contract MechMarketplace is IErrorsMarketplace {
         mapNonces[msg.sender] = nonce;
 
         // Get balance tracker address
-        address balanceTracker = mapPaymentTypeBalanceTrackers[IMech(priorityMech).paymentType()];
+        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
 
         // Check and record mech delivery rate
         IBalanceTracker(balanceTracker).checkAndRecordDeliveryRates{value: msg.value}(msg.sender, numRequests,
@@ -518,11 +525,11 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Delivers requests.
     /// @notice This function can only be called by the mech delivering the request.
     /// @param requestIds Set of request ids.
-    /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param requestInfoRates Corresponding set of actual charged delivery rates for each request.
     /// @param deliveryDatas Set of corresponding self-descriptive opaque delivery data-blobs.
     function deliverMarketplace(
         uint256[] memory requestIds,
-        uint256[] memory mechDeliveryRates,
+        uint256[] memory requestInfoRates,
         bytes[] memory deliveryDatas
     ) external returns (bool[] memory deliveredRequests) {
         // Reentrancy guard
@@ -532,9 +539,9 @@ contract MechMarketplace is IErrorsMarketplace {
         locked = true;
 
         // Check array lengths
-        if (requestIds.length == 0 || requestIds.length != mechDeliveryRates.length ||
+        if (requestIds.length == 0 || requestIds.length != requestInfoRates.length ||
             requestIds.length != deliveryDatas.length) {
-            revert WrongArrayLength3(requestIds.length, mechDeliveryRates.length, deliveryDatas.length);
+            revert WrongArrayLength3(requestIds.length, requestInfoRates.length, deliveryDatas.length);
         }
 
         // Check delivery mech and get its service multisig
@@ -546,11 +553,14 @@ contract MechMarketplace is IErrorsMarketplace {
         address[] memory requesters = new address[](numRequests);
         uint256[] memory requesterDeliveryRates = new uint256[](numRequests);
 
+        // Get delivery mech payment type
+        bytes32 paymentType = IMech(msg.sender).paymentType();
+
         // Traverse all requests being delivered
         for (uint256 i = 0; i < numRequests; ++i) {
-            // Get mech delivery info struct
-            MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIds[i]];
-            address priorityMech = mechDelivery.priorityMech;
+            // Get request info struct
+            RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
+            address priorityMech = requestInfo.priorityMech;
 
             // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
             // TODO Additional thought: leave revert as it would stop from mech trying to request arbitrary requests and not actually recorded ones
@@ -559,23 +569,28 @@ contract MechMarketplace is IErrorsMarketplace {
                 revert ZeroAddress();
             }
 
+            // Check payment type
+            if (requestInfo.paymentType != paymentType) {
+                revert WrongPaymentType(paymentType);
+            }
+
             // Check if request has been delivered
-            if (mechDelivery.deliveryMech != address(0)) {
+            if (requestInfo.deliveryMech != address(0)) {
                 continue;
             }
 
             // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
             // TODO Additional thought: The price between posting requests and delivering could have changed, thus just continue such that mech cleans those request info on their side
             // Check for actual mech delivery rate
-            requesterDeliveryRates[i] = mechDelivery.deliveryRate;
-            if (mechDeliveryRates[i] > requesterDeliveryRates[i]) {
-                revert Overflow(mechDeliveryRates[i], mechDelivery.deliveryRate);
+            requesterDeliveryRates[i] = requestInfo.deliveryRate;
+            if (requestInfoRates[i] > requesterDeliveryRates[i]) {
+                revert Overflow(requestInfoRates[i], requestInfo.deliveryRate);
             }
 
             // If delivery mech is different from the priority one
             if (priorityMech != msg.sender) {
                 // Within the defined response time only a chosen priority mech is able to deliver
-                if (block.timestamp > mechDelivery.responseTimeout) {
+                if (block.timestamp > requestInfo.responseTimeout) {
                     // Decrease priority mech karma as the mech did not deliver
                     // Needs to stay atomic as each different priorityMech can be any address
                     IKarma(karma).changeMechKarma(priorityMech, -1);
@@ -583,15 +598,15 @@ contract MechMarketplace is IErrorsMarketplace {
                     // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
                     // TODO Additional thought: revert as mech has just miscalculated time, does not mean it has to clear that request
                     // Priority mech responseTimeout is still >= block.timestamp
-                    revert PriorityMechResponseTimeout(mechDelivery.responseTimeout, block.timestamp);
+                    revert PriorityMechResponseTimeout(requestInfo.responseTimeout, block.timestamp);
                 }
             }
 
             // Record the actual delivery mech
-            mechDelivery.deliveryMech = msg.sender;
+            requestInfo.deliveryMech = msg.sender;
 
             // Record requester
-            requesters[i] = mechDelivery.requester;
+            requesters[i] = requestInfo.requester;
 
             // Increase the amount of requester delivered requests
             mapDeliveryCounts[requesters[i]]++;
@@ -612,12 +627,11 @@ contract MechMarketplace is IErrorsMarketplace {
         IKarma(karma).changeMechKarma(msg.sender, int256(numDeliveries));
 
         // Get balance tracker address
-        bytes32 mechPaymentType = IMech(msg.sender).paymentType();
-        address balanceTracker = mapPaymentTypeBalanceTrackers[mechPaymentType];
+        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
 
         // Process payment
         IBalanceTracker(balanceTracker).finalizeDeliveryRates(msg.sender, requesters, deliveredRequests,
-            mechDeliveryRates, requesterDeliveryRates);
+            requestInfoRates, requesterDeliveryRates);
 
         emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas);
     }
@@ -727,19 +741,19 @@ contract MechMarketplace is IErrorsMarketplace {
             // Verify the signed hash against the operator address
             _verifySignedHash(requester, bytes32(requestIds[i]), signatures[i]);
 
-            // Get mech delivery info struct
-            MechDelivery storage mechDelivery = mapRequestIdDeliveries[requestIds[i]];
+            // Get request info struct
+            RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
 
             // Check for request Id record
-            if (mechDelivery.priorityMech != address(0)) {
+            if (requestInfo.priorityMech != address(0)) {
                 revert AlreadyRequested(requestIds[i]);
             }
 
             // Record all the request info
-            mechDelivery.priorityMech = msg.sender;
-            mechDelivery.deliveryMech = msg.sender;
-            mechDelivery.requester = requester;
-            mechDelivery.deliveryRate = deliveryRates[i];
+            requestInfo.priorityMech = msg.sender;
+            requestInfo.deliveryMech = msg.sender;
+            requestInfo.requester = requester;
+            requestInfo.deliveryRate = deliveryRates[i];
 
             // Increase nonce
             nonce++;
@@ -850,12 +864,12 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requestId Request Id.
     /// @return status Request status.
     function getRequestStatus(uint256 requestId) external view returns (RequestStatus status) {
-        // Request exists if it has a record in the mapRequestIdDeliveries
-        MechDelivery memory mechDelivery = mapRequestIdDeliveries[requestId];
-        if (mechDelivery.priorityMech != address(0)) {
+        // Request exists if it has a record in the mapRequestIdInfos
+        RequestInfo memory requestInfo = mapRequestIdInfos[requestId];
+        if (requestInfo.priorityMech != address(0)) {
             // Check if the request Id was already delivered: delivery mech address is not zero
-            if (mechDelivery.deliveryMech == address(0)) {
-                if (block.timestamp > mechDelivery.responseTimeout) {
+            if (requestInfo.deliveryMech == address(0)) {
+                if (block.timestamp > requestInfo.responseTimeout) {
                     status = RequestStatus.RequestedExpired;
                 } else {
                     status = RequestStatus.RequestedPriority;

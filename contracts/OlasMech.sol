@@ -2,10 +2,20 @@
 pragma solidity ^0.8.28;
 
 import {IErrorsMech} from "./interfaces/IErrorsMech.sol";
-import {IMechMarketplace} from "./interfaces/IMechMarketplace.sol";
 import {ImmutableStorage} from "../lib/gnosis-mech/contracts/base/ImmutableStorage.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
+
+/// @dev Mech Marketplace interface
+interface IMechMarketplace {
+    /// @dev Delivers requests.
+    /// @notice This function can only be called by the mech delivering the request.
+    /// @param requestIds Set of request ids.
+    /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param deliveryDatas Set of corresponding self-descriptive opaque delivery data-blobs.
+    function deliverMarketplace(uint256[] memory requestIds, uint256[] memory mechDeliveryRates,
+        bytes[] memory deliveryDatas) external returns (bool[] memory deliveredRequests);
+}
 
 /// @dev A Mech that is operated by the multisig of an Olas service
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
