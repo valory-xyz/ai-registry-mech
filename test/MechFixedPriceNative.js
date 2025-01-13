@@ -483,10 +483,9 @@ describe("MechFixedPriceNative", function () {
                 requestCount++;
             }
 
-            // Stack all requests
-            for (let i = 0; i < numRequests; i++) {
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
-            }
+            // Stack all requests in batch
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -497,9 +496,7 @@ describe("MechFixedPriceNative", function () {
             }
 
             // Deliver all requests
-            for (let i = 0; i < numRequests; i++) {
-                await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
-            }
+            await priorityMech.deliverToMarketplace(requestIds, datas);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -509,8 +506,9 @@ describe("MechFixedPriceNative", function () {
             for (let i = 0; i < numRequests; i++) {
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
             }
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
 
             // Deliver the first request
             await priorityMech.deliverToMarketplace([requestIds[0]], [datas[0]]);
@@ -558,8 +556,9 @@ describe("MechFixedPriceNative", function () {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
             }
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
 
             // Deliver even requests
             for (let i = 0; i < numRequests; i++) {
@@ -598,8 +597,9 @@ describe("MechFixedPriceNative", function () {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
             }
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
 
             // Check request Ids for just part of the batch
             const half = Math.floor(numRequests / 2);
