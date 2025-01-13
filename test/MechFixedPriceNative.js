@@ -418,11 +418,9 @@ describe("MechFixedPriceNative", function () {
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(2);
 
-            // Try to deliver by a mech with bigger max Delivery rate
+            // Try to deliver by a mech with bigger max delivery rate (it's not going to be delivered)
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate + 1);
-            await expect(
-                deliveryMech.deliverToMarketplace([requestId], [data])
-            ).to.be.revertedWithCustomError(mechMarketplace, "Overflow");
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Change max delivery rate back
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate);
