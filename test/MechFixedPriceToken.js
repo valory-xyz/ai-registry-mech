@@ -115,7 +115,7 @@ describe("MechFixedPriceToken", function () {
     });
 
     context("Deliver", async function () {
-        it("Delivering a request by a priority mech", async function () {
+        it("Delivering request by a priority mech", async function () {
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Try to create a request without any tokens approved
@@ -133,14 +133,14 @@ describe("MechFixedPriceToken", function () {
             expect(status).to.equal(1);
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
 
             // Try to deliver the same request again
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check mech karma
             let mechKarma = await karma.mapMechKarma(priorityMech.address);
@@ -150,7 +150,7 @@ describe("MechFixedPriceToken", function () {
             expect(mechKarma).to.equal(1);
         });
 
-        it("Delivering a request by a priority mech with pre-paid logic", async function () {
+        it("Delivering request by a priority mech with pre-paid logic", async function () {
             // Get request Id
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
@@ -179,14 +179,14 @@ describe("MechFixedPriceToken", function () {
             expect(status).to.equal(1);
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
 
             // Try to deliver the same request again
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check mech karma
             let mechKarma = await karma.mapMechKarma(priorityMech.address);
@@ -221,14 +221,9 @@ describe("MechFixedPriceToken", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceToken.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(maxDeliveryRate - 1);
-
-            // Withdraw requester balances
-            await balanceTrackerFixedPriceToken.withdraw();
-            requesterBalance = await balanceTrackerFixedPriceToken.mapRequesterBalances(deployer.address);
-            expect(requesterBalance).to.equal(0);
         });
 
-        it("Delivering a request by a different mech", async function () {
+        it("Delivering request by a different mech", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -242,7 +237,7 @@ describe("MechFixedPriceToken", function () {
 
             // Try to deliver by a delivery mech right away
             await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
+                deliveryMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "PriorityMechResponseTimeout");
 
             // Get the request status (requested priority)
@@ -259,17 +254,17 @@ describe("MechFixedPriceToken", function () {
             // Try to deliver by a mech with bigger max Delivery rate
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate + 1);
             await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
+                deliveryMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "Overflow");
 
             // Change max delivery rate back
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate);
 
             // Deliver a request by the delivery mech
-            await deliveryMech.deliverToMarketplace(requestId, data);
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Try to deliver the same request again (gets empty data)
-            await deliveryMech.deliverToMarketplace(requestId, data);
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);

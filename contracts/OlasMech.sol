@@ -138,20 +138,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         numTotalRequests += numRequests;
     }
 
-    /// @dev Cleans the request info from all the relevant storage.
-    /// @param requestId Request Id.
-    function _cleanRequestInfo(uint256 requestId) internal virtual {
-        // Get request Id from the request Ids map
-        uint256[2] memory requestIdLinks = mapRequestIds[requestId];
-
-        // Re-link previous and next elements between themselves
-        mapRequestIds[requestIdLinks[0]][1] = requestIdLinks[1];
-        mapRequestIds[requestIdLinks[1]][0] = requestIdLinks[0];
-
-        // Delete the delivered element from the map
-        delete mapRequestIds[requestId];
-    }
-
     /// @dev Prepares delivery of requests.
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestIds Set of request Ids.
@@ -164,22 +150,35 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         uint256 numRequests = requestIds.length;
         deliveryDatas = new bytes[](numRequests);
 
+        uint256 numSelfRequests;
         // Traverse requests
         for (uint256 i = 0; i < numRequests; ++i) {
             uint256 requestId = requestIds[i];
+            // Perform a pre-delivery of the data if it needs additional parsing
+            deliveryDatas[i] = _preDeliver(requestId, datas[i]);
 
+            // Clean request info
             // Get request Id from the request Ids map
             uint256[2] memory requestIdLinks = mapRequestIds[requestId];
 
-            // Check if the request Id is invalid (non existent or delivered): previous and next request Ids are zero,
-            // and the zero's element previous request Id is not equal to the provided request Id
+            // Check if the request Id is invalid (non existent for this mech or delivered): previous and next request Ids
+            // are zero, and the zero's element previous request Id is not equal to the provided request Id
             if (requestIdLinks[0] == 0 && requestIdLinks[1] == 0 && mapRequestIds[0][0] != requestId) {
-                revert RequestIdNotFound(requestId);
+                continue;
+            } else {
+                numSelfRequests++;
             }
 
-            // Perform a pre-delivery of the data if it needs additional parsing
-            deliveryDatas[i] = _preDeliver(requestId, datas[i]);
+            // Re-link previous and next elements between themselves
+            mapRequestIds[requestIdLinks[0]][1] = requestIdLinks[1];
+            mapRequestIds[requestIdLinks[1]][0] = requestIdLinks[0];
+
+            // Delete the delivered element from the map
+            delete mapRequestIds[requestId];
         }
+
+        // Decrease the number of undelivered requests
+        numUndeliveredRequests -= numSelfRequests;
     }
 
     /// @dev Sets the new max delivery rate.
@@ -259,23 +258,14 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             uint256 requestId = requestIds[i];
             if (deliveredRequests[i]) {
                 numDeliveries++;
-
                 emit Deliver(msg.sender, requestId, deliveryDatas[i]);
             } else {
-                // Clean request info as it was not delivered
-                _cleanRequestInfo(requestId);
-
                 emit RevokeRequest(requestId);
             }
         }
 
-        if (numDeliveries > 0) {
-            // Increase the total number of deliveries actually delivered by this mech
-            numTotalDeliveries += numDeliveries;
-
-            // Decrease the number of undelivered requests
-            numUndeliveredRequests -= numRequests;
-        }
+        // Increase the total number of deliveries actually delivered by this mech
+        numTotalDeliveries += numDeliveries;
 
         locked = false;
     }

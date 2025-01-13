@@ -217,10 +217,10 @@ describe("MechFixedPriceNative", function () {
             let status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(0);
 
-            // Try to deliver a non existent request
+            // Try to deliver a non existent request, i.e. priorityMech address not found
             await expect(
                 priorityMech.deliverToMarketplace([requestId], [data])
-            ).to.be.revertedWithCustomError(priorityMech, "RequestIdNotFound");
+            ).to.be.revertedWithCustomError(priorityMech, "ZeroAddress");
 
             // Try to check and record delivery rate not by marketplace
             await expect(
@@ -381,16 +381,16 @@ describe("MechFixedPriceNative", function () {
             expect(requesterBalance).to.equal(0);
         });
 
-        it.only("Delivering request by a different mech", async function () {
+        it("Delivering request by a different mech", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
-            // Try to deliver a non-existent request
+            // Try to deliver a non-existent request, i.e. priority mech does not exist
             await expect(
                 deliveryMech.deliverToMarketplace([requestId], [data])
-            ).to.be.revertedWithCustomError(mechMarketplace, "RequestIdNotFound");
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
             await expect(
                 mechMarketplace.deliverMarketplace([requestId], [0], [data])
             ).to.be.reverted;
@@ -473,7 +473,7 @@ describe("MechFixedPriceNative", function () {
             expect(uRequestIds[0]).to.equal(requestIds[0]);
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestIds[0], data);
+            await priorityMech.deliverToMarketplace([requestIds[0]], [data]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -500,7 +500,7 @@ describe("MechFixedPriceNative", function () {
 
             // Deliver all requests
             for (let i = 0; i < numRequests; i++) {
-                await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
+                await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
             }
 
             // Check request Ids
@@ -515,7 +515,7 @@ describe("MechFixedPriceNative", function () {
             }
 
             // Deliver the first request
-            await priorityMech.deliverToMarketplace(requestIds[0], datas[0]);
+            await priorityMech.deliverToMarketplace([requestIds[0]], [datas[0]]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -526,7 +526,7 @@ describe("MechFixedPriceNative", function () {
             }
 
             // Deliver the last request
-            await priorityMech.deliverToMarketplace(requestIds[numRequests - 1], datas[numRequests - 1]);
+            await priorityMech.deliverToMarketplace([requestIds[numRequests - 1]], [datas[numRequests - 1]]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -537,7 +537,7 @@ describe("MechFixedPriceNative", function () {
 
             // Deliver the middle request
             const middle = Math.floor(numRequests / 2);
-            await priorityMech.deliverToMarketplace(requestIds[middle], datas[middle]);
+            await priorityMech.deliverToMarketplace([requestIds[middle]], [datas[middle]]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -566,7 +566,7 @@ describe("MechFixedPriceNative", function () {
             // Deliver even requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 != 0) {
-                    await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
+                    await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
                 }
             }
 
@@ -581,7 +581,7 @@ describe("MechFixedPriceNative", function () {
             // Deliver the rest of requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 == 0) {
-                    await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
+                    await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
                 }
             }
 
@@ -637,7 +637,7 @@ describe("MechFixedPriceNative", function () {
 
             // Deliver all requests
             for (let i = 0; i < numRequests; i++) {
-                await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
+                await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
             }
         });
     });
