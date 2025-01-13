@@ -103,6 +103,18 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
         return (balance - rateDiff);
     }
 
+    /// @dev Gets native token value or restricts receiving one.
+    /// @notice Since the contract is subscription based, no additional funding can be sent when posting a request.
+    /// @return Received value.
+    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
+        // Check for msg.value
+        if (msg.value > 0) {
+            revert NoDepositAllowed(msg.value);
+        }
+
+        return 0;
+    }
+
     /// @dev Process mech payment.
     /// @param mech Mech address.
     /// @return mechPayment Mech payment.
