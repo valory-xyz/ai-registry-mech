@@ -104,7 +104,7 @@ contract MechMarketplace is IErrorsMarketplace {
     // Number of mechs
     uint256 public numMechs;
     // Reentrancy lock
-    bool transient locked;
+    bool internal transient _locked;
 
     // Contract owner
     address public owner;
@@ -242,7 +242,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Store the mechMarketplace implementation address
-        // solhint-disable-next-line avoid-low-level-calls
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             sstore(MECH_MARKETPLACE_PROXY, newImplementation)
         }
@@ -477,10 +477,10 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes memory paymentData
     ) external payable returns (uint256 requestId) {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Allocate arrays
         bytes[] memory requestDatas = new bytes[](1);
@@ -491,7 +491,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         requestId = requestIds[0];
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Registers batch of requests.
@@ -510,14 +510,14 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes memory paymentData
     ) external payable returns (uint256[] memory requestIds) {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Delivers requests.
@@ -531,10 +531,10 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes[] memory deliveryDatas
     ) external returns (bool[] memory deliveredRequests) {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Check array lengths
         if (requestIds.length == 0 || requestIds.length != deliveryRates.length ||
@@ -637,7 +637,7 @@ contract MechMarketplace is IErrorsMarketplace {
             emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas);
         }
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Verifies provided request hash against its signature.
@@ -711,10 +711,10 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes memory paymentData
     ) external {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Array length checks
         if (requestDatas.length == 0 || requestDatas.length != signatures.length ||
@@ -789,7 +789,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         emit MarketplaceDeliveryWithSignatures(msg.sender, requester, requestIds, deliveryDatas);
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.

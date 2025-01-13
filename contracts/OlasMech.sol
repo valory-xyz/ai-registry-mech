@@ -42,7 +42,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Number of total deliveries by this mech
     uint256 public numTotalDeliveries;
     // Reentrancy lock
-    bool transient locked;
+    bool internal transient _locked;
 
     // TODO Check if needed as requests are checked by Marketplace
     // Cyclical map of request Ids
@@ -230,10 +230,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         bytes[] memory datas
     ) external onlyOperator {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Check array sizes
         if (requestIds.length == 0 || requestIds.length != datas.length) {
@@ -267,7 +267,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         // Increase the total number of deliveries actually delivered by this mech
         numTotalDeliveries += numDeliveries;
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Sets up a mech.

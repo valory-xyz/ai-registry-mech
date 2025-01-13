@@ -61,7 +61,7 @@ abstract contract BalanceTrackerBase {
     // Collected fees
     uint256 public collectedFees;
     // Reentrancy lock
-    bool transient locked;
+    bool internal transient _locked;
 
     // Map of requester => current balance
     mapping(address => uint256) public mapRequesterBalances;
@@ -188,10 +188,10 @@ abstract contract BalanceTrackerBase {
         bytes memory paymentData
     ) external virtual payable {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
@@ -213,7 +213,7 @@ abstract contract BalanceTrackerBase {
 
         emit RequesterBalanceAdjusted(requester, totalDeliveryRate, balance);
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
@@ -230,10 +230,10 @@ abstract contract BalanceTrackerBase {
         uint256[] memory requesterDeliveryRates
     ) external virtual {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
@@ -279,7 +279,7 @@ abstract contract BalanceTrackerBase {
 
         emit MechBalanceAdjusted(mech, totalMechDeliveryRate, balance, totalRateDiff);
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Adjusts mech and requester balances for direct batch request processing.
@@ -294,10 +294,10 @@ abstract contract BalanceTrackerBase {
         bytes memory
     ) external virtual {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Get total mech delivery rate
         uint256 totalMechDeliveryRate;
@@ -323,16 +323,16 @@ abstract contract BalanceTrackerBase {
         emit RequesterBalanceAdjusted(requester, totalMechDeliveryRate, requesterBalance);
         emit MechBalanceAdjusted(mech, totalMechDeliveryRate, mechBalance, 0);
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
     function drain() external {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         uint256 localCollectedFees = collectedFees;
 
@@ -346,7 +346,7 @@ abstract contract BalanceTrackerBase {
         // Drain
         _drain(localCollectedFees);
 
-        locked = false;
+        _locked = false;
     }
 
     /// @dev Processes mech payment by mech service multisig.
@@ -355,10 +355,10 @@ abstract contract BalanceTrackerBase {
     /// @return marketplaceFee Marketplace fee.
     function processPaymentByMultisig(address mech) external returns (uint256 mechPayment, uint256 marketplaceFee) {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Check for mech service multisig address
         if (!IMech(mech).isOperator(msg.sender)) {
@@ -373,13 +373,13 @@ abstract contract BalanceTrackerBase {
     /// @return marketplaceFee Marketplace fee.
     function processPayment() external returns (uint256 mechPayment, uint256 marketplaceFee) {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         (mechPayment, marketplaceFee) = _processPayment(msg.sender);
 
-        locked = false;
+        _locked = false;
     }
 }

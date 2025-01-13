@@ -188,10 +188,10 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
     /// @param requester Requester address.
     function redeemRequesterCredits(address requester) external {
         // Reentrancy guard
-        if (locked) {
+        if (_locked) {
             revert ReentrancyGuard();
         }
-        locked = true;
+        _locked = true;
 
         // Get requester credit balance
         uint256 balance = mapRequesterBalances[requester];
@@ -215,5 +215,7 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
         IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
 
         emit RequesterCreditsRedeemed(requester, balance);
+
+        _locked = false;
     }
 }
