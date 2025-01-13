@@ -44,6 +44,7 @@ error UnauthorizedAccount(address account);
 /// @param amount Amount value.
 error TransferFailed(address token, address from, address to, uint256 amount);
 
+/// @title BalanceTrackerBase - abstract contract for tracking mech and requester balances
 abstract contract BalanceTrackerBase {
     event RequesterBalanceAdjusted(address indexed requester, uint256 deliveryRate, uint256 balance);
     event MechBalanceAdjusted(address indexed mech, uint256 deliveryRate, uint256 balance, uint256 rateDiff);
