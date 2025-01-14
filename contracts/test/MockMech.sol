@@ -2,12 +2,16 @@
 pragma solidity ^0.8.28;
 
 interface IMechMarketplace {
-    function deliverMarketplace(uint256 requestId, bytes memory requestData) external;
+    function deliverMarketplace(uint256[] memory requestIds, uint256[] memory deliveryRates,
+        bytes[] memory deliveryDatas) external;
     function request(bytes memory data, uint256 priorityMechServiceId, uint256 requesterServiceId,
         uint256 responseTimeout, bytes memory paymentData) external payable returns (uint256);
 }
 
 contract MockMech {
+    // Mech payment type
+    bytes32 public constant paymentType = 0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1;
+
     address public immutable mechMarketplace;
 
     uint256 public serviceId = 99;
@@ -25,8 +29,10 @@ contract MockMech {
         isNotSelf = _isNotSelf;
     }
 
-    function deliverMarketplace(uint256 requestId, bytes memory requestData) external {
-        IMechMarketplace(mechMarketplace).deliverMarketplace(requestId, requestData);
+    function deliverMarketplace(uint256[] memory requestIds, uint256[] memory deliveryRates,
+        bytes[] memory deliveryDatas) external
+    {
+        IMechMarketplace(mechMarketplace).deliverMarketplace(requestIds, deliveryRates, deliveryDatas);
     }
 
     function request(
@@ -52,7 +58,7 @@ contract MockMech {
         return address(this);
     }
 
-    function getFinalizedDeliveryRate(uint256) external pure returns (uint256) {
+    function getFinalizedDeliveryRates(uint256) external pure returns (uint256) {
         return 1;
     }
 }

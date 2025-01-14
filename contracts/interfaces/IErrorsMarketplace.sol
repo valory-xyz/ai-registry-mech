@@ -21,6 +21,12 @@ interface IErrorsMarketplace {
     /// @param numValues2 Number of values in a second array.
     error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
+    /// @dev Wrong length of three arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    /// @param numValues3 Number of values in a third array.
+    error WrongArrayLength3(uint256 numValues1, uint256 numValues2, uint256 numValues3);
+
     /// @dev Wrong length of four arrays.
     /// @param numValues1 Number of values in a first array.
     /// @param numValues2 Number of values in a second array.
@@ -69,9 +75,17 @@ interface IErrorsMarketplace {
     /// @param max Maximum possible value.
     error OutOfBounds(uint256 provided, uint256 min, uint256 max);
 
+    /// @dev The request is already requested.
+    /// @param requestId Request Id.
+    error AlreadyRequested(uint256 requestId);
+
     /// @dev The request is already delivered.
     /// @param requestId Request Id.
     error AlreadyDelivered(uint256 requestId);
+
+    /// @dev Wrong payment type.
+    /// @param paymentType Payment type.
+    error WrongPaymentType(bytes32 paymentType);
 
     /// @dev Priority mech response timeout is not yet met.
     /// @param expected Expected timestamp.
@@ -96,9 +110,4 @@ interface IErrorsMarketplace {
     /// @param msgHash Message hash.
     /// @param signature Signature bytes associated with the message hash.
     error HashNotValidated(address requester, bytes32 msgHash, bytes signature);
-
-    /// @dev Obtained wrong requester address.
-    /// @param provided Provided address.
-    /// @param expected Expected address.
-    error WrongRequesterAddress(address provided, address expected);
 }
