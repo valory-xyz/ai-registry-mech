@@ -14,6 +14,10 @@ interface IMech {
     /// @param requestId Request Id.
     function revokeRequest(uint256 requestId) external;
 
+    /// @dev Updates number of requests delivered directly via Marketplace.
+    /// @param numRequests Number of requests.
+    function updateNumRequests(uint256 numRequests) external;
+
     /// @dev Gets mech max delivery rate.
     /// @return Mech maximum delivery rate.
     function maxDeliveryRate() external returns (uint256);

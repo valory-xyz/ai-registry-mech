@@ -38,6 +38,8 @@ error UnauthorizedAccount(address account);
 error TransferFailed(address token, address from, address to, uint256 amount);
 
 abstract contract BalanceTrackerBase {
+    event RequesterBalanceAdjusted(address indexed requester, uint256 deliveryRate, uint256 balance);
+    event MechBalanceAdjusted(address indexed mech, uint256 deliveryRate, uint256 balance);
     event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
     event Deposit(address indexed account, address indexed token, uint256 amount);
     event Withdraw(address indexed account, address indexed token, uint256 amount);
@@ -73,29 +75,29 @@ abstract contract BalanceTrackerBase {
         buyBackBurner = _buyBackBurner;
     }
 
-    /// @dev Adjusts initial requester balance accounting for max request delivery rate (debit).
+    /// @dev Adjusts initial requester balance accounting for delivery rate (debit).
     /// @param balance Initial requester balance.
-    /// @param maxDeliveryRate Max delivery rate.
+    /// @param deliveryRate Delivery rate.
     function _adjustInitialBalance(
         address requester,
         uint256 balance,
-        uint256 maxDeliveryRate,
+        uint256 deliveryRate,
         bytes memory
     ) internal virtual returns (uint256) {
         // Check the request delivery rate for a fixed price
-        if (balance < maxDeliveryRate) {
+        if (balance < deliveryRate) {
             // Get balance difference
-            uint256 balanceDiff = maxDeliveryRate - balance;
+            uint256 balanceDiff = deliveryRate - balance;
             // Adjust balance
             balance += _getRequiredFunds(requester, balanceDiff);
         }
 
-        if (balance < maxDeliveryRate) {
-            revert InsufficientBalance(balance, maxDeliveryRate);
+        if (balance < deliveryRate) {
+            revert InsufficientBalance(balance, deliveryRate);
         }
 
         // Adjust account balance
-        return (balance - maxDeliveryRate);
+        return (balance - deliveryRate);
     }
 
     /// @dev Adjusts final requester balance accounting for possible delivery rate difference (debit).
@@ -173,11 +175,12 @@ abstract contract BalanceTrackerBase {
     /// @dev Checks and records delivery rate.
     /// @param requester Requester address.
     /// @param maxDeliveryRate Request max delivery rate.
+    /// @param paymentData Additional payment-related request data, if applicable.
     function checkAndRecordDeliveryRate(
         address requester,
         uint256 maxDeliveryRate,
-        bytes memory
-    ) external payable {
+        bytes memory paymentData
+    ) public payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -196,8 +199,10 @@ abstract contract BalanceTrackerBase {
         uint256 balance = mapRequesterBalances[requester] + initAmount;
 
         // Adjust account balance
-        balance = _adjustInitialBalance(requester, balance, maxDeliveryRate, "");
+        balance = _adjustInitialBalance(requester, balance, maxDeliveryRate, paymentData);
         mapRequesterBalances[requester] = balance;
+
+        emit RequesterBalanceAdjusted(requester, maxDeliveryRate, balance);
 
         _locked = 1;
     }
@@ -208,6 +213,12 @@ abstract contract BalanceTrackerBase {
     /// @param requestId Request Id.
     /// @param maxDeliveryRate Requested max delivery rate.
     function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 maxDeliveryRate) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
@@ -223,12 +234,13 @@ abstract contract BalanceTrackerBase {
 
         // Check for delivery rate difference
         uint256 rateDiff;
+        uint256 balance;
         if (maxDeliveryRate > actualDeliveryRate) {
             // Return back requester overpayment debit / credit
             rateDiff = maxDeliveryRate - actualDeliveryRate;
 
             // Adjust requester balance
-            uint256 balance = _adjustFinalBalance(requester, rateDiff);
+            balance = _adjustFinalBalance(requester, rateDiff);
             mapRequesterBalances[requester] = balance;
         } else {
             // Limit the rate by the max chosen one as that is what the requester agreed on
@@ -236,9 +248,36 @@ abstract contract BalanceTrackerBase {
         }
 
         // Record payment into mech balance
-        mapMechBalances[mech] += actualDeliveryRate;
+        balance = mapMechBalances[mech];
+        balance += actualDeliveryRate;
+        mapMechBalances[mech] = balance;
 
         emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
+        emit MechBalanceAdjusted(mech, actualDeliveryRate, balance);
+
+        _locked = 1;
+    }
+
+    /// @dev Adjusts requester and mech balances for direct batch request processing.
+    /// @notice This function can be called by the Mech Marketplace only.
+    /// @param mech Mech address.
+    /// @param requester Requester address.
+    /// @param totalDeliveryRate Total batch delivery rate.
+    /// @param paymentData Additional payment-related request data, if applicable.
+    function adjustRequesterMechBalances(
+        address mech,
+        address requester,
+        uint256 totalDeliveryRate,
+        bytes memory paymentData
+    ) external payable {
+        checkAndRecordDeliveryRate(requester, totalDeliveryRate, paymentData);
+
+        // Record payment into mech balance
+        uint256 balance = mapMechBalances[mech];
+        balance += totalDeliveryRate;
+        mapMechBalances[mech] = balance;
+
+        emit MechBalanceAdjusted(mech, totalDeliveryRate, balance);
     }
 
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
