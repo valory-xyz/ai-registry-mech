@@ -45,7 +45,7 @@ interface IErrorsMarketplace {
 
     /// @dev Request Id not found.
     /// @param requestId Request Id.
-    error RequestIdNotFound(uint256 requestId);
+    error RequestIdNotFound(bytes32 requestId);
 
     /// @dev Value overflow.
     /// @param provided Overflow value.
@@ -77,11 +77,11 @@ interface IErrorsMarketplace {
 
     /// @dev The request is already requested.
     /// @param requestId Request Id.
-    error AlreadyRequested(uint256 requestId);
+    error AlreadyRequested(bytes32 requestId);
 
     /// @dev The request is already delivered.
     /// @param requestId Request Id.
-    error AlreadyDelivered(uint256 requestId);
+    error AlreadyDelivered(bytes32 requestId);
 
     /// @dev Wrong payment type.
     /// @param paymentType Payment type.

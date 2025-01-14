@@ -1,7 +1,7 @@
 /*global describe, context, beforeEach, it*/
 
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { config, ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("MechFixedPriceNative", function () {
@@ -18,6 +18,7 @@ describe("MechFixedPriceNative", function () {
     let signers;
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
+    const HashZero = ethers.constants.HashZero;
     const maxDeliveryRate = 1000;
     const data = "0x00";
     const fee = 10;
@@ -142,7 +143,7 @@ describe("MechFixedPriceNative", function () {
         it("Creating an agent mech and performing a request", async function () {
             // Try to post a request directly to the mech
             await expect(
-                priorityMech.requestFromMarketplace([data], [0])
+                priorityMech.requestFromMarketplace([HashZero], [data])
             ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
 
             // Response time is out of bounds
@@ -637,6 +638,36 @@ describe("MechFixedPriceNative", function () {
             for (let i = 0; i < numRequests; i++) {
                 await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
             }
+        });
+
+        it("Requests with signatures", async function () {
+            const numRequests = 1;
+            const datas = new Array();
+            const requestIds = new Array();
+            const signatures = new Array();
+            const deliveryRates = new Array(numRequests).fill(maxDeliveryRate);
+            let requestCount = 0;
+
+            // Pre-pay the contract insufficient amount for posting a request
+            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate * numRequests});
+
+            // Get deployer wallet
+            const accounts = config.networks.hardhat.accounts;
+            const wallet = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/${0}`);
+            const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
+
+            // Stack all requests
+            for (let i = 0; i < numRequests; i++) {
+                datas[i] = data + "00".repeat(i);
+                requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
+                const signature = signingKey.signDigest(requestIds[i]);
+                signatures[i] = signature.compact + (signature.v).toString(16);
+                requestCount++;
+            }
+
+            // Deliver requests
+            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, datas, signatures, datas,
+                deliveryRates, "0x");
         });
     });
 

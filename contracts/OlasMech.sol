@@ -13,16 +13,35 @@ interface IMechMarketplace {
     /// @param requestIds Set of request ids.
     /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
     /// @param deliveryDatas Set of corresponding self-descriptive opaque delivery data-blobs.
-    function deliverMarketplace(uint256[] memory requestIds, uint256[] memory mechDeliveryRates,
+    function deliverMarketplace(bytes32[] memory requestIds, uint256[] memory mechDeliveryRates,
         bytes[] memory deliveryDatas) external returns (bool[] memory deliveredRequests);
+
+    /// @dev Delivers signed requests.
+    /// @notice This function must be called by mech delivering requests.
+    /// @param requester Requester address.
+    /// @param requesterServiceId Requester service Id, or zero if EOA.
+    /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
+    /// @param signatures Corresponding set of signatures.
+    /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param deliveryDatas Corresponding set of self-descriptive opaque delivery data-blobs.
+    /// @param paymentData Additional payment-related request data, if applicable.
+    function deliverMarketplaceWithSignatures(
+        address requester,
+        uint256 requesterServiceId,
+        bytes[] memory requestDatas,
+        bytes[] memory signatures,
+        bytes[] memory deliveryDatas,
+        uint256[] memory deliveryRates,
+        bytes memory paymentData
+    ) external;
 }
 
 /// @dev A Mech that is operated by the multisig of an Olas service
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
-    event Deliver(address indexed sender, uint256 requestId, bytes data);
-    event Request(uint256 requestId, bytes data);
-    event RevokeRequest(uint256 requestId);
+    event Deliver(address indexed sender, bytes32 requestId, bytes data);
+    event Request(bytes32 requestId, bytes data);
+    event RevokeRequest(bytes32 requestId);
     event NumRequestsIncrease(uint256 numRequests);
 
     // Olas mech version number
@@ -42,11 +61,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Number of total deliveries by this mech
     uint256 public numTotalDeliveries;
     // Reentrancy lock
-    bool internal transient _locked;
+    bool internal _locked;
 
     // TODO Check if needed as requests are checked by Marketplace
     // Cyclical map of request Ids
-    mapping(uint256 => uint256[2]) public mapRequestIds;
+    mapping(bytes32 => bytes32[2]) public mapRequestIds;
 
     /// @dev OlasMech constructor.
     /// @param _mechMarketplace Mech marketplace address.
@@ -100,28 +119,28 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(uint256 requestId, bytes memory data) internal virtual returns (bytes memory requestData);
+    function _preDeliver(bytes32 requestId, bytes memory data) internal virtual returns (bytes memory requestData);
 
     /// @dev Registers a request.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
     function _request(
-        uint256[] memory requestIds,
+        bytes32[] memory requestIds,
         bytes[] memory datas
     ) internal virtual {
         uint256 numRequests = requestIds.length;
 
         for (uint256 i = 0; i < requestIds.length; ++i) {
-            uint256 requestId = requestIds[i];
+            bytes32 requestId = requestIds[i];
 
             // Record the request Id in the map
             // Get previous and next request Ids of the first element
-            uint256[2] storage requestIdLinks = mapRequestIds[0];
+            bytes32[2] storage requestIdLinks = mapRequestIds[0];
             // Create the new element
-            uint256[2] storage newRequestIdLinks = mapRequestIds[requestId];
+            bytes32[2] storage newRequestIdLinks = mapRequestIds[requestId];
 
             // Previous element will be zero, next element will be the current next element
-            uint256 curNextRequestIdLink = requestIdLinks[1];
+            bytes32 curNextRequestIdLink = requestIdLinks[1];
             newRequestIdLinks[1] = curNextRequestIdLink;
             // Next element of the zero element will be the newly created element
             requestIdLinks[1] = requestId;
@@ -143,7 +162,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param datas Corresponding set of self-descriptive opaque delivery data-blobs.
     /// @return deliveryDatas Corresponding set of processed delivery datas.
     function _prepareDeliveries(
-        uint256[] memory requestIds,
+        bytes32[] memory requestIds,
         bytes[] memory datas
     ) internal virtual returns (bytes[] memory deliveryDatas) {
         uint256 numRequests = requestIds.length;
@@ -152,13 +171,13 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         uint256 numSelfRequests;
         // Traverse requests
         for (uint256 i = 0; i < numRequests; ++i) {
-            uint256 requestId = requestIds[i];
+            bytes32 requestId = requestIds[i];
             // Perform a pre-delivery of the data if it needs additional parsing
             deliveryDatas[i] = _preDeliver(requestId, datas[i]);
 
             // Clean request info
             // Get request Id from the request Ids map
-            uint256[2] memory requestIdLinks = mapRequestIds[requestId];
+            bytes32[2] memory requestIdLinks = mapRequestIds[requestId];
 
             // Check if the request Id is invalid (non existent for this mech or delivered): previous and next request Ids
             // are zero, and the zero's element previous request Id is not equal to the provided request Id
@@ -196,7 +215,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
-    function requestFromMarketplace(uint256[] memory requestIds, bytes[] memory datas) external {
+    function requestFromMarketplace(bytes32[] memory requestIds, bytes[] memory datas) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
@@ -225,7 +244,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param requestIds Set of request ids.
     /// @param datas Corresponding set of self-descriptive opaque delivery data-blobs.
     function deliverToMarketplace(
-        uint256[] memory requestIds,
+        bytes32[] memory requestIds,
         bytes[] memory datas
     ) external onlyOperator {
         // Reentrancy guard
@@ -254,7 +273,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         uint256 numDeliveries;
         // Traverse all requests to select delivered ones
         for (uint256 i = 0; i < numRequests; ++i) {
-            uint256 requestId = requestIds[i];
+            bytes32 requestId = requestIds[i];
             if (deliveredRequests[i]) {
                 numDeliveries++;
                 emit Deliver(msg.sender, requestId, deliveryDatas[i]);
@@ -267,6 +286,28 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         numTotalDeliveries += numDeliveries;
 
         _locked = false;
+    }
+
+    /// @dev Delivers signed requests.
+    /// @notice This function must be called by mech delivering requests.
+    /// @param requester Requester address.
+    /// @param requesterServiceId Requester service Id, or zero if EOA.
+    /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
+    /// @param signatures Corresponding set of signatures.
+    /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param deliveryDatas Corresponding set of self-descriptive opaque delivery data-blobs.
+    /// @param paymentData Additional payment-related request data, if applicable.
+    function deliverMarketplaceWithSignatures(
+        address requester,
+        uint256 requesterServiceId,
+        bytes[] memory requestDatas,
+        bytes[] memory signatures,
+        bytes[] memory deliveryDatas,
+        uint256[] memory deliveryRates,
+        bytes memory paymentData
+    ) external {
+        IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, requesterServiceId, requestDatas,
+            signatures, deliveryDatas, deliveryRates, paymentData);
     }
 
     /// @dev Sets up a mech.
@@ -321,7 +362,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param size Maximum batch size of a returned requests Id set. If the size is zero, the whole set is returned.
     /// @param offset The number of skipped requests that are not going to be part of the returned requests Id set.
     /// @return requestIds Set of undelivered request Ids.
-    function getUndeliveredRequestIds(uint256 size, uint256 offset) external view returns (uint256[] memory requestIds) {
+    function getUndeliveredRequestIds(uint256 size, uint256 offset) external view returns (bytes32[] memory requestIds) {
         // Get the number of undelivered requests
         uint256 numRequests = numUndeliveredRequests;
 
@@ -336,10 +377,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         }
 
         if (size > 0) {
-            requestIds = new uint256[](size);
+            requestIds = new bytes32[](size);
 
             // The first request Id is the next request Id of the zero element in the request Ids map
-            uint256 curRequestId = mapRequestIds[0][1];
+            bytes32 curRequestId = mapRequestIds[0][1];
             // Traverse requests a specified offset
             for (uint256 i = 0; i < offset; ++i) {
                 // Next request Id of the current element based on the current request Id
@@ -358,5 +399,5 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @dev Gets finalized delivery rates for request Ids.
     /// @param requestIds Set of request Ids.
     /// @return deliveryRates Set of corresponding finalized delivery rates.
-    function getFinalizedDeliveryRates(uint256[] memory requestIds) public view virtual returns (uint256[] memory deliveryRates);
+    function getFinalizedDeliveryRates(bytes32[] memory requestIds) public view virtual returns (uint256[] memory deliveryRates);
 }

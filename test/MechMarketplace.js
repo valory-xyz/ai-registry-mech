@@ -21,7 +21,7 @@ describe("MechMarketplace", function () {
     const maxDeliveryRate = 1000;
     const fee = 10;
     const data = "0x00";
-    const defaultRequestId = 1;
+    const defaultRequestId = "0x" + "1".repeat(64);
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
