@@ -24,6 +24,11 @@ interface IERC1155 {
     function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata) external;
 }
 
+/// @dev Only `owner` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param owner Required sender address as an owner.
+error OwnerOnly(address sender, address owner);
+
 /// @dev Value overflow.
 /// @param provided Overflow value.
 /// @param max Maximum possible value.
@@ -34,6 +39,7 @@ error Overflow(uint256 provided, uint256 max);
 error NoDepositAllowed(uint256 amount);
 
 contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
+    event SubscriptionSet(address indexed token,  uint256 indexed tokenId);
     event WithdrawSubscription(address indexed account, address indexed token, uint256 indexed tokenId, uint256 amount);
     event RequesterCreditsRedeemed(address indexed account, uint256 amount);
 
@@ -41,28 +47,21 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
     uint256 public constant NVM_FEE = 100;
 
     // Subscription NFT
-    address public immutable subscriptionNFT;
+    address public subscriptionNFT;
     // Subscription token Id
-    uint256 public immutable subscriptionTokenId;
+    uint256 public subscriptionTokenId;
 
+    // Temporary owner address
+    address public owner;
+
+    // TODO Do we manage subscription fee via buyBackBurner as well or in-place?
     /// @dev BalanceTrackerSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _buyBackBurner Buy back burner address.
-    /// @param _subscriptionNFT Subscription NFT address.
-    /// @param _subscriptionTokenId Subscription token Id.
-    constructor(address _mechMarketplace, address _buyBackBurner, address _subscriptionNFT, uint256 _subscriptionTokenId)
+    constructor(address _mechMarketplace, address _buyBackBurner)
         BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
     {
-        if (_subscriptionNFT == address(0)) {
-            revert ZeroAddress();
-        }
-
-        if (_subscriptionTokenId == 0) {
-            revert ZeroValue();
-        }
-
-        subscriptionNFT = _subscriptionNFT;
-        subscriptionTokenId = _subscriptionTokenId;
+        owner = msg.sender;
     }
 
     /// @dev Adjusts initial requester balance accounting for max request delivery rate (credit).
@@ -130,6 +129,26 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
         return 0;
     }
 
+    /// @dev Process mech payment.
+    /// @param mech Mech address.
+    /// @return mechPayment Mech payment.
+    function _processPayment(address mech) internal virtual override returns (uint256 mechPayment, uint256) {
+        // Get mech balance
+        mechPayment = mapMechBalances[mech];
+        // Check for zero value
+        if (mechPayment == 0) {
+            revert ZeroValue();
+        }
+
+        // Clear balances
+        mapMechBalances[mech] = 0;
+
+        // Process withdraw
+        _withdraw(mech, mechPayment);
+
+        return (mechPayment, 0);
+    }
+
     /// @dev Withdraws funds.
     /// @param account Account address.
     /// @param amount Token amount.
@@ -138,6 +157,31 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
         IERC1155(subscriptionNFT).safeTransferFrom(address(this), account, subscriptionTokenId, amount, "");
 
         emit WithdrawSubscription(msg.sender, subscriptionNFT, subscriptionTokenId, amount);
+    }
+
+    /// @dev Sets subscription.
+    /// @param _subscriptionNFT Subscription NFT address.
+    /// @param _subscriptionTokenId Subscription token Id.
+    function setSubscription(address _subscriptionNFT, uint256 _subscriptionTokenId) external {
+        // Check for ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (_subscriptionNFT == address(0)) {
+            revert ZeroAddress();
+        }
+
+        if (_subscriptionTokenId == 0) {
+            revert ZeroValue();
+        }
+
+        subscriptionNFT = _subscriptionNFT;
+        subscriptionTokenId = _subscriptionTokenId;
+
+        owner = address(0);
+
+        emit SubscriptionSet(_subscriptionNFT, _subscriptionTokenId);
     }
 
     /// @dev Redeem requester credits.
