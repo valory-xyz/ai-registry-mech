@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerBase, ZeroAddress, ZeroValue, InsufficientBalance, ReentrancyGuard} from "../../BalanceTrackerBase.sol";
+import {BalanceTrackerFixedPriceNative, ZeroAddress, InsufficientBalance} from "../native/BalanceTrackerFixedPriceNative.sol";
+import {ZeroValue, ReentrancyGuard} from "../../BalanceTrackerBase.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -15,13 +16,6 @@ interface IERC1155 {
     /// @param tokenId Token Id.
     /// @param amount Amount of tokens.
     function burn(address account, uint256 tokenId, uint256 amount) external;
-
-    /// @dev Transfers tokens.
-    /// @param from Source address.
-    /// @param to Destination address.
-    /// @param id Token Id.
-    /// @param amount Token amount.
-    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata) external;
 }
 
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
@@ -38,13 +32,13 @@ error Overflow(uint256 provided, uint256 max);
 /// @param amount Value amount.
 error NoDepositAllowed(uint256 amount);
 
-contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
-    event SubscriptionSet(address indexed token,  uint256 indexed tokenId);
-    event WithdrawSubscription(address indexed account, address indexed token, uint256 indexed tokenId, uint256 amount);
+/// @title BalanceTrackerFixedPriceNative - smart contract for tracking mech and requester subscription balances based on native token
+contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
+    event SubscriptionSet(address indexed token, uint256 indexed tokenId);
     event RequesterCreditsRedeemed(address indexed account, uint256 amount);
 
-    // TODO: setup, taken from subscription?
-    uint256 public constant NVM_FEE = 100;
+    // Credit to token ratio
+    uint256 public immutable creditTokenRatio;
 
     // Subscription NFT
     address public subscriptionNFT;
@@ -54,13 +48,19 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
     // Temporary owner address
     address public owner;
 
-    // TODO Do we manage subscription fee via buyBackBurner as well or in-place?
     /// @dev BalanceTrackerSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _buyBackBurner Buy back burner address.
-    constructor(address _mechMarketplace, address _buyBackBurner)
-        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
+    /// @param _wrappedNativeToken Wrapped native token address.
+    /// @param _creditTokenRatio Credits to token ratio.
+    constructor(address _mechMarketplace, address _buyBackBurner, address _wrappedNativeToken, uint256 _creditTokenRatio)
+        BalanceTrackerFixedPriceNative(_mechMarketplace, _buyBackBurner, _wrappedNativeToken)
     {
+        if (_creditTokenRatio == 0) {
+            revert ZeroValue();
+        }
+
+        creditTokenRatio = _creditTokenRatio;
         owner = msg.sender;
     }
 
@@ -103,17 +103,8 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
         return (balance - rateDiff);
     }
 
-    // TODO: behavior with buyBackBurner?
-    /// @dev Drains specified amount.
-    /// @param amount Amount value.
-    function _drain(uint256 amount) internal virtual override {}
-
-    /// @dev Gets fee composed of marketplace fee and another one, if applicable.
-    function _getFee() internal view virtual override returns (uint256) {
-        return NVM_FEE + super._getFee();
-    }
-
     /// @dev Gets native token value or restricts receiving one.
+    /// @notice Since the contract is subscription based, no additional funding can be sent when posting a request.
     /// @return Received value.
     function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
         // Check for msg.value
@@ -124,39 +115,21 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
         return 0;
     }
 
-    /// @dev Gets required token funds.
-    function _getRequiredFunds(address, uint256) internal virtual override returns (uint256) {
-        return 0;
-    }
-
     /// @dev Process mech payment.
     /// @param mech Mech address.
     /// @return mechPayment Mech payment.
-    function _processPayment(address mech) internal virtual override returns (uint256 mechPayment, uint256) {
+    function _processPayment(address mech) internal virtual override returns (uint256, uint256) {
         // Get mech balance
-        mechPayment = mapMechBalances[mech];
+        uint256 balance = mapMechBalances[mech];
         // Check for zero value
-        if (mechPayment == 0) {
+        if (balance == 0) {
             revert ZeroValue();
         }
 
-        // Clear balances
-        mapMechBalances[mech] = 0;
+        // Convert mech credits balance into tokens
+        mapMechBalances[mech] = balance * creditTokenRatio;
 
-        // Process withdraw
-        _withdraw(mech, mechPayment);
-
-        return (mechPayment, 0);
-    }
-
-    /// @dev Withdraws funds.
-    /// @param account Account address.
-    /// @param amount Token amount.
-    function _withdraw(address account, uint256 amount) internal virtual override {
-        // Transfer tokens
-        IERC1155(subscriptionNFT).safeTransferFrom(address(this), account, subscriptionTokenId, amount, "");
-
-        emit WithdrawSubscription(msg.sender, subscriptionNFT, subscriptionTokenId, amount);
+        return super._processPayment(mech);
     }
 
     /// @dev Sets subscription.
@@ -217,5 +190,10 @@ contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
         emit RequesterCreditsRedeemed(requester, balance);
 
         _locked = false;
+    }
+
+    /// @dev Deposits funds reflecting subscription.
+    receive() external virtual override payable {
+        emit Deposit(msg.sender, address(0), msg.value);
     }
 }

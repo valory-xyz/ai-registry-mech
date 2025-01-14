@@ -23,6 +23,7 @@ interface IToken {
 /// @param amount Value amount.
 error NoDepositAllowed(uint256 amount);
 
+/// @title BalanceTrackerFixedPriceToken - smart contract for tracking mech and requester ERC-20 token balances
 contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
     // Token address
     address public immutable token;

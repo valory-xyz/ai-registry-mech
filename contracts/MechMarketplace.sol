@@ -562,8 +562,6 @@ contract MechMarketplace is IErrorsMarketplace {
             RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
             address priorityMech = requestInfo.priorityMech;
 
-            // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
-            // TODO Additional thought: leave revert as it would stop from mech trying to request arbitrary requests and not actually recorded ones
             // Check for request existence
             if (priorityMech == address(0)) {
                 revert ZeroAddress();
@@ -579,12 +577,12 @@ contract MechMarketplace is IErrorsMarketplace {
                 continue;
             }
 
-            // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
-            // TODO Additional thought: The price between posting requests and delivering could have changed, thus just continue such that mech cleans those request info on their side
             // Check for actual mech delivery rate
+            // If the rate of the mech is higher than set by the requester, the request is ignored and considered
+            // undelivered, such that it's cleared from mech's records and delivered by other mechs matching the rate
             requesterDeliveryRates[i] = requestInfo.deliveryRate;
             if (deliveryRates[i] > requesterDeliveryRates[i]) {
-                revert Overflow(deliveryRates[i], requestInfo.deliveryRate);
+                continue;
             }
 
             // If delivery mech is different from the priority one
@@ -595,8 +593,6 @@ contract MechMarketplace is IErrorsMarketplace {
                     // Needs to stay atomic as each different priorityMech can be any address
                     IKarma(karma).changeMechKarma(priorityMech, -1);
                 } else {
-                    // TODO continue instead of revert? This would let us just ignore incorrect requests without reverting the bulk
-                    // TODO Additional thought: revert as mech has just miscalculated time, does not mean it has to clear that request
                     // Priority mech responseTimeout is still >= block.timestamp
                     revert PriorityMechResponseTimeout(requestInfo.responseTimeout, block.timestamp);
                 }

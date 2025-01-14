@@ -114,7 +114,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         for (uint256 i = 0; i < requestIds.length; ++i) {
             uint256 requestId = requestIds[i];
 
-            // TODO optimize or remove?
             // Record the request Id in the map
             // Get previous and next request Ids of the first element
             uint256[2] storage requestIdLinks = mapRequestIds[0];

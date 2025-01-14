@@ -16,6 +16,7 @@ interface IWrappedToken {
     function deposit() external payable;
 }
 
+/// @title BalanceTrackerFixedPriceNative - smart contract for tracking mech and requester native token balances
 contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
     // Wrapped native token address
     address public immutable wrappedNativeToken;
@@ -86,7 +87,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
     }
 
     /// @dev Deposits funds for requester.
-    receive() external payable {
+    receive() external virtual payable {
         // Update account balances
         mapRequesterBalances[msg.sender] += msg.value;
 
