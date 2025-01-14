@@ -61,7 +61,7 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256[] requestIds);
     event MarketplaceDelivery(address indexed deliveryMech, address[] indexed requesters, uint256 numDeliveries,
         uint256[] requestIds, bool[] deliveredRequests);
-    event Deliver(address indexed mechOperator, uint256 requestId, bytes data);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, uint256 requestId, bytes data);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
         uint256 numRequests, uint256[] requestIds);
     event RequesterHashApproved(address indexed requester, bytes32 hash);
@@ -763,7 +763,7 @@ contract MechMarketplace is IErrorsMarketplace {
             nonce++;
 
             // Symmetrical delivery mech event that in general happens when delivery is called directly through the mech
-            emit Deliver(mechServiceMultisig, requestIds[i], deliveryDatas[i]);
+            emit Deliver(msg.sender, mechServiceMultisig, requestIds[i], deliveryDatas[i]);
         }
 
         // Adjust requester nonce values

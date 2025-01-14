@@ -20,8 +20,8 @@ interface IMechMarketplace {
 /// @dev A Mech that is operated by the multisig of an Olas service
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
-    event Deliver(address indexed mechServiceMultisig, uint256 requestId, bytes data);
-    event Request(uint256 requestId, bytes data);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, uint256 requestId, bytes data);
+    event Request(address indexed mech, uint256 requestId, bytes data);
     event RevokeRequest(uint256 requestId);
     event NumRequestsIncrease(uint256 numRequests);
 
@@ -127,7 +127,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             // Previous element of the current next element will be the newly created element
             mapRequestIds[curNextRequestIdLink][0] = requestId;
 
-            emit Request(requestId, datas[i]);
+            emit Request(address(this), requestId, datas[i]);
         }
 
         // Increase the number of undelivered requests
@@ -255,7 +255,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         for (uint256 i = 0; i < numRequests; ++i) {
             if (deliveredRequests[i]) {
                 numDeliveries++;
-                emit Deliver(msg.sender, requestIds[i], deliveryDatas[i]);
+                emit Deliver(address(this), msg.sender, requestIds[i], deliveryDatas[i]);
             } else {
                 emit RevokeRequest(requestIds[i]);
             }
