@@ -115,24 +115,20 @@ Ref: Missing _locked = false;
             emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas);
         }
     }
+    +
+    emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas); inside if
 ```
 []
 
 #### Notice/Low. Why does this contract accept native token?
 ```
+    ref: https://solidity-by-example.org/hacks/self-destruct/
+    Don't rely on address(this).balance 
+
     BalanceTrackerNvmSubscriptionNative.sol
     /// @dev Deposits funds reflecting subscription.
     receive() external virtual override payable {
         emit Deposit(msg.sender, address(0), msg.value);
-    }
-    where
-    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
-        // Check for msg.value
-        if (msg.value > 0) { !!! disallow native token
-            revert NoDepositAllowed(msg.value);
-        }
-
-        return 0;
     }
 ```
 []
