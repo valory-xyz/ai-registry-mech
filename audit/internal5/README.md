@@ -89,7 +89,7 @@ Ref: Missing _locked = false;
         (mechPayment, marketplaceFee) = _processPayment(mech);
     }
 ```
-[]
+[x] fixed
 
 #### Medium. Potentially silent function.
 ```
@@ -118,7 +118,7 @@ Ref: Missing _locked = false;
     +
     emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas); inside if
 ```
-[]
+[x] fixed
 
 #### Notice/Low. Why does this contract accept native token?
 ```
@@ -131,7 +131,7 @@ Ref: Missing _locked = false;
         emit Deposit(msg.sender, address(0), msg.value);
     }
 ```
-[]
+[x] fixed
 
 #### Notice. Use symantic constant.
 ```
@@ -139,7 +139,7 @@ if (balance < 2) {
             revert ZeroValue();
         }
 ```
-[]
+[x] fixed
 
 #### Notice. Group functions
 ```
@@ -155,7 +155,7 @@ function _verifySignedHash(address requester, bytes32 requestHash, bytes memory 
     ...
     revert WrongRequesterAddress(recRequester, requester); // ECDSA
 ```
-[]
+[x] fixed
 
 
 
