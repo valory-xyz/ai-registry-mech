@@ -20,10 +20,7 @@ interface IMechMarketplace {
     /// @dev Delivers a request.
     /// @param requestId Request id.
     /// @param requestData Self-descriptive opaque data-blob.
-    function deliverMarketplace(
-        uint256 requestId,
-        bytes memory requestData
-    ) external;
+    function deliverMarketplace(uint256 requestId, bytes memory requestData) external;
 
     /// @dev Gets mech delivery info.
     /// @param requestId Request Id.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {IMech} from "../../interfaces/IMech.sol";
+import {BalanceTrackerBase, ZeroAddress, ZeroValue, InsufficientBalance, ReentrancyGuard} from "../../BalanceTrackerBase.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -15,60 +15,44 @@ interface IERC1155 {
     /// @param tokenId Token Id.
     /// @param amount Amount of tokens.
     function burn(address account, uint256 tokenId, uint256 amount) external;
+
+    /// @dev Transfers tokens.
+    /// @param from Source address.
+    /// @param to Destination address.
+    /// @param id Token Id.
+    /// @param amount Token amount.
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata) external;
 }
-
-/// @dev Only `marketplace` has a privilege, but the `sender` was provided.
-/// @param sender Sender address.
-/// @param marketplace Required marketplace address.
-error MarketplaceOnly(address sender, address marketplace);
-
-/// @dev Provided zero address.
-error ZeroAddress();
-
-/// @dev Provided zero value.
-error ZeroValue();
-
-/// @dev Not enough balance to cover costs.
-/// @param current Current balance.
-/// @param required Required balance.
-error InsufficientBalance(uint256 current, uint256 required);
 
 /// @dev Value overflow.
 /// @param provided Overflow value.
 /// @param max Maximum possible value.
 error Overflow(uint256 provided, uint256 max);
 
-/// @dev Caught reentrancy violation.
-error ReentrancyGuard();
-
 /// @dev No incoming msg.value is allowed.
 /// @param amount Value amount.
 error NoDepositAllowed(uint256 amount);
 
-contract BalanceTrackerNvmSubscription {
-    event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
-    event CreditsAccounted(address indexed account, uint256 amount);
+contract BalanceTrackerNvmSubscription is BalanceTrackerBase {
+    event WithdrawSubscription(address indexed account, address indexed token, uint256 indexed tokenId, uint256 amount);
+    event RequesterCreditsRedeemed(address indexed account, uint256 amount);
 
-    // Mech marketplace address
-    address public immutable mechMarketplace;
+    // TODO: setup, taken from subscription?
+    uint256 public constant NVM_FEE = 100;
+
     // Subscription NFT
     address public immutable subscriptionNFT;
     // Subscription token Id
     uint256 public immutable subscriptionTokenId;
 
-    // Reentrancy lock
-    uint256 internal _locked = 1;
-
-    // Map of requester => current credit balance
-    mapping(address => uint256) public mapRequesterBalances;
-    // Map of mech => current debit balance
-    mapping(address => uint256) public mapMechBalances;
-
     /// @dev BalanceTrackerSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
+    /// @param _buyBackBurner Buy back burner address.
     /// @param _subscriptionNFT Subscription NFT address.
     /// @param _subscriptionTokenId Subscription token Id.
-    constructor(address _mechMarketplace, address _subscriptionNFT, uint256 _subscriptionTokenId) {
+    constructor(address _mechMarketplace, address _buyBackBurner, address _subscriptionNFT, uint256 _subscriptionTokenId)
+        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
+    {
         if (_subscriptionNFT == address(0)) {
             revert ZeroAddress();
         }
@@ -77,31 +61,19 @@ contract BalanceTrackerNvmSubscription {
             revert ZeroValue();
         }
 
-        mechMarketplace = _mechMarketplace;
         subscriptionNFT = _subscriptionNFT;
         subscriptionTokenId = _subscriptionTokenId;
     }
 
-    /// @dev Checks and records delivery rate.
-    /// @param requester Requester address.
-    /// @param maxDeliveryRate Request max delivery rate.
-    function checkAndRecordDeliveryRate(
+    /// @dev Adjusts initial requester balance accounting for max request delivery rate (credit).
+    /// @param balance Initial requester balance.
+    /// @param maxDeliveryRate Max delivery rate.
+    function _adjustInitialBalance(
         address requester,
+        uint256 balance,
         uint256 maxDeliveryRate,
         bytes memory
-    ) external payable {
-        // Check for marketplace access
-        if (msg.sender != mechMarketplace) {
-            revert MarketplaceOnly(msg.sender, mechMarketplace);
-        }
-
-        // Check that there is no incoming deposit
-        if (msg.value > 0) {
-            revert NoDepositAllowed(msg.value);
-        }
-
-        // Get requester credit balance
-        uint256 balance = mapRequesterBalances[requester];
+    ) internal virtual override returns (uint256) {
         // Get requester actual subscription balance
         uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(requester, subscriptionTokenId);
 
@@ -113,66 +85,64 @@ contract BalanceTrackerNvmSubscription {
             revert InsufficientBalance(subscriptionBalance, balance);
         }
 
-        // Adjust requester balance
-        mapRequesterBalances[requester] = balance;
+        return balance;
     }
 
-    /// @dev Finalizes mech delivery rate based on requested and actual ones.
-    /// @param mech Delivery mech address.
+    /// @dev Adjusts final requester balance accounting for possible delivery rate difference (credit).
     /// @param requester Requester address.
-    /// @param requestId Request Id.
-    /// @param maxDeliveryRate Requested max delivery rate.
-    function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 maxDeliveryRate) external {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
+    /// @param rateDiff Delivery rate difference.
+    /// @return Adjusted balance.
+    function _adjustFinalBalance(address requester, uint256 rateDiff) internal virtual override returns (uint256) {
+        uint256 balance = mapRequesterBalances[requester];
 
-        // Check for marketplace access
-        if (msg.sender != mechMarketplace) {
-            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        // This must never happen as max delivery rate is always bigger or equal to the actual delivery rate
+        if (rateDiff > balance) {
+            revert Overflow(rateDiff, balance);
         }
 
-        // Get actual delivery rate
-        uint256 actualDeliveryRate = IMech(mech).getFinalizedDeliveryRate(requestId);
-
-        // Check for zero value
-        if (actualDeliveryRate == 0) {
-            revert ZeroValue();
-        }
-
-        uint256 rateDiff;
-        if (maxDeliveryRate > actualDeliveryRate) {
-            // Return back requester overpayment credit
-            rateDiff = maxDeliveryRate - actualDeliveryRate;
-
-            // Get requester balance
-            uint256 balance = mapRequesterBalances[requester];
-
-            // This must never happen as max delivery rate is always bigger or equal to the actual delivery rate
-            if (rateDiff > balance) {
-                revert Overflow(rateDiff, balance);
-            }
-
-            // Adjust requester balance
-            balance -= rateDiff;
-            mapRequesterBalances[requester] = balance;
-        } else {
-            actualDeliveryRate = maxDeliveryRate;
-        }
-
-        // Record payment into mech balance
-        mapMechBalances[mech] += actualDeliveryRate;
-
-        emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
-
-        _locked = 1;
+        // Adjust requester credit balance
+        return (balance - rateDiff);
     }
 
-    /// @dev Processes requester credits.
+    // TODO: behavior with buyBackBurner?
+    /// @dev Drains specified amount.
+    /// @param amount Amount value.
+    function _drain(uint256 amount) internal virtual override {}
+
+    /// @dev Gets fee composed of marketplace fee and another one, if applicable.
+    function _getFee() internal view virtual override returns (uint256) {
+        return NVM_FEE + super._getFee();
+    }
+
+    /// @dev Gets native token value or restricts receiving one.
+    /// @return Received value.
+    function _getOrRestrictNativeValue() internal virtual override returns (uint256) {
+        // Check for msg.value
+        if (msg.value > 0) {
+            revert NoDepositAllowed(msg.value);
+        }
+
+        return 0;
+    }
+
+    /// @dev Gets required token funds.
+    function _getRequiredFunds(address, uint256) internal virtual override returns (uint256) {
+        return 0;
+    }
+
+    /// @dev Withdraws funds.
+    /// @param account Account address.
+    /// @param amount Token amount.
+    function _withdraw(address account, uint256 amount) internal virtual override {
+        // Transfer tokens
+        IERC1155(subscriptionNFT).safeTransferFrom(address(this), account, subscriptionTokenId, amount, "");
+
+        emit WithdrawSubscription(msg.sender, subscriptionNFT, subscriptionTokenId, amount);
+    }
+
+    /// @dev Redeem requester credits.
     /// @param requester Requester address.
-    function processPayment(address requester) external {
+    function redeemRequesterCredits(address requester) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -200,7 +170,7 @@ contract BalanceTrackerNvmSubscription {
         // Burn requester credit balance
         IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
 
-        emit CreditsAccounted(requester, balance);
+        emit RequesterCreditsRedeemed(requester, balance);
 
         _locked = 1;
     }

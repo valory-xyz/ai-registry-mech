@@ -15,4 +15,12 @@ interface IBalanceTracker {
     /// @param requestId Request Id.
     /// @param deliveryRate Requested delivery rate.
     function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 deliveryRate) external;
+
+    /// @dev Adjusts requester and mech balances for direct batch request processing.
+    /// @param mech Mech address.
+    /// @param requester Requester address.
+    /// @param totalDeliveryRate Total batch delivery rate.
+    /// @param paymentData Additional payment-related request data, if applicable.
+    function adjustRequesterMechBalances(address mech, address requester, uint256 totalDeliveryRate,
+        bytes memory paymentData) external payable;
 }

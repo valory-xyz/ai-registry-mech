@@ -13,6 +13,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event Deliver(address indexed sender, uint256 requestId, bytes data);
     event Request(address indexed sender, uint256 requestId, bytes data);
     event RevokeRequest(address indexed sender, uint256 requestId);
+    event NumRequestsIncrease(uint256 numRequests);
 
     // Olas mech version number
     string public constant VERSION = "1.0.0";
@@ -249,6 +250,20 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         _cleanRequestInfo(requester, requestId);
 
         emit RevokeRequest(requester, requestId);
+    }
+
+    /// @dev Updates number of requests delivered directly via Marketplace.
+    /// @param numRequests Number of requests.
+    function updateNumRequests(uint256 numRequests) external {
+        // Check for marketplace access
+        if (msg.sender != mechMarketplace) {
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        }
+
+        numTotalRequests += numRequests;
+        numTotalDeliveries += numRequests;
+
+        emit NumRequestsIncrease(numRequests);
     }
 
     /// @dev Delivers a request by a marketplace.

@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {IMech} from "./interfaces/IMech.sol";
 
 interface IMechMarketplace {
-    function fee() external returns(uint256);
+    function fee() external view returns(uint256);
 }
 
 /// @dev Only `marketplace` has a privilege, but the `sender` was provided.
@@ -37,7 +37,9 @@ error UnauthorizedAccount(address account);
 /// @param amount Amount value.
 error TransferFailed(address token, address from, address to, uint256 amount);
 
-abstract contract BalanceTrackerFixedPriceBase {
+abstract contract BalanceTrackerBase {
+    event RequesterBalanceAdjusted(address indexed requester, uint256 deliveryRate, uint256 balance);
+    event MechBalanceAdjusted(address indexed mech, uint256 deliveryRate, uint256 balance);
     event MechPaymentCalculated(address indexed mech, uint256 indexed requestId, uint256 deliveryRate, uint256 rateDiff);
     event Deposit(address indexed account, address indexed token, uint256 amount);
     event Withdraw(address indexed account, address indexed token, uint256 amount);
@@ -55,9 +57,9 @@ abstract contract BalanceTrackerFixedPriceBase {
     // Reentrancy lock
     uint256 internal _locked = 1;
 
-    // Map of requester => current debit balance
+    // Map of requester => current balance
     mapping(address => uint256) public mapRequesterBalances;
-    // Map of mech => => current debit balance
+    // Map of mech => => current balance
     mapping(address => uint256) public mapMechBalances;
 
     /// @dev BalanceTrackerFixedPrice constructor.
@@ -73,8 +75,47 @@ abstract contract BalanceTrackerFixedPriceBase {
         buyBackBurner = _buyBackBurner;
     }
 
+    /// @dev Adjusts initial requester balance accounting for delivery rate (debit).
+    /// @param balance Initial requester balance.
+    /// @param deliveryRate Delivery rate.
+    function _adjustInitialBalance(
+        address requester,
+        uint256 balance,
+        uint256 deliveryRate,
+        bytes memory
+    ) internal virtual returns (uint256) {
+        // Check the request delivery rate for a fixed price
+        if (balance < deliveryRate) {
+            // Get balance difference
+            uint256 balanceDiff = deliveryRate - balance;
+            // Adjust balance
+            balance += _getRequiredFunds(requester, balanceDiff);
+        }
+
+        if (balance < deliveryRate) {
+            revert InsufficientBalance(balance, deliveryRate);
+        }
+
+        // Adjust account balance
+        return (balance - deliveryRate);
+    }
+
+    /// @dev Adjusts final requester balance accounting for possible delivery rate difference (debit).
+    /// @param requester Requester address.
+    /// @param rateDiff Delivery rate difference.
+    /// @return Adjusted balance.
+    function _adjustFinalBalance(address requester, uint256 rateDiff) internal virtual returns (uint256) {
+        return mapRequesterBalances[requester] + rateDiff;
+    }
+
     /// @dev Drains specified amount.
+    /// @param amount Amount value.
     function _drain(uint256 amount) internal virtual;
+
+    /// @dev Gets fee composed of marketplace fee and another one, if applicable.
+    function _getFee() internal view virtual returns (uint256) {
+        return IMechMarketplace(mechMarketplace).fee();
+    }
 
     /// @dev Gets native token value or restricts receiving one.
     /// @return Received value.
@@ -90,13 +131,7 @@ abstract contract BalanceTrackerFixedPriceBase {
     /// @param mech Mech address.
     /// @return mechPayment Mech payment.
     /// @return marketplaceFee Marketplace fee.
-    function _processPayment(address mech) internal returns (uint256 mechPayment, uint256 marketplaceFee) {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
+    function _processPayment(address mech) internal virtual returns (uint256 mechPayment, uint256 marketplaceFee) {
         // Get mech balance
         uint256 balance = mapMechBalances[mech];
         // If balance is 1, the marketplace fee is still 1, and thus mech payment will be zero
@@ -104,8 +139,9 @@ abstract contract BalanceTrackerFixedPriceBase {
             revert ZeroValue();
         }
 
+        // TODO Separate between total fee and marketplace fee when NVM solution is ready
         // Calculate mech payment and marketplace fee
-        uint256 fee = IMechMarketplace(mechMarketplace).fee();
+        uint256 fee = _getFee();
 
         // If requested balance is too small, charge the minimal fee
         // ceil(a, b) = (a + b - 1) / b
@@ -115,6 +151,7 @@ abstract contract BalanceTrackerFixedPriceBase {
         // Calculate mech payment
         mechPayment = balance - marketplaceFee;
 
+        // TODO If fee is charged beforehand, this is irrelevant
         // Check for zero value, although this must never happen
         if (marketplaceFee == 0 || mechPayment == 0) {
             revert ZeroValue();
@@ -128,8 +165,6 @@ abstract contract BalanceTrackerFixedPriceBase {
 
         // Process withdraw
         _withdraw(mech, mechPayment);
-
-        _locked = 1;
     }
 
     /// @dev Withdraws funds.
@@ -140,11 +175,12 @@ abstract contract BalanceTrackerFixedPriceBase {
     /// @dev Checks and records delivery rate.
     /// @param requester Requester address.
     /// @param maxDeliveryRate Request max delivery rate.
+    /// @param paymentData Additional payment-related request data, if applicable.
     function checkAndRecordDeliveryRate(
         address requester,
         uint256 maxDeliveryRate,
-        bytes memory
-    ) external payable {
+        bytes memory paymentData
+    ) public payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -162,21 +198,11 @@ abstract contract BalanceTrackerFixedPriceBase {
         // Get account balance
         uint256 balance = mapRequesterBalances[requester] + initAmount;
 
-        // Check the request delivery rate for a fixed price
-        if (balance < maxDeliveryRate) {
-            // Get balance difference
-            uint256 balanceDiff = maxDeliveryRate - balance;
-            // Adjust balance
-            balance += _getRequiredFunds(requester, balanceDiff);
-        }
-
-        if (balance < maxDeliveryRate) {
-            revert InsufficientBalance(balance, maxDeliveryRate);
-        }
-
         // Adjust account balance
-        balance -= maxDeliveryRate;
+        balance = _adjustInitialBalance(requester, balance, maxDeliveryRate, paymentData);
         mapRequesterBalances[requester] = balance;
+
+        emit RequesterBalanceAdjusted(requester, maxDeliveryRate, balance);
 
         _locked = 1;
     }
@@ -187,6 +213,12 @@ abstract contract BalanceTrackerFixedPriceBase {
     /// @param requestId Request Id.
     /// @param maxDeliveryRate Requested max delivery rate.
     function finalizeDeliveryRate(address mech, address requester, uint256 requestId, uint256 maxDeliveryRate) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
@@ -202,19 +234,50 @@ abstract contract BalanceTrackerFixedPriceBase {
 
         // Check for delivery rate difference
         uint256 rateDiff;
+        uint256 balance;
         if (maxDeliveryRate > actualDeliveryRate) {
-            // Return back requester overpayment debit
+            // Return back requester overpayment debit / credit
             rateDiff = maxDeliveryRate - actualDeliveryRate;
-            mapRequesterBalances[requester] += rateDiff;
+
+            // Adjust requester balance
+            balance = _adjustFinalBalance(requester, rateDiff);
+            mapRequesterBalances[requester] = balance;
         } else {
             // Limit the rate by the max chosen one as that is what the requester agreed on
             actualDeliveryRate = maxDeliveryRate;
         }
 
         // Record payment into mech balance
-        mapMechBalances[mech] += actualDeliveryRate;
+        balance = mapMechBalances[mech];
+        balance += actualDeliveryRate;
+        mapMechBalances[mech] = balance;
 
         emit MechPaymentCalculated(mech, requestId, actualDeliveryRate, rateDiff);
+        emit MechBalanceAdjusted(mech, actualDeliveryRate, balance);
+
+        _locked = 1;
+    }
+
+    /// @dev Adjusts requester and mech balances for direct batch request processing.
+    /// @notice This function can be called by the Mech Marketplace only.
+    /// @param mech Mech address.
+    /// @param requester Requester address.
+    /// @param totalDeliveryRate Total batch delivery rate.
+    /// @param paymentData Additional payment-related request data, if applicable.
+    function adjustRequesterMechBalances(
+        address mech,
+        address requester,
+        uint256 totalDeliveryRate,
+        bytes memory paymentData
+    ) external payable {
+        checkAndRecordDeliveryRate(requester, totalDeliveryRate, paymentData);
+
+        // Record payment into mech balance
+        uint256 balance = mapMechBalances[mech];
+        balance += totalDeliveryRate;
+        mapMechBalances[mech] = balance;
+
+        emit MechBalanceAdjusted(mech, totalDeliveryRate, balance);
     }
 
     /// @dev Drains collected fees by sending them to a Buy back burner contract.
@@ -242,22 +305,38 @@ abstract contract BalanceTrackerFixedPriceBase {
 
     /// @dev Processes mech payment by mech service multisig.
     /// @param mech Mech address.
-    /// @return Mech payment.
-    /// @return Marketplace fee.
-    function processPaymentByMultisig(address mech) external returns (uint256, uint256) {
+    /// @return mechPayment Mech payment.
+    /// @return marketplaceFee Marketplace fee.
+    function processPaymentByMultisig(address mech) external returns (uint256 mechPayment, uint256 marketplaceFee) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check for mech service multisig address
         if (!IMech(mech).isOperator(msg.sender)) {
             revert UnauthorizedAccount(msg.sender);
         }
 
-        return _processPayment(mech);
+        (mechPayment, marketplaceFee) = _processPayment(mech);
+
+        _locked = 1;
     }
 
     /// @dev Processes mech payment.
-    /// @return Mech payment.
-    /// @return Marketplace fee.
-    function processPayment() external returns (uint256, uint256) {
-        return _processPayment(msg.sender);
+    /// @return mechPayment Mech payment.
+    /// @return marketplaceFee Marketplace fee.
+    function processPayment() external returns (uint256 mechPayment, uint256 marketplaceFee) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        (mechPayment, marketplaceFee) = _processPayment(msg.sender);
+
+        _locked = 1;
     }
 
     /// @dev Withdraws funds for a specific requester account.
