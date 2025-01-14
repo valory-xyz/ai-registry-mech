@@ -152,6 +152,18 @@ In Solidity, it is common practice to group functions based on their visibility 
 []
 
 
+#### Notice. Unify revert msg
+```
+function _verifySignedHash(address requester, bytes32 requestHash, bytes memory signature) internal view {
+    revert HashNotValidated(requester, requestHash, signature); // 1271
+    ...
+    revert WrongRequesterAddress(recRequester, requester); // ECDSA
+```
+[]
+
+
+
+
 
 
 
