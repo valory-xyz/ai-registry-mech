@@ -641,7 +641,7 @@ describe("MechFixedPriceNative", function () {
         });
 
         it("Requests with signatures", async function () {
-            const numRequests = 1;
+            const numRequests = 10;
             const datas = new Array();
             const requestIds = new Array();
             const signatures = new Array();
@@ -655,15 +655,34 @@ describe("MechFixedPriceNative", function () {
             const accounts = config.networks.hardhat.accounts;
             const wallet = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/${0}`);
             const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
+            console.log(wallet.privateKey);
+
+            // Try to update mech num requests not by a Marketplace
+            await expect(
+                priorityMech.updateNumRequests(numRequests)
+            ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
 
             // Stack all requests
             for (let i = 0; i < numRequests; i++) {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 const signature = signingKey.signDigest(requestIds[i]);
-                signatures[i] = signature.compact + (signature.v).toString(16);
+                // Extract v, r, s
+                const r = ethers.utils.arrayify(signature.r);
+                const s = ethers.utils.arrayify(signature.s);
+                const v = ethers.utils.arrayify(signature.v);
+                // Assemble 65 bytes of signature
+                signatures[i] = ethers.utils.hexlify(ethers.utils.concat([r, s, v]));
                 requestCount++;
             }
+
+            // Try to deliver requests not in order
+            let reverseDatas = Array.from(datas);
+            reverseDatas = reverseDatas.reverse();
+            await expect(
+                priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, reverseDatas, signatures, reverseDatas,
+                deliveryRates, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
 
             // Deliver requests
             await priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, datas, signatures, datas,
