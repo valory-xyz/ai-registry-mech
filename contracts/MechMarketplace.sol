@@ -58,12 +58,12 @@ contract MechMarketplace is IErrorsMarketplace {
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
     event SetPaymentTypeBalanceTrackers(bytes32[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed priorityMech, address indexed requester, uint256 numRequests,
-        uint256[] requestIds);
+        bytes32[] requestIds);
     event MarketplaceDelivery(address indexed deliveryMech, address[] indexed requesters, uint256 numDeliveries,
-        uint256[] requestIds, bool[] deliveredRequests);
-    event Deliver(address indexed mech, address indexed mechServiceMultisig, uint256 requestId, bytes data);
+        bytes32[] requestIds, bool[] deliveredRequests);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, bytes data);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
-        uint256 numRequests, uint256[] requestIds);
+        uint256 numRequests, bytes32[] requestIds);
     event RequesterHashApproved(address indexed requester, bytes32 hash);
 
     enum RequestStatus {

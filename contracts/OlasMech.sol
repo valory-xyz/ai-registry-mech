@@ -39,9 +39,9 @@ interface IMechMarketplace {
 /// @dev A Mech that is operated by the multisig of an Olas service
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
-    event Deliver(address indexed mech, address indexed mechServiceMultisig, uint256 requestId, bytes data);
-    event Request(address indexed mech, uint256 requestId, bytes data);
-    event RevokeRequest(uint256 requestId);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, bytes data);
+    event Request(address indexed mech, bytes32 requestId, bytes data);
+    event RevokeRequest(bytes32 requestId);
     event NumRequestsIncrease(uint256 numRequests);
 
     // Olas mech version number
