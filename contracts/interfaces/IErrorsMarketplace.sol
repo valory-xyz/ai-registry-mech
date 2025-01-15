@@ -110,9 +110,4 @@ interface IErrorsMarketplace {
     /// @param msgHash Message hash.
     /// @param signature Signature bytes associated with the message hash.
     error HashNotValidated(address requester, bytes32 msgHash, bytes signature);
-
-    /// @dev Obtained wrong requester address.
-    /// @param provided Provided address.
-    /// @param expected Expected address.
-    error WrongRequesterAddress(address provided, address expected);
 }

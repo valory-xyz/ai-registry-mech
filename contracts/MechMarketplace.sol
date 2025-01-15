@@ -57,10 +57,13 @@ contract MechMarketplace is IErrorsMarketplace {
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
     event SetPaymentTypeBalanceTrackers(bytes32[] paymentTypes, address[] balanceTrackers);
-    event MarketplaceRequest(address indexed requester, address indexed requestedMech, bytes32[] requestIds, bytes[] datas);
-    event MarketplaceDelivery(address indexed deliveryMech, address[] indexed requesters, bytes32[] requestIds, bytes[] datas);
+    event MarketplaceRequest(address indexed priorityMech, address indexed requester, uint256 numRequests,
+        uint256[] requestIds);
+    event MarketplaceDelivery(address indexed deliveryMech, address[] indexed requesters, uint256 numDeliveries,
+        uint256[] requestIds, bool[] deliveredRequests);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, uint256 requestId, bytes data);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
-        bytes32[] requestIds, bytes[] datas);
+        uint256 numRequests, uint256[] requestIds);
     event RequesterHashApproved(address indexed requester, bytes32 hash);
 
     enum RequestStatus {
@@ -104,7 +107,7 @@ contract MechMarketplace is IErrorsMarketplace {
     // Number of mechs
     uint256 public numMechs;
     // Reentrancy lock
-    bool internal _locked;
+    uint256 internal _locked;
 
     // Contract owner
     address public owner;
@@ -209,6 +212,7 @@ contract MechMarketplace is IErrorsMarketplace {
         _changeMarketplaceParams(_fee, _minResponseTimeout, _maxResponseTimeout);
 
         owner = msg.sender;
+        _locked = 1;
     }
 
     /// @dev Changes contract owner address.
@@ -458,7 +462,7 @@ contract MechMarketplace is IErrorsMarketplace {
         // Process request by a specified priority mech
         IMech(priorityMech).requestFromMarketplace(requestIds, requestDatas);
 
-        emit MarketplaceRequest(msg.sender, priorityMech, requestIds, requestDatas);
+        emit MarketplaceRequest(priorityMech, msg.sender, numRequests, requestIds);
     }
 
     /// @dev Registers a request.
@@ -477,10 +481,10 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes memory paymentData
     ) external payable returns (bytes32 requestId) {
         // Reentrancy guard
-        if (_locked) {
+        if (_locked == 2) {
             revert ReentrancyGuard();
         }
-        _locked = true;
+        _locked = 2;
 
         // Allocate arrays
         bytes[] memory requestDatas = new bytes[](1);
@@ -491,7 +495,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         requestId = requestIds[0];
 
-        _locked = false;
+        _locked = 1;
     }
 
     /// @dev Registers batch of requests.
@@ -510,14 +514,14 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes memory paymentData
     ) external payable returns (bytes32[] memory requestIds) {
         // Reentrancy guard
-        if (_locked) {
+        if (_locked == 2) {
             revert ReentrancyGuard();
         }
-        _locked = true;
+        _locked = 2;
 
         requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
 
-        _locked = false;
+        _locked = 1;
     }
 
     /// @dev Delivers requests.
@@ -531,10 +535,10 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes[] memory deliveryDatas
     ) external returns (bool[] memory deliveredRequests) {
         // Reentrancy guard
-        if (_locked) {
+        if (_locked == 2) {
             revert ReentrancyGuard();
         }
-        _locked = true;
+        _locked = 2;
 
         // Check array lengths
         if (requestIds.length == 0 || requestIds.length != deliveryRates.length ||
@@ -629,11 +633,11 @@ contract MechMarketplace is IErrorsMarketplace {
             // Process payment
             IBalanceTracker(balanceTracker).finalizeDeliveryRates(msg.sender, requesters, deliveredRequests,
                 deliveryRates, requesterDeliveryRates);
-
-            emit MarketplaceDelivery(msg.sender, requesters, requestIds, deliveryDatas);
         }
 
-        _locked = false;
+        emit MarketplaceDelivery(msg.sender, requesters, numDeliveries, requestIds, deliveredRequests);
+
+        _locked = 1;
     }
 
     /// @dev Verifies provided request hash against its signature.
@@ -684,7 +688,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Final check is for the requester address itself
         if (recRequester != requester) {
-            revert WrongRequesterAddress(recRequester, requester);
+            revert HashNotValidated(requester, requestHash, signature);
         }
     }
     
@@ -707,10 +711,10 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes memory paymentData
     ) external {
         // Reentrancy guard
-        if (_locked) {
+        if (_locked == 2) {
             revert ReentrancyGuard();
         }
-        _locked = true;
+        _locked = 2;
 
         // Array length checks
         if (requestDatas.length == 0 || requestDatas.length != signatures.length ||
@@ -757,6 +761,9 @@ contract MechMarketplace is IErrorsMarketplace {
 
             // Increase nonce
             nonce++;
+
+            // Symmetrical delivery mech event that in general happens when delivery is called directly through the mech
+            emit Deliver(msg.sender, mechServiceMultisig, requestIds[i], deliveryDatas[i]);
         }
 
         // Adjust requester nonce values
@@ -783,9 +790,9 @@ contract MechMarketplace is IErrorsMarketplace {
         // Update mech stats
         IMech(msg.sender).updateNumRequests(numRequests);
 
-        emit MarketplaceDeliveryWithSignatures(msg.sender, requester, requestIds, deliveryDatas);
+        emit MarketplaceDeliveryWithSignatures(msg.sender, requester, numRequests, requestIds);
 
-        _locked = false;
+        _locked = 1;
     }
 
     /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.

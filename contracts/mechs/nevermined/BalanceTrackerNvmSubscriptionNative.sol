@@ -45,6 +45,8 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
     // Subscription token Id
     uint256 public subscriptionTokenId;
 
+    // Current contract balance
+    uint256 public trackerBalance;
     // Temporary owner address
     address public owner;
 
@@ -127,8 +129,15 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
         }
 
         // Convert mech credits balance into tokens
-        mapMechBalances[mech] = balance * creditTokenRatio;
+        balance *= creditTokenRatio;
+        mapMechBalances[mech] = balance;
 
+        // Check current contract balance
+        if (balance > trackerBalance) {
+            revert Overflow(balance, trackerBalance);
+        }
+
+        // Proceed with the default mech payment logic
         return super._processPayment(mech);
     }
 
@@ -161,10 +170,10 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
     /// @param requester Requester address.
     function redeemRequesterCredits(address requester) external {
         // Reentrancy guard
-        if (_locked) {
+        if (_locked == 2) {
             revert ReentrancyGuard();
         }
-        _locked = true;
+        _locked = 2;
 
         // Get requester credit balance
         uint256 balance = mapRequesterBalances[requester];
@@ -189,11 +198,14 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
 
         emit RequesterCreditsRedeemed(requester, balance);
 
-        _locked = false;
+        _locked = 1;
     }
 
     /// @dev Deposits funds reflecting subscription.
     receive() external virtual override payable {
+        // Record actual balance
+        trackerBalance += msg.value;
+
         emit Deposit(msg.sender, address(0), msg.value);
     }
 }

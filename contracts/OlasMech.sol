@@ -39,9 +39,9 @@ interface IMechMarketplace {
 /// @dev A Mech that is operated by the multisig of an Olas service
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
-    event Deliver(address indexed sender, bytes32 requestId, bytes data);
-    event Request(bytes32 requestId, bytes data);
-    event RevokeRequest(bytes32 requestId);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, uint256 requestId, bytes data);
+    event Request(address indexed mech, uint256 requestId, bytes data);
+    event RevokeRequest(uint256 requestId);
     event NumRequestsIncrease(uint256 numRequests);
 
     // Olas mech version number
@@ -61,9 +61,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     // Number of total deliveries by this mech
     uint256 public numTotalDeliveries;
     // Reentrancy lock
-    bool internal _locked;
+    uint256 internal _locked = 1;
 
-    // TODO Check if needed as requests are checked by Marketplace
     // Cyclical map of request Ids
     mapping(bytes32 => bytes32[2]) public mapRequestIds;
 
@@ -147,7 +146,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             // Previous element of the current next element will be the newly created element
             mapRequestIds[curNextRequestIdLink][0] = requestId;
 
-            emit Request(requestId, datas[i]);
+            emit Request(address(this), requestId, datas[i]);
         }
 
         // Increase the number of undelivered requests
@@ -248,10 +247,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         bytes[] memory datas
     ) external onlyOperator {
         // Reentrancy guard
-        if (_locked) {
+        if (_locked == 2) {
             revert ReentrancyGuard();
         }
-        _locked = true;
+        _locked = 2;
 
         // Check array sizes
         if (requestIds.length == 0 || requestIds.length != datas.length) {
@@ -273,19 +272,18 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         uint256 numDeliveries;
         // Traverse all requests to select delivered ones
         for (uint256 i = 0; i < numRequests; ++i) {
-            bytes32 requestId = requestIds[i];
             if (deliveredRequests[i]) {
                 numDeliveries++;
-                emit Deliver(msg.sender, requestId, deliveryDatas[i]);
+                emit Deliver(address(this), msg.sender, requestIds[i], deliveryDatas[i]);
             } else {
-                emit RevokeRequest(requestId);
+                emit RevokeRequest(requestIds[i]);
             }
         }
 
         // Increase the total number of deliveries actually delivered by this mech
         numTotalDeliveries += numDeliveries;
 
-        _locked = false;
+        _locked = 1;
     }
 
     /// @dev Delivers signed requests.
@@ -357,7 +355,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         return multisig == getOperator();
     }
 
-    // TODO remove?
     /// @dev Gets the set of undelivered request Ids with Nonce.
     /// @param size Maximum batch size of a returned requests Id set. If the size is zero, the whole set is returned.
     /// @param offset The number of skipped requests that are not going to be part of the returned requests Id set.
