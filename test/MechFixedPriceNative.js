@@ -20,9 +20,9 @@ describe("MechFixedPriceNative", function () {
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
     const HashZero = ethers.constants.HashZero;
-    const maxDeliveryRate = 1000;
+    const maxDeliveryRate = 100;
     const data = "0x00";
-    const fee = 10;
+    const fee = 100;
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
@@ -295,7 +295,7 @@ describe("MechFixedPriceNative", function () {
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "InsufficientBalance");
 
             // Pre-pay the contract more for posting a request
-            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate});
+            await balanceTrackerFixedPriceNative.depositFor(deployer.address, {value: maxDeliveryRate});
 
             // Post a request
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");

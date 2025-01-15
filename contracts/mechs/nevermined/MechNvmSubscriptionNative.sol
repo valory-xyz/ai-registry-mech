@@ -23,13 +23,13 @@ error ZeroAddress();
 /// @dev Provided zero value.
 error ZeroValue();
 
-/// @title MechNvmSubscription - Smart contract for extending OlasMech with Nevermided subscription
+/// @title MechNvmSubscriptionNative - Smart contract for extending OlasMech with Nevermided subscription based on native token
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a Nevermided subscription.
-contract MechNvmSubscription is OlasMech {
+contract MechNvmSubscriptionNative is OlasMech {
     event RequestRateFinalized(bytes32 indexed requestId, uint256 deliveryRate);
 
-    // keccak256(NvmSubscription) = 626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0
-    bytes32 public constant PAYMENT_TYPE = 0x626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0;
+    // keccak256(NvmSubscriptionNative) = 803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316
+    bytes32 public constant PAYMENT_TYPE = 0x803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316;
 
     // Mapping for requestId => finalized delivery rates
     mapping(bytes32 => uint256) public mapRequestIdFinalizedRates;

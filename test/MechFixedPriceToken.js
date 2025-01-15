@@ -18,9 +18,9 @@ describe("MechFixedPriceToken", function () {
     let signers;
     let deployer;
     const initMint = "1" + "0".repeat(25);
-    const maxDeliveryRate = 1000;
+    const maxDeliveryRate = 100;
     const data = "0x00";
-    const fee = 10;
+    const fee = 100;
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
@@ -169,7 +169,7 @@ describe("MechFixedPriceToken", function () {
             await token.approve(balanceTrackerFixedPriceToken.address, maxDeliveryRate);
 
             // Pre-pay the contract more for posting a request
-            await balanceTrackerFixedPriceToken.deposit(maxDeliveryRate);
+            await balanceTrackerFixedPriceToken.depositFor(deployer.address, maxDeliveryRate);
 
             // Post a request
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");

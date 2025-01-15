@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {MechNvmSubscription} from "./MechNvmSubscription.sol";
+import {MechNvmSubscriptionNative} from "./MechNvmSubscriptionNative.sol";
 
 /// @dev Incorrect data length.
 /// @param provided Provided data length.
@@ -16,8 +16,8 @@ error MarketplaceOnly(address sender, address marketplace);
 /// @dev Provided zero address.
 error ZeroAddress();
 
-/// @title MechFactoryNvmSubscription - Periphery smart contract for managing Nevermined subscription mech creation
-contract MechFactoryNvmSubscription {
+/// @title MechFactoryNvmSubscriptionNative - Periphery smart contract for managing Nevermined subscription mech creation
+contract MechFactoryNvmSubscriptionNative {
     event CreateSubscriptionMech(address indexed mech, uint256 indexed serviceId, uint256 maxDeliveryRate);
 
     // Agent factory version number
@@ -63,7 +63,7 @@ contract MechFactoryNvmSubscription {
         _nonce = localNonce + 1;
 
         // Service multisig is isOperator() for the mech
-        mech = address((new MechNvmSubscription){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
+        mech = address((new MechNvmSubscriptionNative){salt: salt}(mechMarketplace, serviceRegistry, serviceId,
             maxDeliveryRate));
 
         // Check for zero address
