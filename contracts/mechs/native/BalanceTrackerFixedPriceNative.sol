@@ -86,6 +86,15 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
         IWrappedToken(wrappedNativeToken).deposit{value: amount}();
     }
 
+    /// @dev Deposits token funds for requester.
+    /// @param account Account address to deposit for.
+    function depositFor(address account) external payable virtual {
+        // Update account balances
+        mapRequesterBalances[account] += msg.value;
+
+        emit Deposit(account, address(0), msg.value);
+    }
+
     /// @dev Deposits funds for requester.
     receive() external virtual payable {
         // Update account balances

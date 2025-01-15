@@ -97,4 +97,18 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
 
         emit Deposit(msg.sender, token, amount);
     }
+
+    /// @dev Deposits token funds for requester.
+    /// @notice Funds are going to be transferred from msg.sender.
+    /// @param account Account address to deposit for.
+    /// @param amount Token amount.
+    function depositFor(address account, uint256 amount) external virtual {
+        // Update account balances
+        mapRequesterBalances[account] += amount;
+
+        // Get tokens
+        IToken(token).transferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(account, token, amount);
+    }
 }

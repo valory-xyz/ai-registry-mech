@@ -272,7 +272,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         bytes[] memory deliveryDatas,
         uint256[] memory deliveryRates,
         bytes memory paymentData
-    ) external {
+    ) external onlyOperator {
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, requesterServiceId, requestDatas,
             signatures, deliveryDatas, deliveryRates, paymentData);
     }

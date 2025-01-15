@@ -15,6 +15,7 @@ describe("MechFixedPriceNative", function () {
     let karma;
     let mechFactoryFixedPrice;
     let balanceTrackerFixedPriceNative;
+    let mockOperatorContract;
     let signers;
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
@@ -108,6 +109,11 @@ describe("MechFixedPriceNative", function () {
         // Whitelist balance tracker
         const paymentTypeHash = await priorityMech.paymentType();
         await mechMarketplace.setPaymentTypeBalanceTrackers([paymentTypeHash], [balanceTrackerFixedPriceNative.address]);
+
+        // Get mock operator contract (for contract signature validation)
+        const MockOperatorContract = await ethers.getContractFactory("MockOperatorContract");
+        mockOperatorContract = await MockOperatorContract.deploy();
+        await mockOperatorContract.deployed();
     });
 
     context("Initialization", async function () {
@@ -222,6 +228,14 @@ describe("MechFixedPriceNative", function () {
             await expect(
                 priorityMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(priorityMech, "ZeroAddress");
+
+            // Try to deliver with empty or wrong arrays
+            await expect(
+                priorityMech.deliverToMarketplace([], [])
+            ).to.be.revertedWithCustomError(priorityMech, "WrongArrayLength");
+            await expect(
+                priorityMech.deliverToMarketplace([], [data])
+            ).to.be.revertedWithCustomError(priorityMech, "WrongArrayLength");
 
             // Try to check and record delivery rate not by marketplace
             await expect(
@@ -484,9 +498,18 @@ describe("MechFixedPriceNative", function () {
                 requestCount++;
             }
 
+            // Try to do zero array requests
+            await expect(
+                mechMarketplace.requestBatch([], mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
+
             // Stack all requests in batch
             await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
                 {value: maxDeliveryRate * numRequests});
+
+            await expect(
+                mechMarketplace.requestBatch([], mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -655,7 +678,6 @@ describe("MechFixedPriceNative", function () {
             const accounts = config.networks.hardhat.accounts;
             const wallet = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/${0}`);
             const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
-            console.log(wallet.privateKey);
 
             // Try to update mech num requests not by a Marketplace
             await expect(
@@ -686,6 +708,38 @@ describe("MechFixedPriceNative", function () {
 
             // Deliver requests
             await priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, datas, signatures, datas,
+                deliveryRates, "0x");
+        });
+
+        it("Requests with signatures for contracts", async function () {
+            const numRequests = 10;
+            const datas = new Array();
+            const requestIds = new Array();
+            const signatures = new Array(numRequests).fill("0x");
+            const deliveryRates = new Array(numRequests).fill(maxDeliveryRate);
+            let requestCount = 0;
+
+            // Fund mockOperatorContract address
+            await balanceTrackerFixedPriceNative.depositFor(mockOperatorContract.address, {value: maxDeliveryRate * numRequests});
+
+            // Stack all requests
+            for (let i = 0; i < numRequests; i++) {
+                datas[i] = data + "00".repeat(i);
+                requestIds[i] = await mechMarketplace.getRequestId(mockOperatorContract.address, datas[i], requestCount);
+                await mockOperatorContract.approveHash(requestIds[i]);
+                requestCount++;
+            }
+
+            // Try to deliver requests not in order
+            let reverseDatas = Array.from(datas);
+            reverseDatas = reverseDatas.reverse();
+            await expect(
+                priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, 0, reverseDatas, signatures,
+                reverseDatas, deliveryRates, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
+
+            // Deliver requests
+            await priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, 0, datas, signatures, datas,
                 deliveryRates, "0x");
         });
     });
