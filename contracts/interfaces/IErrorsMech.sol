@@ -18,7 +18,7 @@ interface IErrorsMech {
 
     /// @dev Request Id not found.
     /// @param requestId Request Id.
-    error RequestIdNotFound(uint256 requestId);
+    error RequestIdNotFound(bytes32 requestId);
 
     /// @dev Value overflow.
     /// @param provided Overflow value.

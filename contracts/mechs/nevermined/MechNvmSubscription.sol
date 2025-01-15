@@ -26,13 +26,13 @@ error ZeroValue();
 /// @title MechNvmSubscription - Smart contract for extending OlasMech with Nevermided subscription
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a Nevermided subscription.
 contract MechNvmSubscription is OlasMech {
-    event RequestRateFinalized(uint256 indexed requestId, uint256 deliveryRate);
+    event RequestRateFinalized(bytes32 indexed requestId, uint256 deliveryRate);
 
     // keccak256(NvmSubscription) = 626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0
     bytes32 public constant PAYMENT_TYPE = 0x626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0;
 
     // Mapping for requestId => finalized delivery rates
-    mapping(uint256 => uint256) public mapRequestIdFinalizedRates;
+    mapping(bytes32 => uint256) public mapRequestIdFinalizedRates;
 
     /// @dev MechNvmSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
@@ -48,7 +48,7 @@ contract MechNvmSubscription is OlasMech {
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
     function _preDeliver(
-        uint256 requestId,
+        bytes32 requestId,
         bytes memory data
     ) internal override returns (bytes memory requestData) {
         // Extract the request deliver rate as credits to burn
@@ -64,7 +64,7 @@ contract MechNvmSubscription is OlasMech {
     /// @param requestIds Set of request Ids.
     /// @return deliveryRates Set of corresponding finalized delivery rates.
     function getFinalizedDeliveryRates(
-        uint256[] memory requestIds
+        bytes32[] memory requestIds
     ) public view virtual override returns (uint256[] memory deliveryRates) {
         uint256 numRequests = requestIds.length;
         deliveryRates = new uint256[](numRequests);

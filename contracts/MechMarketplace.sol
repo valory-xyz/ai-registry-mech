@@ -58,12 +58,12 @@ contract MechMarketplace is IErrorsMarketplace {
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
     event SetPaymentTypeBalanceTrackers(bytes32[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed priorityMech, address indexed requester, uint256 numRequests,
-        uint256[] requestIds);
+        bytes32[] requestIds);
     event MarketplaceDelivery(address indexed deliveryMech, address[] indexed requesters, uint256 numDeliveries,
-        uint256[] requestIds, bool[] deliveredRequests);
-    event Deliver(address indexed mech, address indexed mechServiceMultisig, uint256 requestId, bytes data);
+        bytes32[] requestIds, bool[] deliveredRequests);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, bytes data);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
-        uint256 numRequests, uint256[] requestIds);
+        uint256 numRequests, bytes32[] requestIds);
     event RequesterHashApproved(address indexed requester, bytes32 hash);
 
     enum RequestStatus {
@@ -121,7 +121,7 @@ contract MechMarketplace is IErrorsMarketplace {
     // Map of delivery counts for corresponding mech service multisig
     mapping(address => uint256) public mapMechServiceDeliveryCounts;
     // Mapping of request Id => request information
-    mapping(uint256 => RequestInfo) public mapRequestIdInfos;
+    mapping(bytes32 => RequestInfo) public mapRequestIdInfos;
     // Mapping of whitelisted mech factories
     mapping(address => bool) public mapMechFactories;
     // Map of mech => its creating factory
@@ -369,7 +369,7 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
-    ) internal returns (uint256[] memory requestIds) {
+    ) internal returns (bytes32[] memory requestIds) {
         // Response timeout limits
         if (responseTimeout + block.timestamp > type(uint32).max) {
             revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
@@ -396,7 +396,7 @@ contract MechMarketplace is IErrorsMarketplace {
         checkRequester(msg.sender, requesterServiceId);
 
         // Allocate set of requestIds
-        requestIds = new uint256[](numRequests);
+        requestIds = new bytes32[](numRequests);
 
         // Get deliveryRate as priority mech max delivery rate
         uint256 deliveryRate = IMech(priorityMech).maxDeliveryRate();
@@ -479,7 +479,7 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
-    ) external payable returns (uint256 requestId) {
+    ) external payable returns (bytes32 requestId) {
         // Reentrancy guard
         if (_locked == 2) {
             revert ReentrancyGuard();
@@ -488,7 +488,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Allocate arrays
         bytes[] memory requestDatas = new bytes[](1);
-        uint256[] memory requestIds = new uint256[](1);
+        bytes32[] memory requestIds = new bytes32[](1);
 
         requestDatas[0] = requestData;
         requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
@@ -512,7 +512,7 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
-    ) external payable returns (uint256[] memory requestIds) {
+    ) external payable returns (bytes32[] memory requestIds) {
         // Reentrancy guard
         if (_locked == 2) {
             revert ReentrancyGuard();
@@ -530,7 +530,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
     /// @param deliveryDatas Set of corresponding self-descriptive opaque delivery data-blobs.
     function deliverMarketplace(
-        uint256[] memory requestIds,
+        bytes32[] memory requestIds,
         uint256[] memory deliveryRates,
         bytes[] memory deliveryDatas
     ) external returns (bool[] memory deliveredRequests) {
@@ -732,7 +732,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Get number of requests
         // Allocate set for request Ids
-        uint256[] memory requestIds = new uint256[](numRequests);
+        bytes32[] memory requestIds = new bytes32[](numRequests);
 
         // Get current nonce
         uint256 nonce = mapNonces[requester];
@@ -743,7 +743,7 @@ contract MechMarketplace is IErrorsMarketplace {
             requestIds[i] = getRequestId(requester, requestDatas[i], nonce);
 
             // Verify the signed hash against the operator address
-            _verifySignedHash(requester, bytes32(requestIds[i]), signatures[i]);
+            _verifySignedHash(requester, requestIds[i], signatures[i]);
 
             // Get request info struct
             RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
@@ -810,8 +810,8 @@ contract MechMarketplace is IErrorsMarketplace {
         address account,
         bytes memory data,
         uint256 nonce
-    ) public view returns (uint256 requestId) {
-        requestId = uint256(keccak256(
+    ) public view returns (bytes32 requestId) {
+        requestId = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 getDomainSeparator(),
@@ -824,7 +824,7 @@ contract MechMarketplace is IErrorsMarketplace {
                     )
                 )
             )
-        ));
+        );
     }
 
     /// @dev Checks for mech validity.
@@ -872,7 +872,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Gets the request Id status.
     /// @param requestId Request Id.
     /// @return status Request status.
-    function getRequestStatus(uint256 requestId) external view returns (RequestStatus status) {
+    function getRequestStatus(bytes32 requestId) external view returns (RequestStatus status) {
         // Request exists if it has a record in the mapRequestIdInfos
         RequestInfo memory requestInfo = mapRequestIdInfos[requestId];
         if (requestInfo.priorityMech != address(0)) {
