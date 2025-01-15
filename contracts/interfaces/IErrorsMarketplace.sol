@@ -105,9 +105,9 @@ interface IErrorsMarketplace {
     /// @param expected Expected signature length.
     error IncorrectSignatureLength(bytes signature, uint256 provided, uint256 expected);
 
-    /// @dev Hash is not validated.
+    /// @dev Hash signature is not validated.
     /// @param requester Requester contract address.
     /// @param msgHash Message hash.
     /// @param signature Signature bytes associated with the message hash.
-    error HashNotValidated(address requester, bytes32 msgHash, bytes signature);
+    error SignatureNotValidated(address requester, bytes32 msgHash, bytes signature);
 }

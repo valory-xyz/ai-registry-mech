@@ -655,7 +655,7 @@ contract MechMarketplace is IErrorsMarketplace {
             if (ISignatureValidator(requester).isValidSignature(requestHash, signature) == MAGIC_VALUE) {
                 return;
             } else {
-                revert HashNotValidated(requester, requestHash, signature);
+                revert SignatureNotValidated(requester, requestHash, signature);
             }
         }
 
@@ -688,7 +688,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Final check is for the requester address itself
         if (recRequester != requester) {
-            revert HashNotValidated(requester, requestHash, signature);
+            revert SignatureNotValidated(requester, requestHash, signature);
         }
     }
     
