@@ -45,7 +45,7 @@ contract MockNvmSubscriptionNative is ERC1155 {
         _burn(account, tokenId, numCredits);
     }
 
-    function uri(uint256 id) public view override returns (string memory) {
+    function uri(uint256) public pure override returns (string memory) {
         return "";
     }
 }
