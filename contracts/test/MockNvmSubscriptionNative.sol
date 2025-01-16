@@ -27,7 +27,7 @@ contract MockNvmSubscriptionNative is ERC1155 {
     }
 
     function mint(uint256 tokenId, uint256 numCredits) external payable {
-        uint256 requiredAmount = numCredits * creditTokenRatio;
+        uint256 requiredAmount = numCredits * creditTokenRatio / 1e18;
 
         if (msg.value < requiredAmount) {
             revert InsufficientBalance(msg.value, requiredAmount);
