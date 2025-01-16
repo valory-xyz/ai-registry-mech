@@ -200,6 +200,168 @@ contract MechMarketplace is IErrorsMarketplace {
         maxResponseTimeout = newMaxResponseTimeout;
     }
 
+    /// @dev Registers batch of requests.
+    /// @notice The request is going to be registered for a specified priority mech.
+    /// @param requestDatas Set of self-descriptive opaque request data-blobs.
+    /// @param priorityMechServiceId Priority mech service Id.
+    /// @param requesterServiceId Requester service Id, or zero if EOA.
+    /// @param responseTimeout Relative response time in sec.
+    /// @param paymentData Additional payment-related request data (optional).
+    /// @return requestIds Set of request Ids.
+    function _requestBatch(
+        bytes[] memory requestDatas,
+        uint256 priorityMechServiceId,
+        uint256 requesterServiceId,
+        uint256 responseTimeout,
+        bytes memory paymentData
+    ) internal returns (bytes32[] memory requestIds) {
+        // Response timeout limits
+        if (responseTimeout + block.timestamp > type(uint32).max) {
+            revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
+        }
+
+        // Response timeout bounds
+        if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
+            revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
+        }
+
+        uint256 numRequests = requestDatas.length;
+        // Check for zero value
+        if (numRequests == 0) {
+            revert ZeroValue();
+        }
+
+        // Check priority mech
+        address priorityMech = mapServiceIdMech[priorityMechServiceId];
+        if (priorityMech == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check requester
+        checkRequester(msg.sender, requesterServiceId);
+
+        // Allocate set of requestIds
+        requestIds = new bytes32[](numRequests);
+
+        // Get deliveryRate as priority mech max delivery rate
+        uint256 deliveryRate = IMech(priorityMech).maxDeliveryRate();
+
+        // Get priority mech payment type
+        bytes32 paymentType = IMech(priorityMech).paymentType();
+
+        // Get nonce
+        uint256 nonce = mapNonces[msg.sender];
+
+        // Traverse all requests
+        for (uint256 i = 0; i < requestDatas.length; ++i) {
+            // Check for non-zero data
+            if (requestDatas[i].length == 0) {
+                revert ZeroValue();
+            }
+
+            // Calculate request Id
+            requestIds[i] = getRequestId(msg.sender, requestDatas[i], nonce);
+
+            // Get request info struct
+            RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
+
+            // Check for request Id record
+            if (requestInfo.priorityMech != address(0)) {
+                revert AlreadyRequested(requestIds[i]);
+            }
+
+            // Record priorityMech and response timeout
+            requestInfo.priorityMech = priorityMech;
+            // responseTimeout from relative time to absolute time
+            requestInfo.responseTimeout = responseTimeout + block.timestamp;
+            // Record request account
+            requestInfo.requester = msg.sender;
+            // Record deliveryRate for request as priority mech max delivery rate
+            requestInfo.deliveryRate = deliveryRate;
+            // Record priority mech payment type
+            requestInfo.paymentType = paymentType;
+
+            nonce++;
+        }
+
+        // Update requester nonce
+        mapNonces[msg.sender] = nonce;
+
+        // Get balance tracker address
+        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
+
+        // Check and record mech delivery rate
+        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRates{value: msg.value}(msg.sender, numRequests,
+            deliveryRate, paymentData);
+
+        // Increase mech requester karma
+        IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, int256(numRequests));
+
+        // Record the request count
+        mapRequestCounts[msg.sender] += numRequests;
+        // Increase the number of undelivered requests
+        numUndeliveredRequests += numRequests;
+        // Increase the total number of requests
+        numTotalRequests += numRequests;
+
+        // Process request by a specified priority mech
+        IMech(priorityMech).requestFromMarketplace(requestIds, requestDatas);
+
+        emit MarketplaceRequest(priorityMech, msg.sender, numRequests, requestIds);
+    }
+
+    /// @dev Verifies provided request hash against its signature.
+    /// @param requester Requester address.
+    /// @param requestHash Request hash.
+    /// @param signature Signature bytes associated with the signed request hash.
+    function _verifySignedHash(address requester, bytes32 requestHash, bytes memory signature) internal view {
+        // Check for zero address
+        if (requester == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check EIP-1271 signature validity if requester is a contract
+        if (requester.code.length > 0) {
+            if (ISignatureValidator(requester).isValidSignature(requestHash, signature) == MAGIC_VALUE) {
+                return;
+            } else {
+                revert SignatureNotValidated(requester, requestHash, signature);
+            }
+        }
+
+        // Check for the signature length
+        if (signature.length != 65) {
+            revert IncorrectSignatureLength(signature, signature.length, 65);
+        }
+
+        // Decode the signature
+        uint8 v = uint8(signature[64]);
+
+        // For the correct ecrecover() function execution, the v value must be set to {0,1} + 27
+        // Although v in a very rare case can be equal to {2,3} (with a probability of 3.73e-37%)
+        // If v is set to just 0 or 1 when signing by the EOA, it is most likely signed by the ledger and must be adjusted
+        if (v < 4) {
+            // In case of a non-contract, adjust v to follow the standard ecrecover case
+            v += 27;
+        }
+
+        bytes32 r;
+        bytes32 s;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+        }
+
+        // Case of ecrecover with the request hash for EOA signatures
+        address recRequester = ecrecover(requestHash, v, r, s);
+
+        // Final check is for the requester address itself
+        if (recRequester != requester) {
+            revert SignatureNotValidated(requester, requestHash, signature);
+        }
+    }
+
     /// @dev MechMarketplace initializer.
     /// @param _fee Marketplace fee.
     /// @param _minResponseTimeout Min response time in sec.
@@ -353,116 +515,6 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         emit SetPaymentTypeBalanceTrackers(paymentTypes, balanceTrackers);
-    }
-
-    /// @dev Registers batch of requests.
-    /// @notice The request is going to be registered for a specified priority mech.
-    /// @param requestDatas Set of self-descriptive opaque request data-blobs.
-    /// @param priorityMechServiceId Priority mech service Id.
-    /// @param requesterServiceId Requester service Id, or zero if EOA.
-    /// @param responseTimeout Relative response time in sec.
-    /// @param paymentData Additional payment-related request data (optional).
-    /// @return requestIds Set of request Ids.
-    function _requestBatch(
-        bytes[] memory requestDatas,
-        uint256 priorityMechServiceId,
-        uint256 requesterServiceId,
-        uint256 responseTimeout,
-        bytes memory paymentData
-    ) internal returns (bytes32[] memory requestIds) {
-        // Response timeout limits
-        if (responseTimeout + block.timestamp > type(uint32).max) {
-            revert Overflow(responseTimeout + block.timestamp, type(uint32).max);
-        }
-
-        // Response timeout bounds
-        if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
-            revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
-        }
-
-        uint256 numRequests = requestDatas.length;
-        // Check for zero value
-        if (numRequests == 0) {
-            revert ZeroValue();
-        }
-
-        // Check priority mech
-        address priorityMech = mapServiceIdMech[priorityMechServiceId];
-        if (priorityMech == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Check requester
-        checkRequester(msg.sender, requesterServiceId);
-
-        // Allocate set of requestIds
-        requestIds = new bytes32[](numRequests);
-
-        // Get deliveryRate as priority mech max delivery rate
-        uint256 deliveryRate = IMech(priorityMech).maxDeliveryRate();
-
-        // Get priority mech payment type
-        bytes32 paymentType = IMech(priorityMech).paymentType();
-
-        // Get nonce
-        uint256 nonce = mapNonces[msg.sender];
-
-        // Traverse all requests
-        for (uint256 i = 0; i < requestDatas.length; ++i) {
-            // Check for non-zero data
-            if (requestDatas[i].length == 0) {
-                revert ZeroValue();
-            }
-
-            // Calculate request Id
-            requestIds[i] = getRequestId(msg.sender, requestDatas[i], nonce);
-
-            // Get request info struct
-            RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
-
-            // Check for request Id record
-            if (requestInfo.priorityMech != address(0)) {
-                revert AlreadyRequested(requestIds[i]);
-            }
-
-            // Record priorityMech and response timeout
-            requestInfo.priorityMech = priorityMech;
-            // responseTimeout from relative time to absolute time
-            requestInfo.responseTimeout = responseTimeout + block.timestamp;
-            // Record request account
-            requestInfo.requester = msg.sender;
-            // Record deliveryRate for request as priority mech max delivery rate
-            requestInfo.deliveryRate = deliveryRate;
-            // Record priority mech payment type
-            requestInfo.paymentType = paymentType;
-
-            nonce++;
-        }
-
-        // Update requester nonce
-        mapNonces[msg.sender] = nonce;
-
-        // Get balance tracker address
-        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
-
-        // Check and record mech delivery rate
-        IBalanceTracker(balanceTracker).checkAndRecordDeliveryRates{value: msg.value}(msg.sender, numRequests,
-            deliveryRate, paymentData);
-
-        // Increase mech requester karma
-        IKarma(karma).changeRequesterMechKarma(msg.sender, priorityMech, int256(numRequests));
-
-        // Record the request count
-        mapRequestCounts[msg.sender] += numRequests;
-        // Increase the number of undelivered requests
-        numUndeliveredRequests += numRequests;
-        // Increase the total number of requests
-        numTotalRequests += numRequests;
-
-        // Process request by a specified priority mech
-        IMech(priorityMech).requestFromMarketplace(requestIds, requestDatas);
-
-        emit MarketplaceRequest(priorityMech, msg.sender, numRequests, requestIds);
     }
 
     /// @dev Registers a request.
@@ -638,58 +690,6 @@ contract MechMarketplace is IErrorsMarketplace {
         emit MarketplaceDelivery(msg.sender, requesters, numDeliveries, requestIds, deliveredRequests);
 
         _locked = 1;
-    }
-
-    /// @dev Verifies provided request hash against its signature.
-    /// @param requester Requester address.
-    /// @param requestHash Request hash.
-    /// @param signature Signature bytes associated with the signed request hash.
-    function _verifySignedHash(address requester, bytes32 requestHash, bytes memory signature) internal view {
-        // Check for zero address
-        if (requester == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Check EIP-1271 signature validity if requester is a contract
-        if (requester.code.length > 0) {
-            if (ISignatureValidator(requester).isValidSignature(requestHash, signature) == MAGIC_VALUE) {
-                return;
-            } else {
-                revert SignatureNotValidated(requester, requestHash, signature);
-            }
-        }
-
-        // Check for the signature length
-        if (signature.length != 65) {
-            revert IncorrectSignatureLength(signature, signature.length, 65);
-        }
-
-        // Decode the signature
-        uint8 v = uint8(signature[64]);
-
-        // For the correct ecrecover() function execution, the v value must be set to {0,1} + 27
-        // Although v in a very rare case can be equal to {2,3} (with a probability of 3.73e-37%)
-        // If v is set to just 0 or 1 when signing by the EOA, it is most likely signed by the ledger and must be adjusted
-        if (v < 4) {
-            // In case of a non-contract, adjust v to follow the standard ecrecover case
-            v += 27;
-        }
-
-        bytes32 r;
-        bytes32 s;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            r := mload(add(signature, 32))
-            s := mload(add(signature, 64))
-        }
-
-        // Case of ecrecover with the request hash for EOA signatures
-        address recRequester = ecrecover(requestHash, v, r, s);
-
-        // Final check is for the requester address itself
-        if (recRequester != requester) {
-            revert SignatureNotValidated(requester, requestHash, signature);
-        }
     }
     
     /// @dev Delivers signed requests.
