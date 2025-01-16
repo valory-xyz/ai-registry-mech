@@ -160,7 +160,7 @@ abstract contract BalanceTrackerBase {
         mechPayment = balance - marketplaceFee;
 
         // Check for zero value, although this must never happen
-        if (marketplaceFee == 0 || mechPayment == 0) {
+        if ((fee > 0 && marketplaceFee == 0) || mechPayment == 0) {
             revert ZeroValue();
         }
 

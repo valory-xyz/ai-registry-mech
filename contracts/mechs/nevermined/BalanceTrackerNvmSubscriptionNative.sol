@@ -161,6 +161,7 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
         subscriptionNFT = _subscriptionNFT;
         subscriptionTokenId = _subscriptionTokenId;
 
+        // Reset owner after setting subscription params
         owner = address(0);
 
         emit SubscriptionSet(_subscriptionNFT, _subscriptionTokenId);

@@ -241,7 +241,10 @@ module.exports = {
                     },
                     evmVersion: "cancun",
                 },
-            }
+            },
+            {
+                version: "0.5.16", // weth
+            },
         ]
     },
     gasReporter: {

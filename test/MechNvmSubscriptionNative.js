@@ -2,26 +2,23 @@
 
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("MechNvmSubscriptionNative", function () {
     let priorityMechAddress;
     let priorityMech;
-    let deliveryMechAddress;
-    let deliveryMech;
     let serviceRegistry;
     let mechMarketplace;
     let karma;
     let mechFactoryNvmSubscriptionNative;
     let balanceTrackerNvmSubscriptionNative;
     let mockNvmSubscriptionNative;
+    let weth;
     let signers;
     let deployer;
-    const initMint = "1" + "0".repeat(25);
     const maxDeliveryRate = 10;
     const data = "0x00";
     const fee = 100;
-    const creditTokenRatio = 1;
+    const creditTokenRatio = 3;
     const subscriptionId = 1;
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
@@ -90,19 +87,15 @@ describe("MechNvmSubscriptionNative", function () {
         // Get mech contract instance
         priorityMech = await ethers.getContractAt("MechNvmSubscriptionNative", priorityMechAddress);
 
-        // Create default delivery mech
-        tx = await mechMarketplace.create(mechServiceId + 1, mechFactoryNvmSubscriptionNative.address, mechCreationData);
-        res = await tx.wait();
-        // Get mech contract address from the event
-        deliveryMechAddress = "0x" + res.logs[0].topics[1].slice(26);
-        // Get mech contract instance
-        deliveryMech = await ethers.getContractAt("MechNvmSubscriptionNative", deliveryMechAddress);
+        const WETH = await ethers.getContractFactory("WETH9");
+        weth = await WETH.deploy();
+        await weth.deployed();
 
         // Deploy balance tracker
-        // Wrapped native token and buy back burner are not relevant for now
+        // Buy back burner are not relevant for now
         const BalanceTrackerNvmSubscriptionNative = await ethers.getContractFactory("BalanceTrackerNvmSubscriptionNative");
         balanceTrackerNvmSubscriptionNative = await BalanceTrackerNvmSubscriptionNative.deploy(mechMarketplace.address,
-            deployer.address, deployer.address, creditTokenRatio);
+            deployer.address, weth.address, creditTokenRatio);
         await balanceTrackerNvmSubscriptionNative.deployed();
 
         // Deploy mock NVM subscription
@@ -165,7 +158,8 @@ describe("MechNvmSubscriptionNative", function () {
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Buy insufficient subscription
-            await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate - 1, {value: maxDeliveryRate - 1});
+            await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate - 1,
+                {value: (maxDeliveryRate - 1) * creditTokenRatio});
 
             // Try to create request with insufficient pre-paid amount
             await expect(
@@ -203,15 +197,14 @@ describe("MechNvmSubscriptionNative", function () {
             // Since the delivery rate is smaller than MAX_FEE_FACTOR, the minimal fee was charged
             expect(collectedFees).to.equal(1);
 
-            // TODO
             // Drain funds to a buy back burner mock
-//            await balanceTrackerNvmSubscriptionNative.drain();
-//            collectedFees = await balanceTrackerNvmSubscriptionNative.collectedFees();
-//            expect(collectedFees).to.equal(0);
+            await balanceTrackerNvmSubscriptionNative.drain();
+            collectedFees = await balanceTrackerNvmSubscriptionNative.collectedFees();
+            expect(collectedFees).to.equal(0);
 
             // Check mech payout: payment - fee
             let balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(maxDeliveryRate - 1);
+            expect(balanceDiff).to.equal(maxDeliveryRate * creditTokenRatio - 1);
 
             let requesterBalance1155Before = await mockNvmSubscriptionNative.balanceOf(deployer.address, subscriptionId);
 

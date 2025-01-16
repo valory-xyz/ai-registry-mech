@@ -16,6 +16,7 @@ describe("MechFixedPriceNative", function () {
     let mechFactoryFixedPrice;
     let balanceTrackerFixedPriceNative;
     let mockOperatorContract;
+    let weth;
     let signers;
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
@@ -100,10 +101,15 @@ describe("MechFixedPriceNative", function () {
         // Get mech contract instance
         deliveryMech = await ethers.getContractAt("MechFixedPriceNative", deliveryMechAddress);
 
-        // Deploy
+        const WETH = await ethers.getContractFactory("WETH9");
+        weth = await WETH.deploy();
+        await weth.deployed();
+
+        // BalanceTrackerFixedPriceNative
+        // buyBackBurner is not important in the setup
         const BalanceTrackerFixedPriceNative = await ethers.getContractFactory("BalanceTrackerFixedPriceNative");
         balanceTrackerFixedPriceNative = await BalanceTrackerFixedPriceNative.deploy(mechMarketplace.address,
-            deployer.address, deployer.address);
+            deployer.address, weth.address);
         await balanceTrackerFixedPriceNative.deployed();
 
         // Whitelist balance tracker
@@ -342,7 +348,7 @@ describe("MechFixedPriceNative", function () {
             const balanceAfter = await ethers.provider.getBalance(priorityMech.address);
 
             // Check charged fee
-            const collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
+            let collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
             // Since the delivery rate is smaller than MAX_FEE_FACTOR, the minimal fee was charged
             expect(collectedFees).to.equal(1);
 
@@ -353,6 +359,13 @@ describe("MechFixedPriceNative", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(maxDeliveryRate - 1);
+
+            // Drain collected fees to buyBackBurner
+            await balanceTrackerFixedPriceNative.drain();
+
+            // Check marketplace collected fee balance after drain
+            collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
+            expect(collectedFees).to.equal(0);
         });
 
         it("Delivering a request by a priority mech with pre-paid logic with sufficient balance", async function () {
@@ -703,7 +716,7 @@ describe("MechFixedPriceNative", function () {
             reverseDatas = reverseDatas.reverse();
             await expect(
                 priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, reverseDatas, signatures, reverseDatas,
-                deliveryRates, "0x")
+                    deliveryRates, "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
 
             // Deliver requests
@@ -735,7 +748,7 @@ describe("MechFixedPriceNative", function () {
             reverseDatas = reverseDatas.reverse();
             await expect(
                 priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, 0, reverseDatas, signatures,
-                reverseDatas, deliveryRates, "0x")
+                    reverseDatas, deliveryRates, "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
 
             // Deliver requests
