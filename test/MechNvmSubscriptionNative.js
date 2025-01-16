@@ -20,7 +20,10 @@ describe("MechNvmSubscriptionNative", function () {
     const maxDeliveryRate = 10;
     const data = "0x00";
     const fee = 100;
-    const creditTokenRatio = 3;
+    // In 1e18 form
+    const tokenCreditRatio = ethers.utils.parseEther("3");
+    // In regular form
+    const normalizedRatio = Number(tokenCreditRatio.div(ethers.utils.parseEther("1")));
     const subscriptionId = 1;
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
@@ -97,13 +100,13 @@ describe("MechNvmSubscriptionNative", function () {
         // Buy back burner are not relevant for now
         BalanceTrackerNvmSubscriptionNative = await ethers.getContractFactory("BalanceTrackerNvmSubscriptionNative");
         balanceTrackerNvmSubscriptionNative = await BalanceTrackerNvmSubscriptionNative.deploy(mechMarketplace.address,
-            deployer.address, weth.address, creditTokenRatio);
+            deployer.address, weth.address, tokenCreditRatio);
         await balanceTrackerNvmSubscriptionNative.deployed();
 
         // Deploy mock NVM subscription
         const MockNvmSubscriptionNative = await ethers.getContractFactory("MockNvmSubscriptionNative");
         mockNvmSubscriptionNative = await MockNvmSubscriptionNative.deploy(balanceTrackerNvmSubscriptionNative.address,
-            creditTokenRatio);
+            tokenCreditRatio);
         await mockNvmSubscriptionNative.deployed();
 
         // Set subscription contract address
@@ -128,7 +131,7 @@ describe("MechNvmSubscriptionNative", function () {
 
             // Deploy another balance tracker contract
             const balanceTrackerNvmSubscriptionNativeTest = await BalanceTrackerNvmSubscriptionNative.deploy(mechMarketplace.address,
-                deployer.address, weth.address, creditTokenRatio);
+                deployer.address, weth.address, tokenCreditRatio);
             await balanceTrackerNvmSubscriptionNativeTest.deployed();
 
             // Zero subscription address
@@ -155,7 +158,7 @@ describe("MechNvmSubscriptionNative", function () {
             const numCredits = maxDeliveryRate * 10;
 
             // Buy subscription
-            await mockNvmSubscriptionNative.mint(subscriptionId, numCredits, {value: numCredits * creditTokenRatio});
+            await mockNvmSubscriptionNative.mint(subscriptionId, numCredits, {value: numCredits * normalizedRatio});
 
             // Post a request
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
@@ -190,7 +193,7 @@ describe("MechNvmSubscriptionNative", function () {
 
             // Buy insufficient subscription
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate - 1,
-                {value: maxDeliveryRate * creditTokenRatio - 1});
+                {value: maxDeliveryRate * normalizedRatio - 1});
 
             // Try to create request with insufficient pre-paid amount
             await expect(
@@ -205,7 +208,7 @@ describe("MechNvmSubscriptionNative", function () {
             const numCredits = maxDeliveryRate * 10;
 
             // Buy more credits
-            await mockNvmSubscriptionNative.mint(subscriptionId, numCredits, {value: numCredits * creditTokenRatio});
+            await mockNvmSubscriptionNative.mint(subscriptionId, numCredits, {value: numCredits * normalizedRatio});
 
             // Try to redeem credits that were never used
             await expect(
@@ -250,7 +253,7 @@ describe("MechNvmSubscriptionNative", function () {
 
             // Check mech payout: payment - fee
             let balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(maxDeliveryRate * creditTokenRatio - 1);
+            expect(balanceDiff).to.equal(maxDeliveryRate * normalizedRatio - 1);
 
             let requesterBalance1155Before = await mockNvmSubscriptionNative.balanceOf(deployer.address, subscriptionId);
 
@@ -271,7 +274,7 @@ describe("MechNvmSubscriptionNative", function () {
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Buy insufficient subscription
-            await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * creditTokenRatio});
+            await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
@@ -311,7 +314,7 @@ describe("MechNvmSubscriptionNative", function () {
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Buy insufficient subscription
-            await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * creditTokenRatio});
+            await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
@@ -335,7 +338,7 @@ describe("MechNvmSubscriptionNative", function () {
             let balanceAfter = await ethers.provider.getBalance(priorityMech.address);
             // Zero fee is charged
             let balanceDiff = balanceAfter.sub(balanceBefore);
-            expect(balanceDiff).to.equal(maxDeliveryRate * creditTokenRatio);
+            expect(balanceDiff).to.equal(maxDeliveryRate * normalizedRatio);
 
             // Check charged fee
             let collectedFees = await balanceTrackerNvmSubscriptionNative.collectedFees();

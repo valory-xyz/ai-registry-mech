@@ -37,8 +37,9 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
     event SubscriptionSet(address indexed token, uint256 indexed tokenId);
     event RequesterCreditsRedeemed(address indexed account, uint256 amount);
 
-    // Credit to token ratio
-    uint256 public immutable creditTokenRatio;
+    // Credit to token ratio in 1e18 form
+    // N credits for M tokens, tokenCreditRatio = M * 10^18 / N
+    uint256 public immutable tokenCreditRatio;
 
     // Subscription NFT
     address public subscriptionNFT;
@@ -54,15 +55,15 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _buyBackBurner Buy back burner address.
     /// @param _wrappedNativeToken Wrapped native token address.
-    /// @param _creditTokenRatio Credits to token ratio.
-    constructor(address _mechMarketplace, address _buyBackBurner, address _wrappedNativeToken, uint256 _creditTokenRatio)
+    /// @param _tokenCreditRatio Token to credit ratio in 1e18 form.
+    constructor(address _mechMarketplace, address _buyBackBurner, address _wrappedNativeToken, uint256 _tokenCreditRatio)
         BalanceTrackerFixedPriceNative(_mechMarketplace, _buyBackBurner, _wrappedNativeToken)
     {
-        if (_creditTokenRatio == 0) {
+        if (_tokenCreditRatio == 0) {
             revert ZeroValue();
         }
 
-        creditTokenRatio = _creditTokenRatio;
+        tokenCreditRatio = _tokenCreditRatio;
         owner = msg.sender;
     }
 
@@ -129,7 +130,7 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
         }
 
         // Convert mech credits balance into tokens
-        balance *= creditTokenRatio;
+        balance = (balance * tokenCreditRatio) / 1e18;
         mapMechBalances[mech] = balance;
 
         // Check current contract balance
