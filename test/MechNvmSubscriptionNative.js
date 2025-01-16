@@ -127,7 +127,7 @@ describe("MechNvmSubscriptionNative", function () {
             ).to.be.revertedWithCustomError(BalanceTrackerNvmSubscriptionNative, "OwnerOnly");
 
             // Deploy another balance tracker contract
-            balanceTrackerNvmSubscriptionNativeTest = await BalanceTrackerNvmSubscriptionNative.deploy(mechMarketplace.address,
+            const balanceTrackerNvmSubscriptionNativeTest = await BalanceTrackerNvmSubscriptionNative.deploy(mechMarketplace.address,
                 deployer.address, weth.address, creditTokenRatio);
             await balanceTrackerNvmSubscriptionNativeTest.deployed();
 
@@ -299,10 +299,10 @@ describe("MechNvmSubscriptionNative", function () {
             expect(collectedFees).to.equal(1);
 
             // Check requester leftover balance (note credit system for subscription)
-            balanceBefore = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
+            const balanceBefore = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
             await balanceTrackerNvmSubscriptionNative.redeemRequesterCredits(deployer.address);
-            balanceAfter = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
-            balanceDiff = balanceBefore.sub(balanceAfter);
+            const balanceAfter = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
+            const balanceDiff = balanceBefore.sub(balanceAfter);
             expect(balanceDiff).to.equal(maxDeliveryRate - 1);
         });
 
@@ -317,7 +317,7 @@ describe("MechNvmSubscriptionNative", function () {
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
 
             // Change max delivery rate to lower than it was
-            deliverData = ethers.utils.defaultAbiCoder.encode(["uint256", "bytes"], [maxDeliveryRate, data]);
+            const deliverData = ethers.utils.defaultAbiCoder.encode(["uint256", "bytes"], [maxDeliveryRate, data]);
 
             // Change fee to zero
             await mechMarketplace.changeMarketplaceParams(0, minResponseTimeout, maxResponseTimeout);
@@ -334,7 +334,8 @@ describe("MechNvmSubscriptionNative", function () {
             await balanceTrackerNvmSubscriptionNative.processPaymentByMultisig(priorityMech.address);
             let balanceAfter = await ethers.provider.getBalance(priorityMech.address);
             // Zero fee is charged
-            expect(balanceAfter.sub(balanceBefore)).to.equal(maxDeliveryRate * creditTokenRatio);
+            let balanceDiff = balanceAfter.sub(balanceBefore);
+            expect(balanceDiff).to.equal(maxDeliveryRate * creditTokenRatio);
 
             // Check charged fee
             let collectedFees = await balanceTrackerNvmSubscriptionNative.collectedFees();
