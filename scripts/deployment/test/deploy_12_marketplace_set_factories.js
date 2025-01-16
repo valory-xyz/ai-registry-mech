@@ -13,6 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
+    const mockMechFactoryAddress = parsedData.mockMechFactoryAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -41,33 +42,19 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
+    // Get the contract instance
+    const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
+
     // Transaction signing and execution
-    console.log("5. EOA to deploy Mech Factory NVM Subscription");
-    console.log("You are signing the following transaction: MechFactoryNvmSubscription.connect(EOA).deploy()");
+    console.log("12. EOA to set Mech factories");
+    console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const MechFactoryNvmSubscription = await ethers.getContractFactory("MechFactoryNvmSubscription");
-    const mechFactoryNvmSubscription = await MechFactoryNvmSubscription.connect(EOA).deploy(mechMarketplaceProxyAddress, { gasPrice });
-    // In case when gas calculation is not working correctly on Arbitrum
-    //const gasLimit = 60000000;
-    const result = await mechFactoryNvmSubscription.deployed();
+    const result = await mechMarketplace.connect(EOA).setMechFactoryStatuses([mockMechFactoryAddress], [true], { gasPrice });
 
     // Transaction details
-    console.log("Contract deployment: MechFactoryNvmSubscription");
-    console.log("Contract address:", mechFactoryNvmSubscription.address);
-    console.log("Transaction:", result.deployTransaction.hash);
-
-    // Wait for half a minute for the transaction completion
-    await new Promise(r => setTimeout(r, 30000));
-
-    // Writing updated parameters back to the JSON file
-    parsedData.mechFactoryNvmSubscriptionAddress = mechFactoryNvmSubscription.address;
-    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
-
-    // Contract verification
-    if (parsedData.contractVerification) {
-        const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_05_mech_factory_nvm_subscription.js --network " + providerName + " " + mechFactoryNvmSubscription.address, { encoding: "utf-8" });
-    }
+    console.log("Contract deployment: MechMarketplaceProxy");
+    console.log("Contract address:", mechMarketplace.address);
+    console.log("Transaction:", result.hash);
 }
 
 main()

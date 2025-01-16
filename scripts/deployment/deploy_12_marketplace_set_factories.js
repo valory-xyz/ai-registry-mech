@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const mechFactoryNvmSubscriptionAddress = parsedData.mechFactoryNvmSubscriptionAddress;
+    const mechFactoryNvmSubscriptionNativeAddress = parsedData.mechFactoryNvmSubscriptionNativeAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -49,7 +49,7 @@ async function main() {
     console.log("12. EOA to set Mech factories");
     console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await mechMarketplace.connect(EOA).setMechFactoryStatuses([mechFactoryNvmSubscriptionAddress], [true], { gasPrice });
+    const result = await mechMarketplace.connect(EOA).setMechFactoryStatuses([mechFactoryNvmSubscriptionNativeAddress], [true], { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: MechMarketplaceProxy");

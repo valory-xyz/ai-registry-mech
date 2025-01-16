@@ -13,7 +13,6 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const balanceTrackerNvmSubscriptionNativeAddress = parsedData.balanceTrackerNvmSubscriptionNativeAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -42,23 +41,33 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Get the contract instance
-    const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
-
     // Transaction signing and execution
-    console.log("13. EOA to set Balance trackers");
-    console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
+    console.log("5. EOA to deploy Mock Mech Factory");
+    console.log("You are signing the following transaction: MockMechFactory.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await mechMarketplace.connect(EOA).setPaymentTypeBalanceTrackers(
-        ["0x803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316"],
-        [balanceTrackerNvmSubscriptionNativeAddress],
-        { gasPrice }
-    );
+    const MockMechFactory = await ethers.getContractFactory("MockMechFactory");
+    const mockMechFactory = await MockMechFactory.connect(EOA).deploy(mechMarketplaceProxyAddress, { gasPrice });
+    // In case when gas calculation is not working correctly on Arbitrum
+    //const gasLimit = 60000000;
+    const result = await mockMechFactory.deployed();
 
     // Transaction details
-    console.log("Contract deployment: MechMarketplaceProxy");
-    console.log("Contract address:", mechMarketplace.address);
-    console.log("Transaction:", result.hash);
+    console.log("Contract deployment: MockMechFactory");
+    console.log("Contract address:", mockMechFactory.address);
+    console.log("Transaction:", result.deployTransaction.hash);
+
+    // Wait for half a minute for the transaction completion
+    await new Promise(r => setTimeout(r, 30000));
+
+    // Writing updated parameters back to the JSON file
+    parsedData.mockMechFactoryAddress = mockMechFactory.address;
+    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
+
+    // Contract verification
+    if (parsedData.contractVerification) {
+        const execSync = require("child_process").execSync;
+        execSync("npx hardhat verify --constructor-args scripts/deployment/test/verify_05_mock_mech_factory.js --network " + providerName + " " + mockMechFactory.address, { encoding: "utf-8" });
+    }
 }
 
 main()
