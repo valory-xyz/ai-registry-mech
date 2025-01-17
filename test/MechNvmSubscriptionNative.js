@@ -1,7 +1,7 @@
 /*global describe, context, beforeEach, it*/
 
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { config, ethers } = require("hardhat");
 
 describe("MechNvmSubscriptionNative", function () {
     let priorityMechAddress;
@@ -354,7 +354,7 @@ describe("MechNvmSubscriptionNative", function () {
         });
 
         it("Requests with signatures", async function () {
-            const numRequests = 2;
+            const numRequests = 10;
             const datas = new Array();
             const requestIds = new Array();
             const signatures = new Array();
