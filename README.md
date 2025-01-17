@@ -101,6 +101,7 @@ flowchart LR
     MechService -- deliverToMarketplace --> priorityMech -- deliverMarketplace --> MechMarketplace -- changeMechKarma --> KarmaProxy --> Karma
     MechService -- deliverToMarketplace --> AgentMech -- deliverMarketplace --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
 ```
+The core workflow of the Mech Marketplace, including the roles and interactions of key participants, as well as an overview of the smart contracts, can be found [here](https://github.com/valory-xyz/ai-registry-mech/tree/main/docs/MechMarketplaceDescriptionAndContractsOverviewRepo.pdf).
 
 ## Acknowledgements
 The registry mech contracts were inspired and based on the following sources:
