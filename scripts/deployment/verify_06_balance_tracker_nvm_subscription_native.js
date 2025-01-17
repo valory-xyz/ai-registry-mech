@@ -5,11 +5,11 @@ const parsedData = JSON.parse(dataFromJSON);
 const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
 const buyBackBurnerAddress = parsedData.buyBackBurnerAddress;
 const wrappedNativeTokenAddress = parsedData.wrappedNativeTokenAddress;
-const creditTokenRatio = parsedData.creditTokenRatio;
+const tokenCreditRatio = parsedData.tokenCreditRatio;
 
 module.exports = [
     mechMarketplaceProxyAddress,
     buyBackBurnerAddress,
     wrappedNativeTokenAddress,
-    creditTokenRatio
+    tokenCreditRatio
 ];

@@ -14,6 +14,7 @@ contract MockMech {
 
     address public immutable mechMarketplace;
 
+    uint256 public maxDeliveryRate = 1;
     uint256 public serviceId = 99;
     bool public isNotSelf;
 
@@ -46,6 +47,9 @@ contract MockMech {
             requesterServiceId, responseTimeout, paymentData);
     }
 
+    /// @dev Registers marketplace requests.
+    function requestFromMarketplace(bytes32[] memory, bytes[] memory) external {}
+
     function tokenId() external view returns (uint256) {
         return serviceId;
     }
@@ -61,4 +65,11 @@ contract MockMech {
     function getFinalizedDeliveryRates(uint256) external pure returns (uint256) {
         return 1;
     }
+
+    function isOperator(address) external pure returns (bool) {
+        return true;
+    }
+
+    /// @dev Deposits funds for mech.
+    receive() external payable {}
 }
