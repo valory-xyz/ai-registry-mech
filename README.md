@@ -69,6 +69,8 @@ The list of contract addresses for different chains and their full contract conf
 
 ## Deployment addresses
 
+The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/configuration.json).
+
 ### Previous versions, to be deprecated soon
 
 | Network | AI Agent Registry    | AgentFactory    | AgentFactorySubscription   | MechMarketplace   |
@@ -91,15 +93,25 @@ The list of contract addresses for different chains and their full contract conf
 
 ```mermaid
 flowchart LR
-    Deployer -- deploy --> MechMarketplace
-    Deployer -- deploy --> AgentFactory
-    Deployer -- deploy --> KarmaProxy 
-    Deployer -- deploy --> Karma
-    User -- create --> AgentFactory
-    User -- request --> MechMarketplace -- requestFromMarketplace --> priorityMech 
-    MechMarketplace -- changeRequesterMechKarma --> KarmaProxy --> Karma
-    MechService -- deliverToMarketplace --> priorityMech -- deliverMarketplace --> MechMarketplace -- changeMechKarma --> KarmaProxy --> Karma
-    MechService -- deliverToMarketplace --> AgentMech -- deliverMarketplace --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
+    DAO -- changeMarketplaceParams --> MechMarketplace
+    DAO -- setMechFactoryStatuses --> MechMarketplace
+    DAO -- setPaymentTypeBalanceTrackers --> MechMarketplace
+    DAO -- setMechMarketplaceStatuses --> Karma
+    Account -- create --> MechMarketplace
+    Account -- request --> MechMarketplace
+    Account -- requestBatch --> MechMarketplace
+    MechMarketplace -- create --> MechFactory
+    MechFactory -- new --> Mech
+    MechMarketplace -- requestFromMarketplace --> Mech
+    MechMarketplace -- changeRequesterMechKarma --> Karma
+    MechMarketplace -- changeMechKarma --> Karma
+    MechService -- deliverToMarketplace (priority or delivery mech) --> Mech
+    MechService -- deliverMarketplaceWithSignatures --> Mech
+    Mech -- deliverMarketplace --> MechMarketplace
+    Mech -- deliverMarketplaceWithSignatures --> MechMarketplace
+    MechMarketplace -- checkAndRecordDeliveryRates --> BalanceTracker
+    MechMarketplace -- finalizeDeliveryRates --> BalanceTracker
+    MechMarketplace -- adjustMechRequesterBalances --> BalanceTracker
 ```
 The core workflow of the Mech Marketplace, including the roles and interactions of key participants, as well as an overview of the smart contracts, can be found [here](https://github.com/valory-xyz/ai-registry-mech/tree/main/docs/MechMarketplaceDescriptionAndContractsOverviewRepo.pdf).
 
