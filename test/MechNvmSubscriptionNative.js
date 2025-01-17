@@ -1,7 +1,7 @@
 /*global describe, context, beforeEach, it*/
 
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { config, ethers } = require("hardhat");
 
 describe("MechNvmSubscriptionNative", function () {
     let priorityMechAddress;
@@ -273,7 +273,7 @@ describe("MechNvmSubscriptionNative", function () {
             // Get request Id
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
-            // Buy insufficient subscription
+            // Buy a subscription
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
@@ -313,7 +313,7 @@ describe("MechNvmSubscriptionNative", function () {
             // Get request Id
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
-            // Buy insufficient subscription
+            // Buy a subscription
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
@@ -351,6 +351,55 @@ describe("MechNvmSubscriptionNative", function () {
             balanceAfter = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
             balanceDiff = balanceBefore.sub(balanceAfter);
             expect(balanceDiff).to.equal(maxDeliveryRate);
+        });
+
+        it("Requests with signatures", async function () {
+            const numRequests = 10;
+            const datas = new Array();
+            const requestIds = new Array();
+            const signatures = new Array();
+            const deliveryRates = new Array(numRequests).fill(maxDeliveryRate);
+            let requestCount = 0;
+
+            // Buy a subscription
+            await mockNvmSubscriptionNative.mint(subscriptionId, numRequests * maxDeliveryRate,
+                {value: numRequests * maxDeliveryRate * normalizedRatio});
+
+            // Get deployer wallet
+            const accounts = config.networks.hardhat.accounts;
+            const wallet = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/${0}`);
+            const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
+
+            // Try to update mech num requests not by a Marketplace
+            await expect(
+                priorityMech.updateNumRequests(numRequests)
+            ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
+
+            // Stack all requests
+            for (let i = 0; i < numRequests; i++) {
+                datas[i] = data + "00".repeat(i);
+                requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
+                const signature = signingKey.signDigest(requestIds[i]);
+                // Extract v, r, s
+                const r = ethers.utils.arrayify(signature.r);
+                const s = ethers.utils.arrayify(signature.s);
+                const v = ethers.utils.arrayify(signature.v);
+                // Assemble 65 bytes of signature
+                signatures[i] = ethers.utils.hexlify(ethers.utils.concat([r, s, v]));
+                requestCount++;
+            }
+
+            // Try to deliver requests not in order
+            let reverseDatas = Array.from(datas);
+            reverseDatas = reverseDatas.reverse();
+            await expect(
+                priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, reverseDatas, signatures, reverseDatas,
+                    deliveryRates, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
+
+            // Deliver requests
+            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, datas, signatures, datas,
+                deliveryRates, "0x");
         });
     });
 });

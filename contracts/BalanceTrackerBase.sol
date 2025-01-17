@@ -99,10 +99,11 @@ abstract contract BalanceTrackerBase {
             uint256 balanceDiff = deliveryRate - balance;
             // Adjust balance
             balance += _getRequiredFunds(requester, balanceDiff);
-        }
 
-        if (balance < deliveryRate) {
-            revert InsufficientBalance(balance, deliveryRate);
+            // Check if updated balance is still insufficient
+            if (balance < deliveryRate) {
+                revert InsufficientBalance(balance, deliveryRate);
+            }
         }
 
         // Adjust account balance
@@ -290,11 +291,12 @@ abstract contract BalanceTrackerBase {
     /// @param mech Mech address.
     /// @param requester Requester address.
     /// @param mechDeliveryRates Set of actual charged delivery rates for each request.
+    /// @param paymentData Additional payment-related request data, if applicable.
     function adjustMechRequesterBalances(
         address mech,
         address requester,
         uint256[] memory mechDeliveryRates,
-        bytes memory
+        bytes memory paymentData
     ) external virtual {
         // Reentrancy guard
         if (_locked == 2) {
@@ -310,12 +312,8 @@ abstract contract BalanceTrackerBase {
 
         // Get requester balance
         uint256 requesterBalance = mapRequesterBalances[requester];
-        // Check requester balance
-        if (requesterBalance < totalMechDeliveryRate) {
-            revert InsufficientBalance(requesterBalance, totalMechDeliveryRate);
-        }
         // Adjust requester balance
-        requesterBalance -= totalMechDeliveryRate;
+        requesterBalance = _adjustInitialBalance(requester, requesterBalance, totalMechDeliveryRate, paymentData);
         mapRequesterBalances[requester] = requesterBalance;
 
         // Record payment into mech balance
