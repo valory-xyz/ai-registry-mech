@@ -10,7 +10,7 @@ Limits: The subject of the audit is not contracts used as library contracts. Thu
 ### Flatten version
 Flatten version of contracts. [contracts](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits/internal4/analysis/contracts)
 
-### Security issues. Updated 06-01-24
+### Security issues. Updated 07-01-24
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
@@ -44,7 +44,7 @@ Question:
         IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
 Re-check all balance logic.
 ```
-[]
+[x] fixed
 
 #### Medium/Notes. Design of balance update.
 ```
@@ -70,7 +70,7 @@ Re-check all balance logic.
     Atomic (IMO) operation that is spread over two different time actions. 
     Isn't it more correct to update balances at one time and in one function than to do crediting
 ```
-[]
+[x] False positive, mapRequesterBalances is different from mapMechBalances
 
 #### Medium/Notes (docstring) issue: There is no official ERC or EIP that mandates the behavior or interface of wrapped tokens.
 ```
@@ -102,7 +102,7 @@ Ref code:
         IWrappedToken(wrappedNativeToken).deposit{value: amount}();
     }
 ```
-[]
+[x] Function is virtual, can be overridden with other instructions
 
 #### Low issue: Not checking mech != address(0) in checkMech
 ```
@@ -120,7 +120,7 @@ function checkMech(address mech) public view returns (address multisig) {
     }
 Not checking mech != address(0)
 ```
-[]
+[x] fixed
 
 
 #### Low issue: An asymmetric pattern for using function of OLAS (included L2-version) token. issue "transfer"
@@ -137,7 +137,7 @@ in function _withdraw(address account, uint256 amount) internal virtual override
 ~/valory/ai-registry-mech$ 
 
 ```
-[]
+[x] fixed
 
 #### Low issue: An asymmetric pattern for using function of OLAS (included L2-version) token. issue "re-base (?!)" "OLAS"
 ```
@@ -156,7 +156,7 @@ Only here is it additionally checked that the action actually changes the balanc
 This raises questions, since in one case it is considered possible, and in others it is not. 
 OLAS does not belong to the family of tokens ERC-20, where this behavior is possible.
 ```
-[]
+[x] fixed
 
 #### Low issue: Not CEI in *Token.sol
 ```
@@ -191,7 +191,7 @@ Effects: Then, update the state of the contract.
 Interactions: Finally, interact with external contracts or send Ether.
 
 ```
-[]
+[x] fixed
 
 #### Low issue: Predicted msg.sender in createMech()
 ```
@@ -216,7 +216,7 @@ function createMech(
         // Get salt
         bytes32 salt = keccak256(abi.encode(block.timestamp, msg.sender, serviceId, localNonce))
 ```
-[]
+[x] fixed
 
 #### Notes/Issue? creditsToBurn to zero is revert
 ```
@@ -231,5 +231,5 @@ See, above
         }
 Why does writing off exactly to zero cause revert()
 ```
-[]
+[x] fixed
 

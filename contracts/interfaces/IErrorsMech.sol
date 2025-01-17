@@ -18,12 +18,17 @@ interface IErrorsMech {
 
     /// @dev Request Id not found.
     /// @param requestId Request Id.
-    error RequestIdNotFound(uint256 requestId);
+    error RequestIdNotFound(bytes32 requestId);
 
     /// @dev Value overflow.
     /// @param provided Overflow value.
     /// @param max Maximum possible value.
     error Overflow(uint256 provided, uint256 max);
+
+    /// @dev Wrong length of two arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
     /// @dev Caught reentrancy violation.
     error ReentrancyGuard();

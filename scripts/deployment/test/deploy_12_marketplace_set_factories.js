@@ -11,14 +11,9 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
-    const agentRegistryAddress = parsedData.agentRegistryAddress;
-    const agentType = parsedData.agentType;
-    let agentFactoryAddress;
-    if (agentType === "subscription") {
-        agentFactoryAddress = parsedData.agentFactorySubscriptionAddress;
-    } else {
-        agentFactoryAddress = parsedData.agentFactoryAddress;
-    }
+    const gasPriceInGwei = parsedData.gasPriceInGwei;
+    const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
+    const mockMechFactoryAddress = parsedData.mockMechFactoryAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -47,16 +42,18 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Get all the contracts
-    const agentRegistry = await ethers.getContractAt("AgentRegistry", agentRegistryAddress);
+    // Get the contract instance
+    const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
 
     // Transaction signing and execution
-    // 3. EOA to change the manager of AgentRegistry via `changeManager(AgentRegistry)`;
-    console.log("You are signing the following transaction: agentRegistry.connect(EOA).changeManager()");
-    let result = await agentRegistry.connect(EOA).changeManager(agentFactoryAddress);
+    console.log("12. EOA to set Mech factories");
+    console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
+    const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
+    const result = await mechMarketplace.connect(EOA).setMechFactoryStatuses([mockMechFactoryAddress], [true], { gasPrice });
+
     // Transaction details
-    console.log("Contract deployment: AgentRegistry");
-    console.log("Contract address:", agentRegistryAddress);
+    console.log("Contract deployment: MechMarketplaceProxy");
+    console.log("Contract address:", mechMarketplace.address);
     console.log("Transaction:", result.hash);
 }
 

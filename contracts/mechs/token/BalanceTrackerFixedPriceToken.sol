@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceBase, ZeroAddress, NoDepositAllowed, TransferFailed} from "../../BalanceTrackerFixedPriceBase.sol";
+import {BalanceTrackerBase, ZeroAddress} from "../../BalanceTrackerBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
@@ -17,39 +17,39 @@ interface IToken {
     /// @param amount Amount to transfer to.
     /// @return True if the function execution is successful.
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
-
-    /// @dev Gets the amount of tokens owned by a specified account.
-    /// @param account Account address.
-    /// @return Amount of tokens owned.
-    function balanceOf(address account) external view returns (uint256);
 }
 
-contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
-    // OLAS token address
-    address public immutable olas;
+/// @dev No incoming msg.value is allowed.
+/// @param amount Value amount.
+error NoDepositAllowed(uint256 amount);
+
+/// @title BalanceTrackerFixedPriceToken - smart contract for tracking mech and requester ERC-20 token balances
+contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
+    // Token address
+    address public immutable token;
 
     /// @dev BalanceTrackerFixedPrice constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _buyBackBurner Buy back burner address.
-    /// @param _olas OLAS token address.
-    constructor(address _mechMarketplace, address _buyBackBurner, address _olas)
-        BalanceTrackerFixedPriceBase(_mechMarketplace, _buyBackBurner)
+    /// @param _token Token address.
+    constructor(address _mechMarketplace, address _buyBackBurner, address _token)
+        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
     {
         // Check for zero address
-        if (_olas == address(0)) {
+        if (_token == address(0)) {
             revert ZeroAddress();
         }
 
-        olas = _olas;
+        token = _token;
     }
 
     /// @dev Drains specified amount.
     /// @param amount Token amount.
     function _drain(uint256 amount) internal virtual override {
         // Transfer to Buy back burner
-        IToken(olas).transfer(buyBackBurner, amount);
+        IToken(token).transfer(buyBackBurner, amount);
 
-        emit Drained(olas, amount);
+        emit Drained(token, amount);
     }
 
     /// @dev Gets native token value or restricts receiving one.
@@ -68,18 +68,10 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     /// @param amount Token amount.
     /// @return Received amount.
     function _getRequiredFunds(address requester, uint256 amount) internal virtual override returns (uint256) {
-        uint256 balanceBefore = IToken(olas).balanceOf(address(this));
         // Get tokens from requester
-        IToken(olas).transferFrom(requester, address(this), amount);
-        uint256 balanceAfter = IToken(olas).balanceOf(address(this));
+        IToken(token).transferFrom(requester, address(this), amount);
 
-        // Check the balance
-        uint256 diff = balanceAfter - balanceBefore;
-        if (diff != amount) {
-            revert TransferFailed(olas, requester, address(this), amount);
-        }
-
-        emit Deposit(msg.sender, olas, amount);
+        emit Deposit(msg.sender, token, amount);
 
         return amount;
     }
@@ -88,24 +80,35 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerFixedPriceBase {
     /// @param account Account address.
     /// @param amount Token amount.
     function _withdraw(address account, uint256 amount) internal virtual override {
-        bool success = IToken(olas).transfer(account, amount);
+        // Transfer tokens
+        IToken(token).transfer(account, amount);
 
-        // Check transfer
-        if (!success) {
-            revert TransferFailed(olas, address(this), account, amount);
-        }
-
-        emit Withdraw(msg.sender, olas, amount);
+        emit Withdraw(msg.sender, token, amount);
     }
 
     /// @dev Deposits token funds for requester.
     /// @param amount Token amount.
-    function deposit(uint256 amount) external {
-        IToken(olas).transferFrom(msg.sender, address(this), amount);
-
+    function deposit(uint256 amount) external virtual {
         // Update account balances
         mapRequesterBalances[msg.sender] += amount;
 
-        emit Deposit(msg.sender, olas, amount);
+        // Get tokens
+        IToken(token).transferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(msg.sender, token, amount);
+    }
+
+    /// @dev Deposits token funds for requester.
+    /// @notice Funds are going to be transferred from msg.sender.
+    /// @param account Account address to deposit for.
+    /// @param amount Token amount.
+    function depositFor(address account, uint256 amount) external virtual {
+        // Update account balances
+        mapRequesterBalances[account] += amount;
+
+        // Get tokens
+        IToken(token).transferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(account, token, amount);
     }
 }

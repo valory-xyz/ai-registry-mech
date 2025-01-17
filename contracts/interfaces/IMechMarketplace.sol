@@ -3,30 +3,24 @@ pragma solidity ^0.8.28;
 
 /// @dev Mech Marketplace interface
 interface IMechMarketplace {
-    // Mech delivery info struct
-    struct MechDelivery {
-        // Priority mech address
-        address priorityMech;
-        // Delivery mech address
-        address deliveryMech;
-        // Requester address
-        address requester;
-        // Response timeout window
-        uint256 responseTimeout;
-        // Delivery rate
-        uint256 deliveryRate;
-    }
+    /// @dev Delivers requests.
+    /// @notice This function can only be called by the mech delivering the request.
+    /// @param requestIds Set of request ids.
+    /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param deliveryDatas Set of corresponding self-descriptive opaque delivery data-blobs.
+    function deliverMarketplace(bytes32[] memory requestIds, uint256[] memory mechDeliveryRates,
+        bytes[] memory deliveryDatas) external returns (bool[] memory deliveredRequests);
 
-    /// @dev Delivers a request.
-    /// @param requestId Request id.
-    /// @param requestData Self-descriptive opaque data-blob.
-    function deliverMarketplace(
-        uint256 requestId,
-        bytes memory requestData
-    ) external;
-
-    /// @dev Gets mech delivery info.
-    /// @param requestId Request Id.
-    /// @return Mech delivery info.
-    function mapRequestIdDeliveries(uint256 requestId) external returns (MechDelivery memory);
+    /// @dev Delivers signed requests.
+    /// @notice This function must be called by mech delivering requests.
+    /// @param requester Requester address.
+    /// @param requesterServiceId Requester service Id, or zero if EOA.
+    /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
+    /// @param signatures Corresponding set of signatures.
+    /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
+    /// @param deliveryDatas Corresponding set of self-descriptive opaque delivery data-blobs.
+    /// @param paymentData Additional payment-related request data, if applicable.
+    function deliverMarketplaceWithSignatures(address requester, uint256 requesterServiceId,
+        bytes[] memory requestDatas, bytes[] memory signatures, bytes[] memory deliveryDatas,
+        uint256[] memory deliveryRates, bytes memory paymentData) external;
 }

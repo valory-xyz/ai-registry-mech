@@ -23,28 +23,23 @@ error ZeroAddress();
 /// @dev Provided zero value.
 error ZeroValue();
 
-/// @title MechNvmSubscription - Smart contract for extending OlasMech with Nevermided subscription
+/// @title MechNvmSubscriptionNative - Smart contract for extending OlasMech with Nevermided subscription based on native token
 /// @dev A Mech that is operated by the holder of an ERC721 non-fungible token via a Nevermided subscription.
-contract MechNvmSubscription is OlasMech {
-    event RequestRateFinalized(uint256 indexed requestId, uint256 deliveryRate);
+contract MechNvmSubscriptionNative is OlasMech {
+    event RequestRateFinalized(bytes32 indexed requestId, uint256 deliveryRate);
 
-    // keccak256(NvmSubscription) = 626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0
-    bytes32 public constant PAYMENT_TYPE = 0x626e3e03bc0d3f35fa97066f92f71221d599a2bcf50a2c9d6cfa6572204006a0;
+    // keccak256(NvmSubscriptionNative) = 803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316
+    bytes32 public constant PAYMENT_TYPE = 0x803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316;
 
     // Mapping for requestId => finalized delivery rates
-    mapping(uint256 => uint256) public mapRequestIdFinalizedRates;
+    mapping(bytes32 => uint256) public mapRequestIdFinalizedRates;
 
-    /// @dev AgentMechSubscription constructor.
+    /// @dev MechNvmSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the token contract.
     /// @param _serviceId Service Id.
     /// @param _maxDeliveryRate The maximum delivery rate.
-    constructor(
-        address _mechMarketplace,
-        address _serviceRegistry,
-        uint256 _serviceId,
-        uint256 _maxDeliveryRate
-    )
+    constructor(address _mechMarketplace, address _serviceRegistry, uint256 _serviceId,uint256 _maxDeliveryRate)
         OlasMech(_mechMarketplace, _serviceRegistry, _serviceId, _maxDeliveryRate, PAYMENT_TYPE)
     {}
 
@@ -53,8 +48,7 @@ contract MechNvmSubscription is OlasMech {
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
     function _preDeliver(
-        address,
-        uint256 requestId,
+        bytes32 requestId,
         bytes memory data
     ) internal override returns (bytes memory requestData) {
         // Extract the request deliver rate as credits to burn
@@ -66,10 +60,17 @@ contract MechNvmSubscription is OlasMech {
         emit RequestRateFinalized(requestId, deliveryRate);
     }
 
-    /// @dev Gets finalized delivery rate for a request Id.
-    /// @param requestId Request Id.
-    /// @return Finalized delivery rate.
-    function getFinalizedDeliveryRate(uint256 requestId) external virtual override returns (uint256) {
-        return mapRequestIdFinalizedRates[requestId];
+    /// @dev Gets finalized delivery rate for request Ids.
+    /// @param requestIds Set of request Ids.
+    /// @return deliveryRates Set of corresponding finalized delivery rates.
+    function getFinalizedDeliveryRates(
+        bytes32[] memory requestIds
+    ) public view virtual override returns (uint256[] memory deliveryRates) {
+        uint256 numRequests = requestIds.length;
+        deliveryRates = new uint256[](numRequests);
+
+        for (uint256 i = 0; i < numRequests; ++i) {
+            deliveryRates[i] = mapRequestIdFinalizedRates[requestIds[i]];
+        }
     }
 }

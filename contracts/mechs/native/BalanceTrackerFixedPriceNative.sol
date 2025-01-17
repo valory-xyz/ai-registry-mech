@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceBase, ZeroAddress, InsufficientBalance, TransferFailed} from "../../BalanceTrackerFixedPriceBase.sol";
+import {BalanceTrackerBase, ZeroAddress, InsufficientBalance, TransferFailed} from "../../BalanceTrackerBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
@@ -16,7 +16,8 @@ interface IWrappedToken {
     function deposit() external payable;
 }
 
-contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
+/// @title BalanceTrackerFixedPriceNative - smart contract for tracking mech and requester native token balances
+contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
     // Wrapped native token address
     address public immutable wrappedNativeToken;
 
@@ -25,7 +26,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
     /// @param _buyBackBurner Buy back burner address.
     /// @param _wrappedNativeToken Wrapped native token address.
     constructor(address _mechMarketplace, address _buyBackBurner, address _wrappedNativeToken)
-        BalanceTrackerFixedPriceBase(_mechMarketplace, _buyBackBurner)
+        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
     {
         // Check for zero address
         if (_wrappedNativeToken == address(0)) {
@@ -79,13 +80,23 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerFixedPriceBase {
     }
 
     /// @dev Wraps native token.
+    /// @notice Pay attention and override, if necessary.
     /// @param amount Token amount.
     function _wrap(uint256 amount) internal virtual {
         IWrappedToken(wrappedNativeToken).deposit{value: amount}();
     }
 
+    /// @dev Deposits token funds for requester.
+    /// @param account Account address to deposit for.
+    function depositFor(address account) external payable virtual {
+        // Update account balances
+        mapRequesterBalances[account] += msg.value;
+
+        emit Deposit(account, address(0), msg.value);
+    }
+
     /// @dev Deposits funds for requester.
-    receive() external payable {
+    receive() external virtual payable {
         // Update account balances
         mapRequesterBalances[msg.sender] += msg.value;
 

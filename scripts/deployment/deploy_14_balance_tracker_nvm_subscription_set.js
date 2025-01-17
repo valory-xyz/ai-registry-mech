@@ -12,8 +12,9 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const karmaProxyAddress = parsedData.karmaProxyAddress;
-    const mechMarketplaceAddress = parsedData.mechMarketplaceAddress;
+    const balanceTrackerNvmSubscriptionNativeAddress = parsedData.balanceTrackerNvmSubscriptionNativeAddress;
+    const subscriptionNFTAddress = parsedData.subscriptionNFTAddress;
+    const subscriptionTokenId = parsedData.subscriptionTokenId;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -43,17 +44,18 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get the contract instance
-    const karma = await ethers.getContractAt("Karma", karmaProxyAddress);
+    const balanceTrackerNvmSubscription = await ethers.getContractAt("BalanceTrackerNvmSubscriptionNative", balanceTrackerNvmSubscriptionNativeAddress);
 
     // Transaction signing and execution
-    console.log("7. EOA to set Mech Marketplace statuses");
-    console.log("You are signing the following transaction: KarmaProxy.connect(EOA).setMechMarketplaceStatuses()");
+    console.log("14. EOA to set Balance trackers NVM subscription");
+    console.log("You are signing the following transaction: BalanceTrackerNvmSubscriptionNative.connect(EOA).setSubscription()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await karma.connect(EOA).setMechMarketplaceStatuses([mechMarketplaceAddress], [true], { gasPrice });
+    const result = await balanceTrackerNvmSubscription.connect(EOA).setSubscription(subscriptionNFTAddress,
+        subscriptionTokenId, { gasPrice });
 
     // Transaction details
-    console.log("Contract deployment: KarmaProxy");
-    console.log("Contract address:", karma.address);
+    console.log("Contract deployment: BalanceTrackerNvmSubscriptionNative");
+    console.log("Contract address:", balanceTrackerNvmSubscription.address);
     console.log("Transaction:", result.hash);
 }
 

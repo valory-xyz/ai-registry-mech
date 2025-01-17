@@ -21,7 +21,7 @@ describe("MechMarketplace", function () {
     const maxDeliveryRate = 1000;
     const fee = 10;
     const data = "0x00";
-    const defaultRequestId = 1;
+    const defaultRequestId = "0x" + "1".repeat(64);
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
@@ -251,7 +251,7 @@ describe("MechMarketplace", function () {
 
             // Trying to deliver by a random mech
             await expect(
-                mockMech.deliverMarketplace(defaultRequestId, data)
+                mockMech.deliverMarketplace([defaultRequestId], [maxDeliveryRate], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
 
             // Create mock mech via the factory
@@ -265,7 +265,7 @@ describe("MechMarketplace", function () {
 
             // Try to deliver a non-existent request
             await expect(
-                mechMock.deliverMarketplace(defaultRequestId, data)
+                mechMock.deliverMarketplace([defaultRequestId], [maxDeliveryRate], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
 
             // Request in priority mech
@@ -300,12 +300,10 @@ describe("MechMarketplace", function () {
             await helpers.time.increase(maxResponseTimeout);
 
             // Try to deliver directly via a marketplace
-            await mechMock.deliverMarketplace(requestId, data);
+            await mechMock.deliverMarketplace([requestId], [maxDeliveryRate], [data]);
 
-            // Try to deliver the same request once again
-            await expect(
-                mechMock.deliverMarketplace(requestId, data)
-            ).to.be.revertedWithCustomError(mechMarketplace, "AlreadyDelivered");
+            // Try to deliver the same request once again (nothing is delivered)
+            await mechMock.deliverMarketplace([requestId], [maxDeliveryRate], [data]);
 
             // Restore a previous state of blockchain
             snapshot.restore();
@@ -314,6 +312,11 @@ describe("MechMarketplace", function () {
 
     context("Request checks", async function () {
         it("Check mech and requester", async function () {
+            // Zero address check
+            await expect(
+                mechMarketplace.checkMech(AddressZero)
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
+
             // Mech that was not registered by the whitelisted factory
             await expect(
                 mechMarketplace.checkMech(deployer.address)

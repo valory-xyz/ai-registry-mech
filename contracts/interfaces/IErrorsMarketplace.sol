@@ -21,6 +21,19 @@ interface IErrorsMarketplace {
     /// @param numValues2 Number of values in a second array.
     error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
+    /// @dev Wrong length of three arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    /// @param numValues3 Number of values in a third array.
+    error WrongArrayLength3(uint256 numValues1, uint256 numValues2, uint256 numValues3);
+
+    /// @dev Wrong length of four arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    /// @param numValues3 Number of values in a third array.
+    /// @param numValues4 Number of values in a fourth array.
+    error WrongArrayLength4(uint256 numValues1, uint256 numValues2, uint256 numValues3, uint256 numValues4);
+
     /// @dev Not enough balance to cover costs.
     /// @param current Current balance.
     /// @param required Required balance.
@@ -32,7 +45,7 @@ interface IErrorsMarketplace {
 
     /// @dev Request Id not found.
     /// @param requestId Request Id.
-    error RequestIdNotFound(uint256 requestId);
+    error RequestIdNotFound(bytes32 requestId);
 
     /// @dev Value overflow.
     /// @param provided Overflow value.
@@ -62,9 +75,17 @@ interface IErrorsMarketplace {
     /// @param max Maximum possible value.
     error OutOfBounds(uint256 provided, uint256 min, uint256 max);
 
+    /// @dev The request is already requested.
+    /// @param requestId Request Id.
+    error AlreadyRequested(bytes32 requestId);
+
     /// @dev The request is already delivered.
     /// @param requestId Request Id.
-    error AlreadyDelivered(uint256 requestId);
+    error AlreadyDelivered(bytes32 requestId);
+
+    /// @dev Wrong payment type.
+    /// @param paymentType Payment type.
+    error WrongPaymentType(bytes32 paymentType);
 
     /// @dev Priority mech response timeout is not yet met.
     /// @param expected Expected timestamp.
@@ -77,4 +98,16 @@ interface IErrorsMarketplace {
     /// @param to Address `to`.
     /// @param amount Amount value.
     error TransferFailed(address token, address from, address to, uint256 amount);
+
+    /// @dev Incorrect signature length provided.
+    /// @param signature Signature bytes.
+    /// @param provided Provided signature length.
+    /// @param expected Expected signature length.
+    error IncorrectSignatureLength(bytes signature, uint256 provided, uint256 expected);
+
+    /// @dev Hash signature is not validated.
+    /// @param requester Requester contract address.
+    /// @param msgHash Message hash.
+    /// @param signature Signature bytes associated with the message hash.
+    error SignatureNotValidated(address requester, bytes32 msgHash, bytes signature);
 }

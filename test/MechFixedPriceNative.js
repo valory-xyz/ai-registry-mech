@@ -1,7 +1,7 @@
 /*global describe, context, beforeEach, it*/
 
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { config, ethers } = require("hardhat");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("MechFixedPriceNative", function () {
@@ -15,12 +15,15 @@ describe("MechFixedPriceNative", function () {
     let karma;
     let mechFactoryFixedPrice;
     let balanceTrackerFixedPriceNative;
+    let mockOperatorContract;
+    let weth;
     let signers;
     let deployer;
     const AddressZero = ethers.constants.AddressZero;
-    const maxDeliveryRate = 1000;
+    const HashZero = ethers.constants.HashZero;
+    const maxDeliveryRate = 100;
     const data = "0x00";
-    const fee = 10;
+    const fee = 100;
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
@@ -98,15 +101,25 @@ describe("MechFixedPriceNative", function () {
         // Get mech contract instance
         deliveryMech = await ethers.getContractAt("MechFixedPriceNative", deliveryMechAddress);
 
-        // Deploy
+        const WETH = await ethers.getContractFactory("WETH9");
+        weth = await WETH.deploy();
+        await weth.deployed();
+
+        // BalanceTrackerFixedPriceNative
+        // buyBackBurner is not important in the setup
         const BalanceTrackerFixedPriceNative = await ethers.getContractFactory("BalanceTrackerFixedPriceNative");
         balanceTrackerFixedPriceNative = await BalanceTrackerFixedPriceNative.deploy(mechMarketplace.address,
-            deployer.address, deployer.address);
+            deployer.address, weth.address);
         await balanceTrackerFixedPriceNative.deployed();
 
         // Whitelist balance tracker
         const paymentTypeHash = await priorityMech.paymentType();
         await mechMarketplace.setPaymentTypeBalanceTrackers([paymentTypeHash], [balanceTrackerFixedPriceNative.address]);
+
+        // Get mock operator contract (for contract signature validation)
+        const MockOperatorContract = await ethers.getContractFactory("MockOperatorContract");
+        mockOperatorContract = await MockOperatorContract.deploy();
+        await mockOperatorContract.deployed();
     });
 
     context("Initialization", async function () {
@@ -139,10 +152,10 @@ describe("MechFixedPriceNative", function () {
     });
 
     context("Request", async function () {
-        it("Creating an agent mech and doing a request", async function () {
+        it("Creating an agent mech and performing a request", async function () {
             // Try to post a request directly to the mech
             await expect(
-                priorityMech.requestFromMarketplace(deployer.address, data, 0)
+                priorityMech.requestFromMarketplace([HashZero], [data])
             ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
 
             // Response time is out of bounds
@@ -200,8 +213,6 @@ describe("MechFixedPriceNative", function () {
             // Get the requests count
             let requestsCount = await mechMarketplace.mapRequestCounts(deployer.address);
             expect(requestsCount).to.equal(1);
-            requestsCount = await priorityMech.mapUndeliveredRequestsCounts(deployer.address);
-            expect(requestsCount).to.equal(1);
             requestsCount = await mechMarketplace.numTotalRequests();
             expect(requestsCount).to.equal(1);
 
@@ -212,21 +223,29 @@ describe("MechFixedPriceNative", function () {
     });
 
     context("Deliver", async function () {
-        it("Delivering a request by a priority mech", async function () {
+        it("Delivering request by a priority mech", async function () {
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
             // Get the non-existent request status
             let status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(0);
 
-            // Try to deliver a non existent request
+            // Try to deliver a non existent request, i.e. priorityMech address not found
             await expect(
-                priorityMech.deliverToMarketplace(requestId, data)
-            ).to.be.revertedWithCustomError(priorityMech, "RequestIdNotFound");
+                priorityMech.deliverToMarketplace([requestId], [data])
+            ).to.be.revertedWithCustomError(priorityMech, "ZeroAddress");
+
+            // Try to deliver with empty or wrong arrays
+            await expect(
+                priorityMech.deliverToMarketplace([], [])
+            ).to.be.revertedWithCustomError(priorityMech, "WrongArrayLength");
+            await expect(
+                priorityMech.deliverToMarketplace([], [data])
+            ).to.be.revertedWithCustomError(priorityMech, "WrongArrayLength");
 
             // Try to check and record delivery rate not by marketplace
             await expect(
-                balanceTrackerFixedPriceNative.checkAndRecordDeliveryRate(deployer.address, 0, "0x")
+                balanceTrackerFixedPriceNative.checkAndRecordDeliveryRates(deployer.address, 0, 0, "0x")
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "MarketplaceOnly");
 
             // Create a request
@@ -234,12 +253,12 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver not by the service multisig (agent owner)
             await expect(
-                priorityMech.connect(signers[1]).deliverToMarketplace(requestId, data)
+                priorityMech.connect(signers[1]).deliverToMarketplace([requestId], [data])
             ).to.be.reverted;
 
             // Try to finalize delivery rate not by marketplace
             await expect(
-                balanceTrackerFixedPriceNative.finalizeDeliveryRate(priorityMech.address, deployer.address, 0, 0)
+                balanceTrackerFixedPriceNative.finalizeDeliveryRates(priorityMech.address, [deployer.address], [0], [0], [0])
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "MarketplaceOnly");
 
             // Get the request status (requested priority)
@@ -248,18 +267,18 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver request not by the mech
             await expect(
-                mechMarketplace.deliverMarketplace(requestId, data)
+                mechMarketplace.deliverMarketplace([requestId], [0], [data])
             ).to.be.reverted;
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
 
             // Try to deliver the same request again
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check mech karma
             let mechKarma = await karma.mapMechKarma(priorityMech.address);
@@ -282,7 +301,7 @@ describe("MechFixedPriceNative", function () {
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "InsufficientBalance");
 
             // Pre-pay the contract more for posting a request
-            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate});
+            await balanceTrackerFixedPriceNative.depositFor(deployer.address, {value: maxDeliveryRate});
 
             // Post a request
             await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
@@ -292,14 +311,14 @@ describe("MechFixedPriceNative", function () {
             expect(status).to.equal(1);
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(3);
 
             // Try to deliver the same request again
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check mech karma
             let mechKarma = await karma.mapMechKarma(priorityMech.address);
@@ -329,7 +348,7 @@ describe("MechFixedPriceNative", function () {
             const balanceAfter = await ethers.provider.getBalance(priorityMech.address);
 
             // Check charged fee
-            const collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
+            let collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
             // Since the delivery rate is smaller than MAX_FEE_FACTOR, the minimal fee was charged
             expect(collectedFees).to.equal(1);
 
@@ -341,10 +360,12 @@ describe("MechFixedPriceNative", function () {
             let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(maxDeliveryRate - 1);
 
-            // Withdraw requester balances
-            await balanceTrackerFixedPriceNative.withdraw();
-            requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
-            expect(requesterBalance).to.equal(0);
+            // Drain collected fees to buyBackBurner
+            await balanceTrackerFixedPriceNative.drain();
+
+            // Check marketplace collected fee balance after drain
+            collectedFees = await balanceTrackerFixedPriceNative.collectedFees();
+            expect(collectedFees).to.equal(0);
         });
 
         it("Delivering a request by a priority mech with pre-paid logic with sufficient balance", async function () {
@@ -359,16 +380,11 @@ describe("MechFixedPriceNative", function () {
 
             // Try to withdraw mech zero balances
             await expect(
-                balanceTrackerFixedPriceNative.withdraw()
-            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
-
-            // Try to withdraw zero balances
-            await expect(
                 balanceTrackerFixedPriceNative.processPaymentByMultisig(priorityMech.address)
             ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestId, data);
+            await priorityMech.deliverToMarketplace([requestId], [data]);
 
             // Check priority mech balance now
             let mechBalance = await balanceTrackerFixedPriceNative.mapMechBalances(priorityMech.address);
@@ -391,25 +407,20 @@ describe("MechFixedPriceNative", function () {
             // Check requester leftover balance
             let requesterBalance = await balanceTrackerFixedPriceNative.mapRequesterBalances(deployer.address);
             expect(requesterBalance).to.equal(0);
-
-            // Try to withdraw zero balances
-            await expect(
-                balanceTrackerFixedPriceNative.withdraw()
-            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "ZeroValue");
         });
 
-        it("Delivering a request by a different mech", async function () {
+        it("Delivering request by a different mech", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
             const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
 
-            // Try to deliver a non-existent request
+            // Try to deliver a non-existent request, i.e. priority mech does not exist
             await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
-            ).to.be.revertedWithCustomError(mechMarketplace, "RequestIdNotFound");
+                deliveryMech.deliverToMarketplace([requestId], [data])
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
             await expect(
-                mechMarketplace.deliverMarketplace(requestId, data)
+                mechMarketplace.deliverMarketplace([requestId], [0], [data])
             ).to.be.reverted;
 
             // Get the non-existent request status
@@ -421,7 +432,7 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver by a delivery mech right away
             await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
+                deliveryMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "PriorityMechResponseTimeout");
 
             // Get the request status (requested priority)
@@ -435,20 +446,18 @@ describe("MechFixedPriceNative", function () {
             status = await mechMarketplace.getRequestStatus(requestId);
             expect(status).to.equal(2);
 
-            // Try to deliver by a mech with bigger max Delivery rate
+            // Try to deliver by a mech with bigger max delivery rate (it's not going to be delivered)
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate + 1);
-            await expect(
-                deliveryMech.deliverToMarketplace(requestId, data)
-            ).to.be.revertedWithCustomError(mechMarketplace, "Overflow");
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Change max delivery rate back
             await deliveryMech.changeMaxDeliveryRate(maxDeliveryRate);
 
             // Deliver a request by the delivery mech
-            await deliveryMech.deliverToMarketplace(requestId, data);
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Try to deliver the same request again (gets empty data)
-            await deliveryMech.deliverToMarketplace(requestId, data);
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (delivered)
             status = await mechMarketplace.getRequestStatus(requestId);
@@ -490,7 +499,7 @@ describe("MechFixedPriceNative", function () {
             expect(uRequestIds[0]).to.equal(requestIds[0]);
 
             // Deliver a request
-            await priorityMech.deliverToMarketplace(requestIds[0], data);
+            await priorityMech.deliverToMarketplace([requestIds[0]], [data]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -502,10 +511,18 @@ describe("MechFixedPriceNative", function () {
                 requestCount++;
             }
 
-            // Stack all requests
-            for (let i = 0; i < numRequests; i++) {
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
-            }
+            // Try to do zero array requests
+            await expect(
+                mechMarketplace.requestBatch([], mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
+
+            // Stack all requests in batch
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
+
+            await expect(
+                mechMarketplace.requestBatch([], mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "ZeroValue");
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -516,9 +533,7 @@ describe("MechFixedPriceNative", function () {
             }
 
             // Deliver all requests
-            for (let i = 0; i < numRequests; i++) {
-                await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
-            }
+            await priorityMech.deliverToMarketplace(requestIds, datas);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -528,11 +543,12 @@ describe("MechFixedPriceNative", function () {
             for (let i = 0; i < numRequests; i++) {
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
             }
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
 
             // Deliver the first request
-            await priorityMech.deliverToMarketplace(requestIds[0], datas[0]);
+            await priorityMech.deliverToMarketplace([requestIds[0]], [datas[0]]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -543,7 +559,7 @@ describe("MechFixedPriceNative", function () {
             }
 
             // Deliver the last request
-            await priorityMech.deliverToMarketplace(requestIds[numRequests - 1], datas[numRequests - 1]);
+            await priorityMech.deliverToMarketplace([requestIds[numRequests - 1]], [datas[numRequests - 1]]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -554,7 +570,7 @@ describe("MechFixedPriceNative", function () {
 
             // Deliver the middle request
             const middle = Math.floor(numRequests / 2);
-            await priorityMech.deliverToMarketplace(requestIds[middle], datas[middle]);
+            await priorityMech.deliverToMarketplace([requestIds[middle]], [datas[middle]]);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -577,13 +593,14 @@ describe("MechFixedPriceNative", function () {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
             }
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
 
             // Deliver even requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 != 0) {
-                    await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
+                    await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
                 }
             }
 
@@ -598,7 +615,7 @@ describe("MechFixedPriceNative", function () {
             // Deliver the rest of requests
             for (let i = 0; i < numRequests; i++) {
                 if (i % 2 == 0) {
-                    await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
+                    await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
                 }
             }
 
@@ -617,8 +634,9 @@ describe("MechFixedPriceNative", function () {
                 datas[i] = data + "00".repeat(i);
                 requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
                 requestCount++;
-                await mechMarketplace.request(datas[i], mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
             }
+            await mechMarketplace.requestBatch(datas, mechServiceId, requesterServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate * numRequests});
 
             // Check request Ids for just part of the batch
             const half = Math.floor(numRequests / 2);
@@ -654,8 +672,88 @@ describe("MechFixedPriceNative", function () {
 
             // Deliver all requests
             for (let i = 0; i < numRequests; i++) {
-                await priorityMech.deliverToMarketplace(requestIds[i], datas[i]);
+                await priorityMech.deliverToMarketplace([requestIds[i]], [datas[i]]);
             }
+        });
+
+        it("Requests with signatures", async function () {
+            const numRequests = 10;
+            const datas = new Array();
+            const requestIds = new Array();
+            const signatures = new Array();
+            const deliveryRates = new Array(numRequests).fill(maxDeliveryRate);
+            let requestCount = 0;
+
+            // Pre-pay the contract insufficient amount for posting a request
+            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate * numRequests});
+
+            // Get deployer wallet
+            const accounts = config.networks.hardhat.accounts;
+            const wallet = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/${0}`);
+            const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
+
+            // Try to update mech num requests not by a Marketplace
+            await expect(
+                priorityMech.updateNumRequests(numRequests)
+            ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
+
+            // Stack all requests
+            for (let i = 0; i < numRequests; i++) {
+                datas[i] = data + "00".repeat(i);
+                requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
+                const signature = signingKey.signDigest(requestIds[i]);
+                // Extract v, r, s
+                const r = ethers.utils.arrayify(signature.r);
+                const s = ethers.utils.arrayify(signature.s);
+                const v = ethers.utils.arrayify(signature.v);
+                // Assemble 65 bytes of signature
+                signatures[i] = ethers.utils.hexlify(ethers.utils.concat([r, s, v]));
+                requestCount++;
+            }
+
+            // Try to deliver requests not in order
+            let reverseDatas = Array.from(datas);
+            reverseDatas = reverseDatas.reverse();
+            await expect(
+                priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, reverseDatas, signatures, reverseDatas,
+                    deliveryRates, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
+
+            // Deliver requests
+            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, datas, signatures, datas,
+                deliveryRates, "0x");
+        });
+
+        it("Requests with signatures for contracts", async function () {
+            const numRequests = 10;
+            const datas = new Array();
+            const requestIds = new Array();
+            const signatures = new Array(numRequests).fill("0x");
+            const deliveryRates = new Array(numRequests).fill(maxDeliveryRate);
+            let requestCount = 0;
+
+            // Fund mockOperatorContract address
+            await balanceTrackerFixedPriceNative.depositFor(mockOperatorContract.address, {value: maxDeliveryRate * numRequests});
+
+            // Stack all requests
+            for (let i = 0; i < numRequests; i++) {
+                datas[i] = data + "00".repeat(i);
+                requestIds[i] = await mechMarketplace.getRequestId(mockOperatorContract.address, datas[i], requestCount);
+                await mockOperatorContract.approveHash(requestIds[i]);
+                requestCount++;
+            }
+
+            // Try to deliver requests not in order
+            let reverseDatas = Array.from(datas);
+            reverseDatas = reverseDatas.reverse();
+            await expect(
+                priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, 0, reverseDatas, signatures,
+                    reverseDatas, deliveryRates, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
+
+            // Deliver requests
+            await priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, 0, datas, signatures, datas,
+                deliveryRates, "0x");
         });
     });
 

@@ -12,7 +12,8 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const karmaAddress = parsedData.karmaAddress;
+    const karmaProxyAddress = parsedData.karmaProxyAddress;
+    const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -41,35 +42,19 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Assemble the karma proxy data
-    const karma = await ethers.getContractAt("Karma", karmaAddress);
-    const proxyData = karma.interface.encodeFunctionData("initialize", []);
+    // Get the contract instance
+    const karma = await ethers.getContractAt("Karma", karmaProxyAddress);
 
     // Transaction signing and execution
-    console.log("5. EOA to deploy Karma Proxy");
-    console.log("You are signing the following transaction: KarmaProxy.connect(EOA).deploy()");
+    console.log("11. EOA to set Mech Marketplace statuses");
+    console.log("You are signing the following transaction: KarmaProxy.connect(EOA).setMechMarketplaceStatuses()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const KarmaProxy = await ethers.getContractFactory("KarmaProxy");
-    const karmaProxy = await KarmaProxy.connect(EOA).deploy(karmaAddress, proxyData, { gasPrice });
-    const result = await karmaProxy.deployed();
+    const result = await karma.connect(EOA).setMechMarketplaceStatuses([mechMarketplaceProxyAddress], [true], { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: KarmaProxy");
-    console.log("Contract address:", karmaProxy.address);
-    console.log("Transaction:", result.deployTransaction.hash);
-
-    // Wait for half a minute for the transaction completion
-    await new Promise(r => setTimeout(r, 30000));
-
-    // Writing updated parameters back to the JSON file
-    parsedData.karmaProxyAddress = karmaProxy.address;
-    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
-
-    // Contract verification
-    if (parsedData.contractVerification) {
-        const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_05_karma_proxy.js --network " + providerName + " " + karmaProxy.address, { encoding: "utf-8" });
-    }
+    console.log("Contract address:", karma.address);
+    console.log("Transaction:", result.hash);
 }
 
 main()

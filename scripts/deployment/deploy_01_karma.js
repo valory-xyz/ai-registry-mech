@@ -12,9 +12,6 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const agentRegistryName = parsedData.agentRegistryName;
-    const agentRegistrySymbol = parsedData.agentRegistrySymbol;
-    const baseURI = parsedData.baseURI;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -44,29 +41,29 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("1. EOA to deploy AgentRegistry");
-    const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
-    console.log("You are signing the following transaction: AgentRegistry.connect(EOA).deploy()");
+    console.log("1. EOA to deploy Karma");
+    console.log("You are signing the following transaction: Karma.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const agentRegistry = await AgentRegistry.connect(EOA).deploy(agentRegistryName, agentRegistrySymbol, baseURI, { gasPrice });
-    const result = await agentRegistry.deployed();
+    const Karma = await ethers.getContractFactory("Karma");
+    const karma = await Karma.connect(EOA).deploy({ gasPrice });
+    const result = await karma.deployed();
 
     // Transaction details
-    console.log("Contract deployment: AgentRegistry");
-    console.log("Contract address:", agentRegistry.address);
+    console.log("Contract deployment: Karma");
+    console.log("Contract address:", karma.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // Wait for half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.agentRegistryAddress = agentRegistry.address;
+    parsedData.karmaAddress = karma.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_01_agent_registry.js --network " + providerName + " " + agentRegistry.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --network " + providerName + " " + karma.address, { encoding: "utf-8" });
     }
 }
 
