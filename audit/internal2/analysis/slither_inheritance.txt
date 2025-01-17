@@ -1,0 +1,237 @@
+'solc --version' running
+'solc ./KarmaProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./MechMarketplace-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./Karma-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./OlasMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+'solc --version' running
+'solc ./MechMarketplaceProxy-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal2/analysis/contracts' running
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ KarmaProxy
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ KarmaProxy
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IErrorsMarketplace
+
++ IKarma
+
++ IMech
+
++ IServiceRegistry
+
++ IStaking
+
++ IStakingFactory
+
++ IMechFactory
+
++ IToken
+
++ IWrappedToken
+
++ MechMarketplace
+ -> IErrorsMarketplace
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IErrorsMarketplace
+ -> MechMarketplace
+
++ IKarma
+
++ IMech
+
++ IServiceRegistry
+
++ IStaking
+
++ IStakingFactory
+
++ IMechFactory
+
++ IToken
+
++ IWrappedToken
+
++ MechMarketplace
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ Karma
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ Karma
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ UserOperationLib
+
++ IAccount
+
++ IAggregator
+
++ IStakeManager
+
++ IEntryPoint
+ -> IStakeManager
+
++ BaseAccount
+ -> IAccount
+
++ Math
+
++ SignedMath
+
++ Strings
+
++ ECDSA
+
++ IErrorsMech
+
++ IMechMarketplace
+
++ IServiceRegistry
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+
++ Enum
+
++ Account
+ -> BaseAccount
+, [IAccount]
+
++ ERC1155TokenReceiver
+
++ ERC721TokenReceiver
+
++ ERC777TokensRecipient
+
++ Receiver
+ -> ERC1155TokenReceiver, ERC777TokensRecipient, ERC721TokenReceiver
+
++ IERC1271
+
++ IFactoryFriendly
+
++ IMech
+ -> IAccount, IERC1271, IFactoryFriendly
+
++ Mech
+ -> IMech, Account, Receiver
+, [ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, BaseAccount, IFactoryFriendly, IERC1271, IAccount]
+
++ OlasMech
+ -> Mech, IErrorsMech, ImmutableStorage
+, [Receiver, ERC721TokenReceiver, ERC777TokensRecipient, ERC1155TokenReceiver, Account, BaseAccount, IMech, IFactoryFriendly, IERC1271, IAccount]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ UserOperationLib
+
++ IAccount
+ -> BaseAccount, IMech
+, [Account, Mech, OlasMech]
+
++ IAggregator
+
++ IStakeManager
+ -> IEntryPoint
+
++ IEntryPoint
+
++ BaseAccount
+ -> Account
+, [Mech, OlasMech]
+
++ Math
+
++ SignedMath
+
++ Strings
+
++ ECDSA
+
++ IErrorsMech
+ -> OlasMech
+
++ IMechMarketplace
+
++ IServiceRegistry
+
++ console
+
++ WriteOnce
+
++ ImmutableStorage
+ -> OlasMech
+
++ Enum
+
++ Account
+ -> Mech
+, [OlasMech]
+
++ ERC1155TokenReceiver
+ -> Receiver
+, [Mech, OlasMech]
+
++ ERC721TokenReceiver
+ -> Receiver
+, [Mech, OlasMech]
+
++ ERC777TokensRecipient
+ -> Receiver
+, [Mech, OlasMech]
+
++ Receiver
+ -> Mech
+, [OlasMech]
+
++ IERC1271
+ -> IMech
+, [Mech, OlasMech]
+
++ IFactoryFriendly
+ -> IMech
+, [Mech, OlasMech]
+
++ IMech
+ -> Mech
+, [OlasMech]
+
++ Mech
+ -> OlasMech
+
++ OlasMech
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ MechMarketplaceProxy
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ MechMarketplaceProxy
+
+INFO:Slither:. analyzed (40 contracts)

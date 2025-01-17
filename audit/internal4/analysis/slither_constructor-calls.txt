@@ -1,0 +1,115 @@
+'solc --version' running
+'solc ./MechMarketplace-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./Karma-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./BalanceTrackerFixedPriceBase-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./OlasMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal4/analysis/contracts' running
+INFO:Printers:
+###############################
+####### MechMarketplace #######
+###############################
+
+## Constructor Call Sequence
+	- MechMarketplace
+
+## Constructor Definitions
+
+### MechMarketplace
+
+     constructor(address _serviceRegistry, address _karma) {
+        // Check for zero address
+        if (_serviceRegistry == address(0) || _karma == address(0)) {
+            revert ZeroAddress();
+        }
+
+        serviceRegistry = _serviceRegistry;
+        karma = _karma;
+
+        // Record chain Id
+        chainId = block.chainid;
+        // Compute domain separator
+        domainSeparator = _computeDomainSeparator();
+    }
+
+INFO:Printers:
+INFO:Printers:
+############################################
+####### BalanceTrackerFixedPriceBase #######
+############################################
+
+## Constructor Call Sequence
+	- BalanceTrackerFixedPriceBase
+
+## Constructor Definitions
+
+### BalanceTrackerFixedPriceBase
+
+     constructor(address _mechMarketplace, address _buyBackBurner) {
+        // Check for zero address
+        if (_mechMarketplace == address(0) || _buyBackBurner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        mechMarketplace = _mechMarketplace;
+        buyBackBurner = _buyBackBurner;
+    }
+
+INFO:Printers:
+########################
+####### OlasMech #######
+########################
+
+## Constructor Call Sequence
+	- OlasMech
+
+## Constructor Definitions
+
+### OlasMech
+
+     ctor(
+        address _mechMarketplace,
+        address _serviceRegistry,
+        uint256 _serviceId,
+        uint256 _maxDeliveryRate,
+        bytes32 _paymentType
+    ) {
+        // Check for zero address
+        if (_mechMarketplace == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero address
+        if (_serviceRegistry == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_serviceId == 0 || _maxDeliveryRate == 0 || _paymentType == 0) {
+            revert ZeroValue();
+        }
+
+        bytes memory initParams = abi.encode(_serviceRegistry, _serviceId);
+        (, address multisig, , , , , IServiceRegistry.ServiceState state) =
+            IServiceRegistry(_serviceRegistry).mapServices(_serviceId);
+
+        // Check for zero address
+        if (multisig == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for correct service state
+        if (state != IServiceRegistry.ServiceState.Deployed) {
+            revert WrongServiceState(uint256(state), _serviceId);
+        }
+        setUp(initParams);
+
+        mechMarketplace = _mechMarketplace;
+        maxDeliveryRate = _maxDeliveryRate;
+        paymentType = _paymentType;
+    }
+
+    /
+
+INFO:Slither:. analyzed (38 contracts)

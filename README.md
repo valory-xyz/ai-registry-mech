@@ -2,15 +2,17 @@
 
 ## Introduction
 
-This repository contains the Agent and Mech registry.
+This repository contains the Mech Marketplace set of contracts registering mechs and performing their interactions for
+requests delivery via the means of the Marketplace. Read [docs](https://github.com/valory-xyz/ai-registry-mech/docs)
+for a detailed Mech Marketplace description.
 
 
 ## Development
 
 ### Prerequisites
 - This repository follows the standard [`Hardhat`](https://hardhat.org/tutorial/) development process.
-- The code is written on Solidity `0.8.19`.
-- The standard versions of Node.js along with Yarn are required to proceed further (confirmed to work with Yarn `1.22.10` and npx/npm `6.14.11` and node `v12.22.0`).
+- The code is written on Solidity `0.8.28`.
+- The standard versions of Node.js along with Yarn are required to proceed further (confirmed to work with Yarn `1.22.19` and npx/npm `10.8.2` and node `v20.18.1`).
 
 ### Install the dependencies
 The project has submodules to get the dependencies. Make sure you run `git clone --recursive` or init the submodules yourself.
@@ -38,6 +40,19 @@ Run the tests:
 npx hardhat test
 ```
 
+### Linters
+- [`ESLint`](https://eslint.org) is used for JS code.
+- [`solhint`](https://github.com/protofire/solhint) is used for Solidity linting.
+
+
+### Github Workflows
+The PR process is managed by github workflows, where the code undergoes
+several steps in order to be verified. Those include:
+- code installation
+- running linters
+- running tests
+
+
 ## Deployment and redeployment
 The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
 The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/ai-registry-mech/blob/main/scripts/deployment).
@@ -48,7 +63,15 @@ Each folder there contains contracts compiled with the solidity version before t
 The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration.json).
 
 
-## Deployments
+### Audits
+- The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/autonolas-registries/blob/main/audits).
+
+
+## Deployment addresses
+
+The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/configuration.json).
+
+### Previous versions, to be deprecated soon
 
 | Network | AI Agent Registry    | AgentFactory    | AgentFactorySubscription   | MechMarketplace   |
 | :---:   | :---: | :---: | :---: | :---: |
@@ -70,16 +93,27 @@ The list of contract addresses for different chains and their full contract conf
 
 ```mermaid
 flowchart LR
-    Deployer -- deploy --> MechMarketplace
-    Deployer -- deploy --> AgentFactory
-    Deployer -- deploy --> KarmaProxy 
-    Deployer -- deploy --> Karma
-    User -- create --> AgentFactory
-    User -- request --> MechMarketplace -- requestFromMarketplace --> priorityMech 
-    MechMarketplace -- changeRequesterMechKarma --> KarmaProxy --> Karma
-    MechService -- deliverToMarketplace --> priorityMech -- deliverMarketplace --> MechMarketplace -- changeMechKarma --> KarmaProxy --> Karma
-    MechService -- deliverToMarketplace --> AgentMech -- deliverMarketplace --> MechMarketplace -- revokeRequest (If delivery mech is different from the priority one) --> priorityMech
+    DAO -- changeMarketplaceParams --> MechMarketplace
+    DAO -- setMechFactoryStatuses --> MechMarketplace
+    DAO -- setPaymentTypeBalanceTrackers --> MechMarketplace
+    DAO -- setMechMarketplaceStatuses --> Karma
+    Account -- create --> MechMarketplace
+    Account -- request --> MechMarketplace
+    Account -- requestBatch --> MechMarketplace
+    MechMarketplace -- create --> MechFactory
+    MechFactory -- new --> Mech
+    MechMarketplace -- requestFromMarketplace --> Mech
+    MechMarketplace -- changeRequesterMechKarma --> Karma
+    MechMarketplace -- changeMechKarma --> Karma
+    MechService -- deliverToMarketplace (priority or delivery mech) --> Mech
+    MechService -- deliverMarketplaceWithSignatures --> Mech
+    Mech -- deliverMarketplace --> MechMarketplace
+    Mech -- deliverMarketplaceWithSignatures --> MechMarketplace
+    MechMarketplace -- checkAndRecordDeliveryRates --> BalanceTracker
+    MechMarketplace -- finalizeDeliveryRates --> BalanceTracker
+    MechMarketplace -- adjustMechRequesterBalances --> BalanceTracker
 ```
+The core workflow of the Mech Marketplace, including the roles and interactions of key participants, as well as an overview of the smart contracts, can be found [here](https://github.com/valory-xyz/ai-registry-mech/tree/main/docs/MechMarketplaceDescriptionAndContractsOverviewRepo.pdf).
 
 ## Acknowledgements
 The registry mech contracts were inspired and based on the following sources:
