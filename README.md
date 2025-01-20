@@ -64,12 +64,12 @@ The list of contract addresses for different chains and their full contract conf
 
 
 ### Audits
-- The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/autonolas-registries/blob/main/audits).
+- The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits).
 
 
 ## Deployment addresses
 
-The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/configuration.json).
+The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration.json).
 
 ### Previous versions, to be deprecated soon
 
