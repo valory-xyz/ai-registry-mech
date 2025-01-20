@@ -15,7 +15,6 @@ async function main() {
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
     const buyBackBurnerAddress = parsedData.buyBackBurnerAddress;
     const wrappedNativeTokenAddress = parsedData.wrappedNativeTokenAddress;
-    const tokenCreditRatio = parsedData.tokenCreditRatio;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {

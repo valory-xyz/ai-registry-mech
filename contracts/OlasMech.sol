@@ -258,7 +258,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
     /// @dev Delivers signed requests.
     /// @param requester Requester address.
-    /// @param requesterServiceId Requester service Id, or zero if EOA.
     /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
     /// @param signatures Corresponding set of signatures.
     /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
@@ -266,15 +265,14 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester,
-        uint256 requesterServiceId,
         bytes[] memory requestDatas,
         bytes[] memory signatures,
         bytes[] memory deliveryDatas,
         uint256[] memory deliveryRates,
         bytes memory paymentData
     ) external onlyOperator {
-        IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, requesterServiceId, requestDatas,
-            signatures, deliveryDatas, deliveryRates, paymentData);
+        IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, requestDatas, signatures,
+            deliveryDatas, deliveryRates, paymentData);
     }
 
     /// @dev Sets up a mech.
