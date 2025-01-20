@@ -45,33 +45,33 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("6. EOA to deploy Balance Tracker NVM Subscription Native");
-    console.log("You are signing the following transaction: BalanceTrackerNvmSubscriptionNative.connect(EOA).deploy()");
+    console.log("8. EOA to deploy Balance Tracker Fixed Price Native");
+    console.log("You are signing the following transaction: BalanceTrackerFixedPriceNative.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const BalanceTrackerNvmSubscriptionNative = await ethers.getContractFactory("BalanceTrackerNvmSubscriptionNative");
+    const BalanceTrackerFixedPriceNative = await ethers.getContractFactory("BalanceTrackerFixedPriceNative");
     // TODO Put real buyBackBurner, now just HomeMediator address
-    const balanceTrackerNvmSubscriptionNative = await BalanceTrackerNvmSubscriptionNative.connect(EOA).deploy(mechMarketplaceProxyAddress,
-        buyBackBurnerAddress, wrappedNativeTokenAddress, tokenCreditRatio, { gasPrice });
+    const balanceTrackerFixedPriceNative = await BalanceTrackerFixedPriceNative.connect(EOA).deploy(mechMarketplaceProxyAddress,
+        buyBackBurnerAddress, wrappedNativeTokenAddress, { gasPrice });
     // In case when gas calculation is not working correctly on Arbitrum
     //const gasLimit = 60000000;
-    const result = await balanceTrackerNvmSubscriptionNative.deployed();
+    const result = await balanceTrackerFixedPriceNative.deployed();
 
     // Transaction details
-    console.log("Contract deployment: BalanceTrackerNvmSubscriptionNative");
-    console.log("Contract address:", balanceTrackerNvmSubscriptionNative.address);
+    console.log("Contract deployment: BalanceTrackerFixedPriceNative");
+    console.log("Contract address:", balanceTrackerFixedPriceNative.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // Wait for half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.balanceTrackerNvmSubscriptionNativeAddress = balanceTrackerNvmSubscriptionNative.address;
+    parsedData.balanceTrackerFixedPriceNativeAddress = balanceTrackerFixedPriceNative.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_06_balance_tracker_nvm_subscription_native.js --network " + providerName + " " + balanceTrackerNvmSubscriptionNative.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_08_balance_tracker_fixed_price_native.js --network " + providerName + " " + balanceTrackerFixedPriceNative.address, { encoding: "utf-8" });
     }
 }
 
