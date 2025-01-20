@@ -4,8 +4,8 @@ pragma solidity ^0.8.28;
 interface IMechMarketplace {
     function deliverMarketplace(bytes32[] memory requestIds, uint256[] memory deliveryRates,
         bytes[] memory deliveryDatas) external;
-    function request(bytes memory data, uint256 priorityMechServiceId, uint256 requesterServiceId,
-        uint256 responseTimeout, bytes memory paymentData) external payable returns (uint256);
+    function request(bytes memory data, uint256 priorityMechServiceId, uint256 responseTimeout,
+        bytes memory paymentData) external payable returns (uint256);
 }
 
 contract MockMech {
@@ -39,12 +39,11 @@ contract MockMech {
     function request(
         bytes memory data,
         uint256 priorityMechServiceId,
-        uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
     ) external payable returns (uint256) {
         return IMechMarketplace(mechMarketplace).request{value: msg.value}(data, priorityMechServiceId,
-            requesterServiceId, responseTimeout, paymentData);
+            responseTimeout, paymentData);
     }
 
     /// @dev Registers marketplace requests.

@@ -30,10 +30,10 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
 
     /// @dev BalanceTrackerFixedPrice constructor.
     /// @param _mechMarketplace Mech marketplace address.
-    /// @param _buyBackBurner Buy back burner address.
+    /// @param _drainer Drainer address.
     /// @param _token Token address.
-    constructor(address _mechMarketplace, address _buyBackBurner, address _token)
-        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
+    constructor(address _mechMarketplace, address _drainer, address _token)
+        BalanceTrackerBase(_mechMarketplace, _drainer)
     {
         // Check for zero address
         if (_token == address(0)) {
@@ -46,8 +46,8 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
     /// @dev Drains specified amount.
     /// @param amount Token amount.
     function _drain(uint256 amount) internal virtual override {
-        // Transfer to Buy back burner
-        IToken(token).transfer(buyBackBurner, amount);
+        // Transfer to drainer
+        IToken(token).transfer(drainer, amount);
 
         emit Drained(token, amount);
     }

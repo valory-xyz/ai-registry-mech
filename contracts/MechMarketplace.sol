@@ -204,14 +204,12 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
     /// @param priorityMechServiceId Priority mech service Id.
-    /// @param requesterServiceId Requester service Id, or zero if EOA.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestIds Set of request Ids.
     function _requestBatch(
         bytes[] memory requestDatas,
         uint256 priorityMechServiceId,
-        uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
     ) internal returns (bytes32[] memory requestIds) {
@@ -237,9 +235,6 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroAddress();
         }
 
-        // Check requester
-        checkRequester(msg.sender, requesterServiceId);
-
         // Allocate set of requestIds
         requestIds = new bytes32[](numRequests);
 
@@ -260,7 +255,7 @@ contract MechMarketplace is IErrorsMarketplace {
             }
 
             // Calculate request Id
-            requestIds[i] = getRequestId(msg.sender, requestDatas[i], nonce);
+            requestIds[i] = getRequestId(msg.sender, requestDatas[i], deliveryRate, nonce);
 
             // Get request info struct
             RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
@@ -521,14 +516,12 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestData Self-descriptive opaque request data-blob.
     /// @param priorityMechServiceId Priority mech service Id.
-    /// @param requesterServiceId Requester service Id, or zero if EOA.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestId Request Id.
     function request(
         bytes memory requestData,
         uint256 priorityMechServiceId,
-        uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
     ) external payable returns (bytes32 requestId) {
@@ -543,7 +536,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32[] memory requestIds = new bytes32[](1);
 
         requestDatas[0] = requestData;
-        requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
+        requestIds = _requestBatch(requestDatas, priorityMechServiceId, responseTimeout, paymentData);
 
         requestId = requestIds[0];
 
@@ -554,14 +547,12 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
     /// @param priorityMechServiceId Priority mech service Id.
-    /// @param requesterServiceId Requester service Id, or zero if EOA.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestIds Set of request Ids.
     function requestBatch(
         bytes[] memory requestDatas,
         uint256 priorityMechServiceId,
-        uint256 requesterServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
     ) external payable returns (bytes32[] memory requestIds) {
@@ -571,7 +562,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }
         _locked = 2;
 
-        requestIds = _requestBatch(requestDatas, priorityMechServiceId, requesterServiceId, responseTimeout, paymentData);
+        requestIds = _requestBatch(requestDatas, priorityMechServiceId, responseTimeout, paymentData);
 
         _locked = 1;
     }
@@ -695,7 +686,6 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Delivers signed requests.
     /// @notice This function must be called by mech delivering requests.
     /// @param requester Requester address.
-    /// @param requesterServiceId Requester service Id, or zero if EOA.
     /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
     /// @param signatures Corresponding set of signatures.
     /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
@@ -703,7 +693,6 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester,
-        uint256 requesterServiceId,
         bytes[] memory requestDatas,
         bytes[] memory signatures,
         bytes[] memory deliveryDatas,
@@ -725,9 +714,6 @@ contract MechMarketplace is IErrorsMarketplace {
         // Check mech
         address mechServiceMultisig = checkMech(msg.sender);
 
-        // Check requester
-        checkRequester(requester, requesterServiceId);
-
         uint256 numRequests = requestDatas.length;
 
         // Get number of requests
@@ -740,7 +726,7 @@ contract MechMarketplace is IErrorsMarketplace {
         // Traverse all request Ids
         for (uint256 i = 0; i < numRequests; ++i) {
             // Calculate request Id
-            requestIds[i] = getRequestId(requester, requestDatas[i], nonce);
+            requestIds[i] = getRequestId(requester, requestDatas[i], deliveryRates[i], nonce);
 
             // Verify the signed hash against the operator address
             _verifySignedHash(requester, requestIds[i], signatures[i]);
@@ -804,11 +790,13 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Gets the request Id.
     /// @param account Account address.
     /// @param data Self-descriptive opaque data-blob.
+    /// @param deliveryRate Request delivery rate.
     /// @param nonce Nonce.
     /// @return requestId Corresponding request Id.
     function getRequestId(
         address account,
         bytes memory data,
+        uint256 deliveryRate,
         uint256 nonce
     ) public view returns (bytes32 requestId) {
         requestId = keccak256(
@@ -820,6 +808,7 @@ contract MechMarketplace is IErrorsMarketplace {
                         address(this),
                         account,
                         data,
+                        deliveryRate,
                         nonce
                     )
                 )
@@ -845,28 +834,6 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Check mech service Id and get its multisig
         multisig = IMech(mech).getOperator();
-    }
-
-    /// @dev Checks for requester validity.
-    /// @notice Explicitly allows to proceed for EOAs without service id.
-    /// @param requester Requester address.
-    /// @param requesterServiceId Requester service Id.
-    function checkRequester(address requester, uint256 requesterServiceId) public view {
-        // Check for requester service
-        if (requesterServiceId > 0) {
-            (, address multisig, , , , , IServiceRegistry.ServiceState state) =
-                IServiceRegistry(serviceRegistry).mapServices(requesterServiceId);
-
-            // Check for correct service state
-            if (state != IServiceRegistry.ServiceState.Deployed) {
-                revert WrongServiceState(uint256(state), requesterServiceId);
-            }
-
-            // Check staked service multisig
-            if (multisig != requester) {
-                revert OwnerOnly(requester, multisig);
-            }
-        }
     }
 
     /// @dev Gets the request Id status.

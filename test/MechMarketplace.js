@@ -25,7 +25,6 @@ describe("MechMarketplace", function () {
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
-    const requesterServiceId = 2;
     let paymentTypeHash;
     const mechCreationData = ethers.utils.defaultAbiCoder.encode(["uint256"], [maxDeliveryRate]);
 
@@ -81,9 +80,6 @@ describe("MechMarketplace", function () {
 
         // Pseudo-create two services
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
-
-        // Pseudo-create a requester service
-        await serviceRegistry.setServiceOwner(requesterServiceId, signers[1].address);
 
         // Create default priority mech
         let tx = await mechMarketplace.create(mechServiceId, mechFactoryFixedPrice.address, mechCreationData);
@@ -270,31 +266,13 @@ describe("MechMarketplace", function () {
 
             // Request in priority mech
             // Get request Id
-            const requestId = await mechMarketplace.getRequestId(mechMock.address, data, 0);
-
-            // Change mock service Id not to be within deployed ones (id-s 100+ in MockServiceRegistry)
-            mockServiceId = mockServiceId.add(1);
-            await mechMock.setServiceId(mockServiceId);
-
-            // Try to post a request from a requester service that is not deployed
-            await expect(
-                mechMock.request(data, mechServiceId, mockServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate})
-            ).to.be.revertedWithCustomError(mechMarketplace, "WrongServiceState");
-
-            // Change mock service Id to be back within deployed ones (0 to 99 in MockServiceRegistry)
-            mockServiceId = mockServiceId.sub(1);
-            await mechMock.setServiceId(mockServiceId);
-
-            // Try to post a request not by a correct requester multisig
-            await expect(
-                mechMock.request(data, mechServiceId, mockServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate})
-            ).to.be.revertedWithCustomError(mechMarketplace, "OwnerOnly");
+            const requestId = await mechMarketplace.getRequestId(mechMock.address, data, maxDeliveryRate, 0);
 
             // Pseudo-create and deploy requester service
             await serviceRegistry.setServiceOwner(mockServiceId, mechMock.address);
 
             // Post a request
-            await mechMock.request(data, mechServiceId, mockServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
+            await mechMock.request(data, mechServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
 
             // Increase the time such that the request expires for a priority mech
             await helpers.time.increase(maxResponseTimeout);
@@ -311,7 +289,7 @@ describe("MechMarketplace", function () {
     });
 
     context("Request checks", async function () {
-        it("Check mech and requester", async function () {
+        it("Check mech", async function () {
             // Zero address check
             await expect(
                 mechMarketplace.checkMech(AddressZero)
@@ -321,14 +299,6 @@ describe("MechMarketplace", function () {
             await expect(
                 mechMarketplace.checkMech(deployer.address)
             ).to.be.reverted;
-
-            // Mech that has a different service Id
-            await expect(
-                mechMarketplace.checkRequester(deployer.address, requesterServiceId)
-            ).to.be.revertedWithCustomError(mechMarketplace, "OwnerOnly");
-
-            // Check requester
-            await mechMarketplace.checkRequester(signers[1].address, requesterServiceId);
         });
     });
 });

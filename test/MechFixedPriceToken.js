@@ -24,7 +24,6 @@ describe("MechFixedPriceToken", function () {
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
-    const requesterServiceId = 0;
     const mechCreationData = ethers.utils.defaultAbiCoder.encode(["uint256"], [maxDeliveryRate]);
 
     beforeEach(async function () {
@@ -81,9 +80,6 @@ describe("MechFixedPriceToken", function () {
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
         await serviceRegistry.setServiceOwner(mechServiceId + 1, deployer.address);
 
-        // Pseudo-create a requester service
-        await serviceRegistry.setServiceOwner(requesterServiceId + 3, signers[1].address);
-
         // Create default priority mech
         let tx = await mechMarketplace.create(mechServiceId, mechFactoryFixedPrice.address, mechCreationData);
         let res = await tx.wait();
@@ -116,17 +112,17 @@ describe("MechFixedPriceToken", function () {
 
     context("Deliver", async function () {
         it("Delivering request by a priority mech", async function () {
-            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, maxDeliveryRate, 0);
 
             // Try to create a request without any tokens approved
             await expect(
-                mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+                mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x")
             ).to.be.reverted;
             
             // Approve tokens to post a request
             await token.approve(balanceTrackerFixedPriceToken.address, maxDeliveryRate);
             
-            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
             let status = await mechMarketplace.getRequestStatus(requestId);
@@ -152,7 +148,7 @@ describe("MechFixedPriceToken", function () {
 
         it("Delivering request by a priority mech with pre-paid logic", async function () {
             // Get request Id
-            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, maxDeliveryRate, 0);
 
             // Approve tokens to post a request
             await token.approve(balanceTrackerFixedPriceToken.address, maxDeliveryRate - 1);
@@ -162,7 +158,7 @@ describe("MechFixedPriceToken", function () {
 
             // Try to create request with insufficient pre-paid amount
             await expect(
-                mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+                mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x")
             ).to.be.reverted;
 
             // Approve more tokens
@@ -172,7 +168,7 @@ describe("MechFixedPriceToken", function () {
             await balanceTrackerFixedPriceToken.depositFor(deployer.address, maxDeliveryRate);
 
             // Post a request
-            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
             let status = await mechMarketplace.getRequestStatus(requestId);
@@ -227,13 +223,13 @@ describe("MechFixedPriceToken", function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, maxDeliveryRate, 0);
 
             // Approve tokens to post a request
             await token.approve(balanceTrackerFixedPriceToken.address, maxDeliveryRate);
 
             // Create a request
-            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x");
 
             // Try to deliver by a delivery mech right away
             await expect(
