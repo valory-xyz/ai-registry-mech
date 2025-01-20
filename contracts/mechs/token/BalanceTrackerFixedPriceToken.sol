@@ -46,7 +46,7 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
     /// @dev Drains specified amount.
     /// @param amount Token amount.
     function _drain(uint256 amount) internal virtual override {
-        // Transfer to Buy back burner
+        // Transfer to drainer
         IToken(token).transfer(drainer, amount);
 
         emit Drained(token, amount);

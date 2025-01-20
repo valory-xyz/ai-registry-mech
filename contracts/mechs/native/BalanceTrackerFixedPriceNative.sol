@@ -41,7 +41,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
     function _drain(uint256 amount) internal virtual override {
         // Wrap native tokens
         _wrap(amount);
-        // Transfer to Buy back burner
+        // Transfer to drainer
         IToken(wrappedNativeToken).transfer(drainer, amount);
 
         emit Drained(wrappedNativeToken, amount);

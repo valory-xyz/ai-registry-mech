@@ -327,7 +327,7 @@ abstract contract BalanceTrackerBase {
         _locked = 1;
     }
 
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
+    /// @dev Drains collected fees by sending them to a drainer contract.
     function drain() external {
         // Reentrancy guard
         if (_locked == 2) {
