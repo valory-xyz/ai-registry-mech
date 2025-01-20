@@ -53,11 +53,11 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
 
     /// @dev BalanceTrackerSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
-    /// @param _buyBackBurner Buy back burner address.
+    /// @param _drainer Drainer address.
     /// @param _wrappedNativeToken Wrapped native token address.
     /// @param _tokenCreditRatio Token to credit ratio in 1e18 form.
-    constructor(address _mechMarketplace, address _buyBackBurner, address _wrappedNativeToken, uint256 _tokenCreditRatio)
-        BalanceTrackerFixedPriceNative(_mechMarketplace, _buyBackBurner, _wrappedNativeToken)
+    constructor(address _mechMarketplace, address _drainer, address _wrappedNativeToken, uint256 _tokenCreditRatio)
+        BalanceTrackerFixedPriceNative(_mechMarketplace, _drainer, _wrappedNativeToken)
     {
         if (_tokenCreditRatio == 0) {
             revert ZeroValue();

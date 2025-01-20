@@ -23,10 +23,10 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
 
     /// @dev BalanceTrackerFixedPrice constructor.
     /// @param _mechMarketplace Mech marketplace address.
-    /// @param _buyBackBurner Buy back burner address.
+    /// @param _drainer Drainer address.
     /// @param _wrappedNativeToken Wrapped native token address.
-    constructor(address _mechMarketplace, address _buyBackBurner, address _wrappedNativeToken)
-        BalanceTrackerBase(_mechMarketplace, _buyBackBurner)
+    constructor(address _mechMarketplace, address _drainer, address _wrappedNativeToken)
+        BalanceTrackerBase(_mechMarketplace, _drainer)
     {
         // Check for zero address
         if (_wrappedNativeToken == address(0)) {
@@ -42,7 +42,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
         // Wrap native tokens
         _wrap(amount);
         // Transfer to Buy back burner
-        IToken(wrappedNativeToken).transfer(buyBackBurner, amount);
+        IToken(wrappedNativeToken).transfer(drainer, amount);
 
         emit Drained(wrappedNativeToken, amount);
     }

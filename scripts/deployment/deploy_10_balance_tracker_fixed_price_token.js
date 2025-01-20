@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const buyBackBurnerAddress = parsedData.buyBackBurnerAddress;
+    const drainerAddress = parsedData.drainerAddress;
     const wrappedNativeTokenAddress = parsedData.wrappedNativeTokenAddress;
 
     let networkURL = parsedData.networkURL;
@@ -48,9 +48,9 @@ async function main() {
     console.log("You are signing the following transaction: BalanceTrackerFixedPriceToken.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const BalanceTrackerFixedPriceToken = await ethers.getContractFactory("BalanceTrackerFixedPriceToken");
-    // TODO Put real buyBackBurner, now just HomeMediator address
+    // TODO Put real drainer, now just HomeMediator address
     const balanceTrackerFixedPriceToken = await BalanceTrackerFixedPriceToken.connect(EOA).deploy(mechMarketplaceProxyAddress,
-        buyBackBurnerAddress, wrappedNativeTokenAddress, { gasPrice });
+        drainerAddress, wrappedNativeTokenAddress, { gasPrice });
     // In case when gas calculation is not working correctly on Arbitrum
     //const gasLimit = 60000000;
     const result = await balanceTrackerFixedPriceToken.deployed();
