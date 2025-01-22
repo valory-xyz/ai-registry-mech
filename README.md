@@ -58,18 +58,11 @@ The description of deployment procedure can be found here: [deployment](https://
 The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/ai-registry-mech/blob/main/abis).
 Each folder there contains contracts compiled with the solidity version before their deployment.
 
-The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration.json).
-
-
-### Audits
-- The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/autonolas-registries/blob/main/audits).
-
-
-## Deployment addresses
-
-The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/configuration.json).
+The actual list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration.json).
 
 ### Previous versions, to be deprecated soon
+
+The older list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration_v0.json).
 
 | Network | AI Agent Registry    | AgentFactory    | AgentFactorySubscription   | MechMarketplace   |
 | :---:   | :---: | :---: | :---: | :---: |
@@ -87,7 +80,11 @@ The list of contract addresses for different chains and their full contract conf
 | Optimism | https://optimistic.etherscan.io/address/0x75D529FAe220bC8db714F0202193726b46881B76   | n/a   | https://optimistic.etherscan.io/address/0x1BD1505B711Fb58C54ca3712e6BEf47A133892d9  | n/a   |
 
 
-## Architecture
+### Audits
+- The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits).
+
+
+## Architecture diagram
 
 ```mermaid
 flowchart LR

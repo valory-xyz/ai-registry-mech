@@ -59,8 +59,8 @@ abstract contract BalanceTrackerBase {
 
     // Mech marketplace address
     address public immutable mechMarketplace;
-    // Buy back burner address
-    address public immutable buyBackBurner;
+    // Drainer address
+    address public immutable drainer;
     // Collected fees
     uint256 public collectedFees;
     // Reentrancy lock
@@ -73,15 +73,15 @@ abstract contract BalanceTrackerBase {
 
     /// @dev BalanceTrackerFixedPrice constructor.
     /// @param _mechMarketplace Mech marketplace address.
-    /// @param _buyBackBurner Buy back burner address.
-    constructor(address _mechMarketplace, address _buyBackBurner) {
+    /// @param _drainer Drainer address.
+    constructor(address _mechMarketplace, address _drainer) {
         // Check for zero address
-        if (_mechMarketplace == address(0) || _buyBackBurner == address(0)) {
+        if (_mechMarketplace == address(0) || _drainer == address(0)) {
             revert ZeroAddress();
         }
 
         mechMarketplace = _mechMarketplace;
-        buyBackBurner = _buyBackBurner;
+        drainer = _drainer;
     }
 
     /// @dev Adjusts initial requester balance accounting for delivery rate (debit).
@@ -327,7 +327,7 @@ abstract contract BalanceTrackerBase {
         _locked = 1;
     }
 
-    /// @dev Drains collected fees by sending them to a Buy back burner contract.
+    /// @dev Drains collected fees by sending them to a drainer contract.
     function drain() external {
         // Reentrancy guard
         if (_locked == 2) {

@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const buyBackBurnerAddress = parsedData.buyBackBurnerAddress;
+    const drainerAddress = parsedData.drainerAddress;
     const wrappedNativeTokenAddress = parsedData.wrappedNativeTokenAddress;
     const tokenCreditRatio = parsedData.tokenCreditRatio;
 
@@ -45,13 +45,13 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("5. EOA to deploy Balance Tracker NVM Subscription Native");
+    console.log("6. EOA to deploy Balance Tracker NVM Subscription Native");
     console.log("You are signing the following transaction: BalanceTrackerNvmSubscriptionNative.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const BalanceTrackerNvmSubscriptionNative = await ethers.getContractFactory("BalanceTrackerNvmSubscriptionNative");
-    // TODO Put real buyBackBurner, now just HomeMediator address
+    // TODO Put real drainer, now just HomeMediator address
     const balanceTrackerNvmSubscriptionNative = await BalanceTrackerNvmSubscriptionNative.connect(EOA).deploy(mechMarketplaceProxyAddress,
-        buyBackBurnerAddress, wrappedNativeTokenAddress, tokenCreditRatio, { gasPrice });
+        drainerAddress, wrappedNativeTokenAddress, tokenCreditRatio, { gasPrice });
     // In case when gas calculation is not working correctly on Arbitrum
     //const gasLimit = 60000000;
     const result = await balanceTrackerNvmSubscriptionNative.deployed();

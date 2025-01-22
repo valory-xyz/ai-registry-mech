@@ -1,249 +1,57 @@
 [
   {
-    "name": "polygon",
-    "chainId": "137",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": "0x984cf72FDe8B5aA910e9e508aC5e007ae5BDcC9C"
-      },
-      {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": "0xD421f433e36465B3e558B1121F584ac09Fc33DF8"
-      },
-      {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
-      },
-      {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": "0x6e7f594f680f7aBad18b7a63de50F0FeE47dfD06"
-      },
-      {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x1f7Ff9FF3536552aa58eb443396c8C03a580071A"
-      }
-    ]
-  },
-  {
-    "name": "polygonMumbai",
-    "chainId": "80001",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": "0x3ac32cE492d2bDaf11C8f43Edc16FCa9b4b65675"
-      },
-      {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": "0xF66E23209074FA7946E41f45f43d765281af2207"
-      },
-      {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x10f7f408Fb8571f154BeC6c2940B97ee50AD306A"
-      },
-      {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": "0x161977565b31B53Eaa6c977083eC5B19Cf176292"
-      },
-      {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x54E2374A04A6D97685Cc1da78116c9E9ddc373e7"
-      }
-    ]
-  },
-  {
     "name": "gnosis",
     "chainId": "100",
     "contracts": [
       {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA"
+        "name": "Karma",
+        "artifact": "abis/0.8.28/Karma.json",
+        "address": "0x7a9470bE221B757f7cB99a60fca3e3Bc12189F24"
       },
       {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.28/AgentFactory.json",
-        "address": "0x6D8CbEbCAD7397c63347D44448147Db05E7d17B0"
+        "name": "KarmaProxy",
+        "artifact": "abis/0.8.28/KarmaProxy.json",
+        "address": "0x55Ad542156322fED963926CF249591C88081E33a"
       },
       {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.28/AgentMech.json",
-        "address": "0x552cEA7Bc33CbBEb9f1D90c1D11D2C6daefFd053"
+        "name": "MechMarketplace",
+        "artifact": "abis/0.8.28/MechMarketplace.json",
+        "address": "0xC3f79197319Da2a795FC9e0E33b1371ba5FBbDd8"
       },
       {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": "0x910Ca843Cad6C050Faf3f84387879b2928D40370"
+        "name": "MechMarketplaceProxy",
+        "artifact": "abis/0.8.28/MechMarketplaceProxy.json",
+        "address": "0x85dCa9b0E27DDECdB7c657616e34967d2711Db55"
       },
       {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x327E26bDF1CfEa50BFAe35643B23D5268E41F7F9"
-      }
-    ]
-  },
-  {
-    "name": "chiado",
-    "chainId": "10200",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": "0x9dEc6B62c197268242A768dc3b153AE7a2701396"
+        "name": "MechFactoryFixedPriceNative",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceNative.json",
+        "address": "0xEC55995981980F326279fEC74C0Cc8bE7a9Be9aA"
       },
       {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": "0x1d333b46dB6e8FFd271b6C2D2B254868BD9A2dbd"
+        "name": "MechFactoryFixedPriceToken",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceToken.json",
+        "address": "0x71CD6941f7dC438e22B97c2C4f7DE6ac9c79c742"
       },
       {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x0A3cFc6BEe9658Eda040e6BB366FE963DdCe82C9"
+        "name": "MechFactoryNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/MechFactoryNvmSubscriptionNative.json",
+        "address": "0x6A46b34aa3D25EFF524830C1c1DBd5783946F28D"
       },
       {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": ""
+        "name": "BalanceTrackerFixedPriceNative",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceNative.json",
+        "address": "0xB29117aF8438b4bcc0807Ea18b42fAF3F8C11713"
       },
       {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
-      }
-    ]
-  },
-  {
-    "name": "arbitrumOne",
-    "chainId": "42161",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": "0xa4799B083E0068732456EF45ff9fe5c683658327"
+        "name": "BalanceTrackerFixedPriceToken",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceToken.json",
+        "address": "0x07f5E31513af5a2E8Bd4A3E53C6aF980B9Dd83f2"
       },
       {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": "0x4a46537dD58e524D4dF68275946b022eA6623F71"
-      },
-      {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": ""
-      },
-      {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": "0xd8BCC126ff31d2582018715d5291A508530587b0"
-      },
-      {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x0eA6B3137f294657f0E854390bb2F607e315B82c"
-      }
-    ]
-  },
-  {
-    "name": "arbitrumSepolia",
-    "chainId": "421614",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.21/AgentRegistry.json",
-        "address": "0xB575dd20281c63288428DD58e5f579CC7d6aae4d"
-      },
-      {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.21/AgentFactory.json",
-        "address": "0x670Ac235EE13C0B2a5065282bBB0c61cfB354592"
-      },
-      {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0xdBe4156770f5D008b6CE8f587fcAB1C3C92A8D2C"
-      },
-      {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.21/AgentFactorySubscription.json",
-        "address": "0x34235f9D447f9F54167e2Ac7A0F4283cB3fAD669"
-      },
-      {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.21/AgentMech.json",
-        "address": "0x45AB9181291DeDd82139BA87F38396D303b549f0"
-      }
-    ]
-  },
-  {
-    "name": "optimistic",
-    "chainId": "10",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.23/AgentRegistry.json",
-        "address": "0x75D529FAe220bC8db714F0202193726b46881B76"
-      },
-      {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.23/AgentFactory.json",
-        "address": "0x47135D1Cf850d7Df7f7f563F300cc7022F7978a4"
-      },
-      {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.23/AgentMech.json",
-        "address": ""
-      },
-      {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
-        "address": "0x1BD1505B711Fb58C54ca3712e6BEf47A133892d9"
-      },
-      {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.23/AgentMech.json",
-        "address": "0xbA4491C86705e8f335Ceaa8aaDb41361b2F82498"
-      }
-    ]
-  },
-  {
-    "name": "optimisticSepolia",
-    "chainId": "11155420",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.23/AgentRegistry.json",
-        "address": ""
-      },
-      {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.23/AgentFactory.json",
-        "address": ""
-      },
-      {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.23/AgentMech.json",
-        "address": ""
-      },
-      {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
-        "address": ""
-      },
-      {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.23/AgentMech.json",
-        "address": ""
+        "name": "BalanceTrackerNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/BalanceTrackerNvmSubscriptionNative.json",
+        "address": "0x1fb4002A41CdC621e8d9878Dcf543e55Ebb396FB"
       }
     ]
   },
@@ -252,59 +60,165 @@
     "chainId": "8453",
     "contracts": [
       {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.23/AgentRegistry.json",
-        "address": "0x88DE734655184a09B70700aE4F72364d1ad23728"
+        "name": "Karma",
+        "artifact": "abis/0.8.28/Karma.json",
+        "address": "0x94676070018ff7D09BC32DAc6bb01Ae67282b8E8"
       },
       {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.23/AgentFactory.json",
-        "address": "0x75D529FAe220bC8db714F0202193726b46881B76"
+        "name": "KarmaProxy",
+        "artifact": "abis/0.8.28/KarmaProxy.json",
+        "address": "0x6f7661F52fE1919996d0A4F68D09B344093a349d"
       },
       {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.23/AgentMech.json",
-        "address": ""
+        "name": "MechMarketplace",
+        "artifact": "abis/0.8.28/MechMarketplace.json",
+        "address": "0xd6AA4Ec948d84f6Db8EEf25104CeE0Ecd280C74e"
       },
       {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
-        "address": "0x87c511c8aE3fAF0063b3F3CF9C6ab96c4AA5C60c"
+        "name": "MechMarketplaceProxy",
+        "artifact": "abis/0.8.28/MechMarketplaceProxy.json",
+        "address": "0x95dA0F8C3eC5D40209f0EF1ED5E61deD28307d8d"
       },
       {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.23/AgentMech.json",
-        "address": "0x37C484cc34408d0F827DB4d7B6e54b8837Bf8BDA"
+        "name": "MechFactoryFixedPriceNative",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceNative.json",
+        "address": "0x0338893fB1A1D9Df03F72CC53D8f786487d3D03E"
+      },
+      {
+        "name": "MechFactoryFixedPriceToken",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceToken.json",
+        "address": "0x1d333b46dB6e8FFd271b6C2D2B254868BD9A2dbd"
+      },
+      {
+        "name": "MechFactoryNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/MechFactoryNvmSubscriptionNative.json",
+        "address": "0x4cEB52802ef86edF8796632546d89e55c87a0901"
+      },
+      {
+        "name": "BalanceTrackerFixedPriceNative",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceNative.json",
+        "address": "0x6d9b08701Af43D68D991c074A27E4d90Af7f2276"
+      },
+      {
+        "name": "BalanceTrackerFixedPriceToken",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceToken.json",
+        "address": "0x3c3007a2e4ba7f73C764F69f6D6C1983D9EB6B26"
+      },
+      {
+        "name": "BalanceTrackerNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/BalanceTrackerNvmSubscriptionNative.json",
+        "address": "0xaC26774616bbeD41b0CB69EA2ae7de366F430b23"
       }
     ]
   },
   {
-    "name": "baseSepolia",
-    "chainId": "84532",
+    "name": "arbitrumOne",
+    "chainId": "42161",
     "contracts": [
       {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "name": "Karma",
+        "artifact": "abis/0.8.28/Karma.json",
         "address": ""
       },
       {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.23/AgentFactory.json",
+        "name": "KarmaProxy",
+        "artifact": "abis/0.8.28/KarmaProxy.json",
         "address": ""
       },
       {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.23/AgentMech.json",
+        "name": "MechMarketplace",
+        "artifact": "abis/0.8.28/MechMarketplace.json",
         "address": ""
       },
       {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "name": "MechMarketplaceProxy",
+        "artifact": "abis/0.8.28/MechMarketplaceProxy.json",
         "address": ""
       },
       {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.23/AgentMech.json",
+        "name": "MechFactoryFixedPriceNative",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceNative.json",
+        "address": ""
+      },
+      {
+        "name": "MechFactoryFixedPriceToken",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceToken.json",
+        "address": ""
+      },
+      {
+        "name": "MechFactoryNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/MechFactoryNvmSubscriptionNative.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerFixedPriceNative",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceNative.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerFixedPriceToken",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceToken.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/BalanceTrackerNvmSubscriptionNative.json",
+        "address": ""
+      }
+    ]
+  },
+  {
+    "name": "optimistic",
+    "chainId": "10",
+    "contracts": [
+      {
+        "name": "Karma",
+        "artifact": "abis/0.8.28/Karma.json",
+        "address": ""
+      },
+      {
+        "name": "KarmaProxy",
+        "artifact": "abis/0.8.28/KarmaProxy.json",
+        "address": ""
+      },
+      {
+        "name": "MechMarketplace",
+        "artifact": "abis/0.8.28/MechMarketplace.json",
+        "address": ""
+      },
+      {
+        "name": "MechMarketplaceProxy",
+        "artifact": "abis/0.8.28/MechMarketplaceProxy.json",
+        "address": ""
+      },
+      {
+        "name": "MechFactoryFixedPriceNative",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceNative.json",
+        "address": ""
+      },
+      {
+        "name": "MechFactoryFixedPriceToken",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceToken.json",
+        "address": ""
+      },
+      {
+        "name": "MechFactoryNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/MechFactoryNvmSubscriptionNative.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerFixedPriceNative",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceNative.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerFixedPriceToken",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceToken.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/BalanceTrackerNvmSubscriptionNative.json",
         "address": ""
       }
     ]
@@ -314,59 +228,53 @@
     "chainId": "42220",
     "contracts": [
       {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.23/AgentRegistry.json",
-        "address": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA"
-      },
-      {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.23/AgentFactory.json",
-        "address": "0x87c511c8aE3fAF0063b3F3CF9C6ab96c4AA5C60c"
-      },
-      {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.23/AgentMech.json",
+        "name": "Karma",
+        "artifact": "abis/0.8.28/Karma.json",
         "address": ""
       },
       {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
-        "address": "0x88DE734655184a09B70700aE4F72364d1ad23728"
-      },
-      {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.23/AgentMech.json",
-        "address": "0xeC20694b7BD7870d2dc415Af3b349360A6183245"
-      }
-    ]
-  },
-  {
-    "name": "celoAlfajores",
-    "chainId": "44787",
-    "contracts": [
-      {
-        "name": "AgentRegistry",
-        "artifact": "abis/0.8.23/AgentRegistry.json",
+        "name": "KarmaProxy",
+        "artifact": "abis/0.8.28/KarmaProxy.json",
         "address": ""
       },
       {
-        "name": "AgentFactory",
-        "artifact": "abis/0.8.23/AgentFactory.json",
+        "name": "MechMarketplace",
+        "artifact": "abis/0.8.28/MechMarketplace.json",
         "address": ""
       },
       {
-        "name": "AgentMech",
-        "artifact": "abis/0.8.23/AgentMech.json",
+        "name": "MechMarketplaceProxy",
+        "artifact": "abis/0.8.28/MechMarketplaceProxy.json",
         "address": ""
       },
       {
-        "name": "AgentFactorySubscription",
-        "artifact": "abis/0.8.23/AgentFactorySubscription.json",
+        "name": "MechFactoryFixedPriceNative",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceNative.json",
         "address": ""
       },
       {
-        "name": "AgentMechSubscription",
-        "artifact": "abis/0.8.23/AgentMech.json",
+        "name": "MechFactoryFixedPriceToken",
+        "artifact": "abis/0.8.28/MechFactoryFixedPriceToken.json",
+        "address": ""
+      },
+      {
+        "name": "MechFactoryNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/MechFactoryNvmSubscriptionNative.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerFixedPriceNative",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceNative.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerFixedPriceToken",
+        "artifact": "abis/0.8.28/BalanceTrackerFixedPriceToken.json",
+        "address": ""
+      },
+      {
+        "name": "BalanceTrackerNvmSubscriptionNative",
+        "artifact": "abis/0.8.28/BalanceTrackerNvmSubscriptionNative.json",
         "address": ""
       }
     ]

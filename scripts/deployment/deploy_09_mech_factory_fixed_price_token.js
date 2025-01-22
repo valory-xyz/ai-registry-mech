@@ -13,9 +13,6 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const balanceTrackerFixedPriceNativeAddress = parsedData.balanceTrackerFixedPriceNativeAddress;
-    const balanceTrackerFixedPriceTokenAddress = parsedData.balanceTrackerFixedPriceTokenAddress;
-    const balanceTrackerNvmSubscriptionNativeAddress = parsedData.balanceTrackerNvmSubscriptionNativeAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -44,23 +41,33 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Get the contract instance
-    const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
-
     // Transaction signing and execution
-    console.log("13. EOA to set Balance trackers");
-    console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
+    console.log("9. EOA to deploy Mech Factory Fixed Price Token");
+    console.log("You are signing the following transaction: MechFactoryFixedPriceToken.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await mechMarketplace.connect(EOA).setPaymentTypeBalanceTrackers(
-        ["0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1", "0x3679d66ef546e66ce9057c4a052f317b135bc8e8c509638f7966edfd4fcf45e9", "0x803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316"],
-        [balanceTrackerFixedPriceNativeAddress, balanceTrackerFixedPriceTokenAddress, balanceTrackerNvmSubscriptionNativeAddress],
-        { gasPrice }
-    );
+    const MechFactoryFixedPriceToken = await ethers.getContractFactory("MechFactoryFixedPriceToken");
+    const mechFactoryFixedPriceToken = await MechFactoryFixedPriceToken.connect(EOA).deploy(mechMarketplaceProxyAddress, { gasPrice });
+    // In case when gas calculation is not working correctly on Arbitrum
+    //const gasLimit = 60000000;
+    const result = await mechFactoryFixedPriceToken.deployed();
 
     // Transaction details
-    console.log("Contract deployment: MechMarketplaceProxy");
-    console.log("Contract address:", mechMarketplace.address);
-    console.log("Transaction:", result.hash);
+    console.log("Contract deployment: MechFactoryFixedPriceToken");
+    console.log("Contract address:", mechFactoryFixedPriceToken.address);
+    console.log("Transaction:", result.deployTransaction.hash);
+
+    // Wait for half a minute for the transaction completion
+    await new Promise(r => setTimeout(r, 30000));
+
+    // Writing updated parameters back to the JSON file
+    parsedData.mechFactoryFixedPriceTokenAddress = mechFactoryFixedPriceToken.address;
+    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
+
+    // Contract verification
+    if (parsedData.contractVerification) {
+        const execSync = require("child_process").execSync;
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_09_mech_factory_fixed_price_token.js --network " + providerName + " " + mechFactoryFixedPriceToken.address, { encoding: "utf-8" });
+    }
 }
 
 main()

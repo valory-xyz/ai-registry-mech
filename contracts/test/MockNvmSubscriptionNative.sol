@@ -35,7 +35,12 @@ contract MockNvmSubscriptionNative is ERC1155 {
 
         _mint(msg.sender, tokenId, numCredits, "");
 
-        balanceTracker.call{value: msg.value}("");
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, ) = balanceTracker.call{value: msg.value}("");
+
+        if (!success) {
+            revert();
+        }
     }
 
     function burn(address account, uint256 tokenId, uint256 numCredits) external {

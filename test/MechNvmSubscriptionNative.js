@@ -28,7 +28,6 @@ describe("MechNvmSubscriptionNative", function () {
     const minResponseTimeout = 10;
     const maxResponseTimeout = 20;
     const mechServiceId = 1;
-    const requesterServiceId = 0;
     const mechCreationData = ethers.utils.defaultAbiCoder.encode(["uint256"], [maxDeliveryRate]);
 
     beforeEach(async function () {
@@ -80,9 +79,6 @@ describe("MechNvmSubscriptionNative", function () {
         // Pseudo-create two services
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
         await serviceRegistry.setServiceOwner(mechServiceId + 1, deployer.address);
-
-        // Pseudo-create a requester service
-        await serviceRegistry.setServiceOwner(requesterServiceId + 3, signers[1].address);
 
         // Create default priority mech
         let tx = await mechMarketplace.create(mechServiceId, mechFactoryNvmSubscriptionNative.address, mechCreationData);
@@ -148,11 +144,11 @@ describe("MechNvmSubscriptionNative", function () {
 
     context("Deliver", async function () {
         it("Delivering request by a priority mech", async function () {
-            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, maxDeliveryRate, 0);
 
             // Try to create a request without any subscription balance
             await expect(
-                mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+                mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x")
             ).to.be.reverted;
 
             const numCredits = maxDeliveryRate * 10;
@@ -161,7 +157,7 @@ describe("MechNvmSubscriptionNative", function () {
             await mockNvmSubscriptionNative.mint(subscriptionId, numCredits, {value: numCredits * normalizedRatio});
 
             // Post a request
-            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
             let status = await mechMarketplace.getRequestStatus(requestId);
@@ -189,7 +185,7 @@ describe("MechNvmSubscriptionNative", function () {
 
         it("Delivering request by a priority mech", async function () {
             // Get request Id
-            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, maxDeliveryRate, 0);
 
             // Buy insufficient subscription
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate - 1,
@@ -197,12 +193,12 @@ describe("MechNvmSubscriptionNative", function () {
 
             // Try to create request with insufficient pre-paid amount
             await expect(
-                mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x")
+                mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x")
             ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "InsufficientBalance");
 
             // Try to send additional value when creating a request
             await expect(
-                mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x", {value: 1})
+                mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x", {value: 1})
             ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "NoDepositAllowed");
 
             const numCredits = maxDeliveryRate * 10;
@@ -221,7 +217,7 @@ describe("MechNvmSubscriptionNative", function () {
             ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "ZeroValue");
 
             // Post a request
-            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
             let status = await mechMarketplace.getRequestStatus(requestId);
@@ -271,13 +267,13 @@ describe("MechNvmSubscriptionNative", function () {
 
         it("Delivering request with a decrease delivery rate", async function () {
             // Get request Id
-            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, maxDeliveryRate, 0);
 
             // Buy a subscription
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
-            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x");
 
             // Try to deliver by a mech with bigger max Delivery rate (it's not going to be delivered)
             let deliverData = ethers.utils.defaultAbiCoder.encode(["uint256", "bytes"], [maxDeliveryRate + 1, data]);
@@ -311,13 +307,13 @@ describe("MechNvmSubscriptionNative", function () {
 
         it("Delivering request with a zero fee", async function () {
             // Get request Id
-            const requestId = await mechMarketplace.getRequestId(deployer.address, data, 0);
+            const requestId = await mechMarketplace.getRequestId(deployer.address, data, maxDeliveryRate, 0);
 
             // Buy a subscription
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
-            await mechMarketplace.request(data, mechServiceId, requesterServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, mechServiceId, minResponseTimeout, "0x");
 
             // Change max delivery rate to lower than it was
             const deliverData = ethers.utils.defaultAbiCoder.encode(["uint256", "bytes"], [maxDeliveryRate, data]);
@@ -378,7 +374,7 @@ describe("MechNvmSubscriptionNative", function () {
             // Stack all requests
             for (let i = 0; i < numRequests; i++) {
                 datas[i] = data + "00".repeat(i);
-                requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], requestCount);
+                requestIds[i] = await mechMarketplace.getRequestId(deployer.address, datas[i], maxDeliveryRate, requestCount);
                 const signature = signingKey.signDigest(requestIds[i]);
                 // Extract v, r, s
                 const r = ethers.utils.arrayify(signature.r);
@@ -393,12 +389,12 @@ describe("MechNvmSubscriptionNative", function () {
             let reverseDatas = Array.from(datas);
             reverseDatas = reverseDatas.reverse();
             await expect(
-                priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, reverseDatas, signatures, reverseDatas,
+                priorityMech.deliverMarketplaceWithSignatures(deployer.address, reverseDatas, signatures, reverseDatas,
                     deliveryRates, "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
 
             // Deliver requests
-            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, 0, datas, signatures, datas,
+            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, datas, signatures, datas,
                 deliveryRates, "0x");
         });
     });

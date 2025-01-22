@@ -227,11 +227,6 @@
           "type": "address"
         },
         {
-          "internalType": "uint256",
-          "name": "requesterServiceId",
-          "type": "uint256"
-        },
-        {
           "internalType": "bytes[]",
           "name": "requestDatas",
           "type": "bytes[]"

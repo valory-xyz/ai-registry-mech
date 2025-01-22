@@ -13,9 +13,8 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const balanceTrackerFixedPriceNativeAddress = parsedData.balanceTrackerFixedPriceNativeAddress;
-    const balanceTrackerFixedPriceTokenAddress = parsedData.balanceTrackerFixedPriceTokenAddress;
-    const balanceTrackerNvmSubscriptionNativeAddress = parsedData.balanceTrackerNvmSubscriptionNativeAddress;
+    const drainerAddress = parsedData.drainerAddress;
+    const wrappedNativeTokenAddress = parsedData.wrappedNativeTokenAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -44,23 +43,35 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Get the contract instance
-    const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
-
     // Transaction signing and execution
-    console.log("13. EOA to set Balance trackers");
-    console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
+    console.log("10. EOA to deploy Balance Tracker Fixed Price Token");
+    console.log("You are signing the following transaction: BalanceTrackerFixedPriceToken.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await mechMarketplace.connect(EOA).setPaymentTypeBalanceTrackers(
-        ["0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1", "0x3679d66ef546e66ce9057c4a052f317b135bc8e8c509638f7966edfd4fcf45e9", "0x803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316"],
-        [balanceTrackerFixedPriceNativeAddress, balanceTrackerFixedPriceTokenAddress, balanceTrackerNvmSubscriptionNativeAddress],
-        { gasPrice }
-    );
+    const BalanceTrackerFixedPriceToken = await ethers.getContractFactory("BalanceTrackerFixedPriceToken");
+    // TODO Put real drainer, now just HomeMediator address
+    const balanceTrackerFixedPriceToken = await BalanceTrackerFixedPriceToken.connect(EOA).deploy(mechMarketplaceProxyAddress,
+        drainerAddress, wrappedNativeTokenAddress, { gasPrice });
+    // In case when gas calculation is not working correctly on Arbitrum
+    //const gasLimit = 60000000;
+    const result = await balanceTrackerFixedPriceToken.deployed();
 
     // Transaction details
-    console.log("Contract deployment: MechMarketplaceProxy");
-    console.log("Contract address:", mechMarketplace.address);
-    console.log("Transaction:", result.hash);
+    console.log("Contract deployment: BalanceTrackerFixedPriceToken");
+    console.log("Contract address:", balanceTrackerFixedPriceToken.address);
+    console.log("Transaction:", result.deployTransaction.hash);
+
+    // Wait for half a minute for the transaction completion
+    await new Promise(r => setTimeout(r, 30000));
+
+    // Writing updated parameters back to the JSON file
+    parsedData.balanceTrackerFixedPriceTokenAddress = balanceTrackerFixedPriceToken.address;
+    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
+
+    // Contract verification
+    if (parsedData.contractVerification) {
+        const execSync = require("child_process").execSync;
+        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_10_balance_tracker_fixed_price_token.js --network " + providerName + " " + balanceTrackerFixedPriceToken.address, { encoding: "utf-8" });
+    }
 }
 
 main()
