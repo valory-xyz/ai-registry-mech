@@ -2,9 +2,7 @@
 
 ## Introduction
 
-This repository contains the Mech Marketplace set of contracts registering mechs and performing their interactions for
-requests delivery via the means of the Marketplace. Read [docs](https://github.com/valory-xyz/ai-registry-mech/docs)
-for a detailed Mech Marketplace description.
+This repository contains the Mech Marketplace set of contracts registering mechs and performing their interactions for requests delivery via the means of the Marketplace. The core workflow of the Marketplace, including the roles and interactions of key participants, as well as an overview of the smart contracts, can be found [here](https://github.com/valory-xyz/ai-registry-mech/tree/main/docs/MechMarketplaceDescriptionAndContractsOverviewRepo.pdf).
 
 
 ## Development
@@ -110,7 +108,6 @@ flowchart LR
     MechMarketplace -- finalizeDeliveryRates --> BalanceTracker
     MechMarketplace -- adjustMechRequesterBalances --> BalanceTracker
 ```
-The core workflow of the Mech Marketplace, including the roles and interactions of key participants, as well as an overview of the smart contracts, can be found [here](https://github.com/valory-xyz/ai-registry-mech/tree/main/docs/MechMarketplaceDescriptionAndContractsOverviewRepo.pdf).
 
 ## Acknowledgements
 The registry mech contracts were inspired and based on the following sources:
