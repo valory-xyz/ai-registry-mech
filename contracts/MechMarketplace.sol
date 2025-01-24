@@ -51,7 +51,7 @@ struct RequestInfo {
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Silvere Gangloff - <silvere.gangloff@valory.xyz>
 contract MechMarketplace is IErrorsMarketplace {
-    event CreateMech(address indexed mech, uint256 indexed serviceId);
+    event CreateMech(address indexed mech, uint256 indexed serviceId, address indexed mechFactory);
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
@@ -440,6 +440,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(mechFactory);
         }
 
+        // Create mech
         mech = IMechFactory(mechFactory).createMech(serviceRegistry, serviceId, payload);
 
         // This should never be the case
@@ -453,7 +454,7 @@ contract MechMarketplace is IErrorsMarketplace {
         mapServiceIdMech[serviceId] = mech;
         numMechs++;
 
-        emit CreateMech(mech, serviceId);
+        emit CreateMech(mech, serviceId, mechFactory);
     }
 
     /// @dev Sets mech factory statues.
@@ -755,12 +756,16 @@ contract MechMarketplace is IErrorsMarketplace {
         // Adjust requester nonce values
         mapNonces[requester] = nonce;
 
+        // Record the request count
+        mapRequestCounts[requester] += numRequests;
         // Increase the amount of requester delivered requests
-        mapDeliveryCounts[requester]++;
+        mapDeliveryCounts[requester] += numRequests;
         // Increase the amount of mech delivery counts
-        mapMechDeliveryCounts[msg.sender]++;
+        mapMechDeliveryCounts[msg.sender] += numRequests;
         // Increase the amount of mech service multisig delivered requests
-        mapMechServiceDeliveryCounts[mechServiceMultisig]++;
+        mapMechServiceDeliveryCounts[mechServiceMultisig] += numRequests;
+        // Increase the total number of requests
+        numTotalRequests += numRequests;
 
         // Increase mech requester karma
         IKarma(karma).changeRequesterMechKarma(requester, msg.sender, int256(numRequests));

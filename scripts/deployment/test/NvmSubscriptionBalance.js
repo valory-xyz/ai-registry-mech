@@ -13,17 +13,14 @@ const main = async () => {
     const deployer = signers[0];
     console.log("Deployer:", deployer.address);
 
-    // Get requester balance
-    const subscription = await ethers.getContractAt("MockNvmSubscriptionNative", parsedData.subscriptionNFTAddress);
-    const subscriptionBalance = await subscription.balanceOf(deployer.address, parsedData.subscriptionTokenId);
-    console.log("subscriptionBalance", subscriptionBalance);
-
-    // Transfer to accounts
+    // Get requester balances
     const accounts = ["", ""];
-    const amounts = [100, 100];
-
+    const subscription = await ethers.getContractAt("MockNvmSubscriptionNative", parsedData.subscriptionNFTAddress);
     for (let i = 0; i < accounts.length; i++) {
-        await subscription.safeTransferFrom(deployer.address, accounts[i], parsedData.subscriptionTokenId, amounts[i], "0x");
+        const subscriptionBalance = await subscription.balanceOf(accounts[i], parsedData.subscriptionTokenId);
+        console.log("account:", accounts[i]);
+        console.log("subscriptionBalance:", subscriptionBalance);
+        //await subscription.safeTransferFrom(deployer.address, accounts[i], parsedData.subscriptionTokenId, amounts[i], "0x");
     }
 };
 
