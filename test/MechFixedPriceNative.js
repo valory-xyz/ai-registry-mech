@@ -492,6 +492,17 @@ describe("MechFixedPriceNative", function () {
             // Deliver a request
             await priorityMech.deliverToMarketplace([requestIds[0]], [data]);
 
+            let numRequestCounts = await mechMarketplace.mapRequestCounts(deployer.address);
+            expect(numRequestCounts).to.equal(1);
+            numRequestCounts = await mechMarketplace.mapDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(1);
+            numRequestCounts = await mechMarketplace.mapMechDeliveryCounts(priorityMech.address);
+            expect(numRequestCounts).to.equal(1);
+            numRequestCounts = await mechMarketplace.mapMechServiceDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(1);
+            numRequestCounts = await mechMarketplace.numTotalRequests();
+            expect(numRequestCounts).to.equal(1);
+
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
             expect(uRequestIds.length).to.equal(0);
@@ -525,6 +536,18 @@ describe("MechFixedPriceNative", function () {
 
             // Deliver all requests
             await priorityMech.deliverToMarketplace(requestIds, datas);
+
+            // Check requests counts: first request plus a batch of numRequests requests
+            numRequestCounts = await mechMarketplace.mapRequestCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests + 1);
+            numRequestCounts = await mechMarketplace.mapDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests + 1);
+            numRequestCounts = await mechMarketplace.mapMechDeliveryCounts(priorityMech.address);
+            expect(numRequestCounts).to.equal(numRequests + 1);
+            numRequestCounts = await mechMarketplace.mapMechServiceDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests + 1);
+            numRequestCounts = await mechMarketplace.numTotalRequests();
+            expect(numRequestCounts).to.equal(numRequests + 1);
 
             // Check request Ids
             uRequestIds = await priorityMech.getUndeliveredRequestIds(0, 0);
@@ -713,6 +736,18 @@ describe("MechFixedPriceNative", function () {
             // Deliver requests
             await priorityMech.deliverMarketplaceWithSignatures(deployer.address, datas, signatures, datas,
                 deliveryRates, "0x");
+
+            // Check requests counts
+            let numRequestCounts = await mechMarketplace.mapRequestCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.mapDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.mapMechDeliveryCounts(priorityMech.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.mapMechServiceDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.numTotalRequests();
+            expect(numRequestCounts).to.equal(numRequests);
         });
 
         it("Requests with signatures for contracts", async function () {
