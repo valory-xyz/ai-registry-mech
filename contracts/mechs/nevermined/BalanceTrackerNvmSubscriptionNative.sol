@@ -79,31 +79,25 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
         // Get requester actual subscription balance
         uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(requester, subscriptionTokenId);
 
-        // Adjust requester balance with maxDeliveryRate credits
-        balance += maxDeliveryRate;
+        uint256 totalBalance = balance + subscriptionBalance;
 
         // Check the request delivery rate for a fixed price
-        if (subscriptionBalance < balance) {
-            revert InsufficientBalance(subscriptionBalance, balance);
+        if (totalBalance < maxDeliveryRate) {
+            revert InsufficientBalance(totalBalance, maxDeliveryRate);
         }
+
+        // Calculate how many actual credits need to burn accounting for discount balance
+        if (balance > maxDeliveryRate) {
+            balance -= maxDeliveryRate;
+        } else {
+            maxDeliveryRate -= balance;
+            balance = 0;
+            IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, maxDeliveryRate);
+        }
+
+        emit RequesterCreditsRedeemed(requester, balance);
 
         return balance;
-    }
-
-    /// @dev Adjusts final requester balance accounting for possible delivery rate difference (credit).
-    /// @param requester Requester address.
-    /// @param rateDiff Delivery rate difference.
-    /// @return Adjusted balance.
-    function _adjustFinalBalance(address requester, uint256 rateDiff) internal virtual override returns (uint256) {
-        uint256 balance = mapRequesterBalances[requester];
-
-        // This must never happen as max delivery rate is always bigger or equal to the actual delivery rate
-        if (rateDiff > balance) {
-            revert Overflow(rateDiff, balance);
-        }
-
-        // Adjust requester credit balance
-        return (balance - rateDiff);
     }
 
     /// @dev Gets native token value or restricts receiving one.
@@ -166,41 +160,6 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
         owner = address(0);
 
         emit SubscriptionSet(_subscriptionNFT, _subscriptionTokenId);
-    }
-
-    /// @dev Redeem requester credits.
-    /// @param requester Requester address.
-    function redeemRequesterCredits(address requester) external {
-        // Reentrancy guard
-        if (_locked == 2) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get requester credit balance
-        uint256 balance = mapRequesterBalances[requester];
-        // Get requester actual subscription balance
-        uint256 subscriptionBalance = IERC1155(subscriptionNFT).balanceOf(requester, subscriptionTokenId);
-
-        // This must never happen
-        if (subscriptionBalance < balance) {
-            balance = subscriptionBalance;
-        }
-
-        // Check for zero value
-        if (balance == 0) {
-            revert ZeroValue();
-        }
-
-        // Clear balances
-        mapRequesterBalances[requester] = 0;
-
-        // Burn requester credit balance
-        IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, balance);
-
-        emit RequesterCreditsRedeemed(requester, balance);
-
-        _locked = 1;
     }
 
     /// @dev Deposits funds reflecting subscription.
