@@ -791,6 +791,7 @@ contract MechMarketplace is IErrorsMarketplace {
             requestInfo.requester = requester;
             requestInfo.deliveryRate = deliveryRates[i];
             requestInfo.paymentType = paymentType;
+            // requestInfo.responseTimeout is not set which clearly separates these requests with signature from others
 
             // Increase nonce
             nonce++;
