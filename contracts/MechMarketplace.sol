@@ -593,6 +593,7 @@ contract MechMarketplace is IErrorsMarketplace {
             revert UnauthorizedAccount(msg.sender);
         }
 
+        delete mapAgentMechFactories[mech];
         delete mapMechServiceIds[mech];
 
         emit RemoveMech(mech, serviceId);
@@ -930,10 +931,8 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroAddress();
         }
 
-        uint256 mechServiceId = IMech(mech).tokenId();
-
         // Check mech validity as it must be created and recorded via this marketplace
-        if (mapMechServiceIds[mech] != mechServiceId) {
+        if (mapAgentMechFactories[mech] == address(0)) {
             revert UnauthorizedAccount(mech);
         }
 
