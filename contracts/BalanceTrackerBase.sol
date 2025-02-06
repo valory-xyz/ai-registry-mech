@@ -259,7 +259,7 @@ abstract contract BalanceTrackerBase {
                     // Return back requester overpayment debit / credit
                     uint256 rateDiff = requesterDeliveryRates[i] - mechDeliveryRates[i];
                     totalRateDiff += rateDiff;
-                    
+
                     // Adjust requester balance
                     mapRequesterBalances[requesters[i]] = _adjustFinalBalance(requesters[i], rateDiff);
                 }
