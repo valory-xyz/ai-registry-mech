@@ -6,6 +6,7 @@ import {IBalanceTracker} from "./interfaces/IBalanceTracker.sol";
 import {IKarma} from "./interfaces/IKarma.sol";
 import {IMech} from "./interfaces/IMech.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
+import {DeliverWithSignature} from "./OlasMech.sol";
 
 // Mech Factory interface
 interface IMechFactory {
@@ -63,7 +64,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32[] requestIds, bool[] deliveredRequests);
     event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, bytes data);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
-        uint256 numRequests, bytes32[] requestIds);
+        uint256 numDeliveries, bytes32[] requestIds);
     event RequesterHashApproved(address indexed requester, bytes32 hash);
 
     enum RequestStatus {
@@ -198,6 +199,91 @@ contract MechMarketplace is IErrorsMarketplace {
         maxResponseTimeout = newMaxResponseTimeout;
     }
 
+    /// @dev Delivers signed requests.
+    /// @param requester Requester address.
+    /// @param paymentType Delivering mech payment type.
+    /// @param deliverWithSignatures Set of DeliverWithSignature structs.
+    /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
+    function _deliverMarketplaceWithSignatures(
+        address requester,
+        bytes32 paymentType,
+        DeliverWithSignature[] calldata deliverWithSignatures,
+        uint256[] calldata deliveryRates
+    ) internal {
+        // Check mech
+        address mechServiceMultisig = checkMech(msg.sender);
+
+        // Get number of requests
+        uint256 numRequests = deliverWithSignatures.length;
+
+        // Allocate set for request Ids
+        bytes32[] memory requestIds = new bytes32[](numRequests);
+
+        // Get current nonce
+        uint256 nonce = mapNonces[requester];
+
+        // Traverse all request Ids
+        for (uint256 i = 0; i < numRequests; ++i) {
+            // Check for non-zero data
+            if (deliverWithSignatures[i].requestData.length == 0) {
+                revert ZeroValue();
+            }
+
+            // Calculate request Id
+            requestIds[i] = getRequestId(msg.sender, requester, deliverWithSignatures[i].requestData, deliveryRates[i],
+                paymentType, nonce);
+
+            // Verify the signed hash against the operator address
+            _verifySignedHash(requester, requestIds[i], deliverWithSignatures[i].signature);
+
+            // Get request info struct
+            RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
+
+            // Check for request Id record
+            if (requestInfo.priorityMech != address(0)) {
+                revert AlreadyRequested(requestIds[i]);
+            }
+
+            // Record all the request info
+            requestInfo.priorityMech = msg.sender;
+            requestInfo.deliveryMech = msg.sender;
+            requestInfo.requester = requester;
+            requestInfo.deliveryRate = deliveryRates[i];
+            requestInfo.paymentType = paymentType;
+            // requestInfo.responseTimeout is not set which clearly separates these requests with signature from others
+
+            // Increase nonce
+            nonce++;
+
+            // Symmetrical delivery mech event that in general happens when delivery is called directly through the mech
+            emit Deliver(msg.sender, mechServiceMultisig, requestIds[i], deliverWithSignatures[i].deliveryData);
+        }
+
+        // Adjust requester nonce values
+        mapNonces[requester] = nonce;
+
+        // Record the request count
+        mapRequestCounts[requester] += numRequests;
+        // Increase the amount of requester delivered requests
+        mapDeliveryCounts[requester] += numRequests;
+        // Increase the amount of mech delivery counts
+        mapMechDeliveryCounts[msg.sender] += numRequests;
+        // Increase the amount of mech service multisig delivered requests
+        mapMechServiceDeliveryCounts[mechServiceMultisig] += numRequests;
+        // Increase the total number of requests
+        numTotalRequests += numRequests;
+
+        // Increase mech requester karma
+        IKarma(karma).changeRequesterMechKarma(requester, msg.sender, int256(numRequests));
+        // Increase mech karma that delivers the request
+        IKarma(karma).changeMechKarma(msg.sender, int256(numRequests));
+
+        // Update mech stats
+        IMech(msg.sender).updateNumRequests(numRequests);
+
+        emit MarketplaceDeliveryWithSignatures(msg.sender, requester, requestIds.length, requestIds);
+    }
+
     /// @dev Registers batch of requests.
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
@@ -213,7 +299,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32 paymentType,
         uint256 priorityMechServiceId,
         uint256 responseTimeout,
-        bytes memory paymentData
+        bytes calldata paymentData
     ) internal returns (bytes32[] memory requestIds) {
         // Response timeout limits
         if (responseTimeout + block.timestamp > type(uint32).max) {
@@ -481,7 +567,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Sets mech factory statues.
     /// @param mechFactories Mech marketplace contract addresses.
     /// @param statuses Corresponding whitelisting statues.
-    function setMechFactoryStatuses(address[] memory mechFactories, bool[] memory statuses) external {
+    function setMechFactoryStatuses(address[] calldata mechFactories, bool[] calldata statuses) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -506,7 +592,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Sets mech payment type balanceTrackers.
     /// @param paymentTypes Mech types.
     /// @param balanceTrackers Corresponding balanceTracker addresses.
-    function setPaymentTypeBalanceTrackers(bytes32[] memory paymentTypes, address[] memory balanceTrackers) external {
+    function setPaymentTypeBalanceTrackers(bytes32[] calldata paymentTypes, address[] calldata balanceTrackers) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -549,7 +635,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32 paymentType,
         uint256 priorityMechServiceId,
         uint256 responseTimeout,
-        bytes memory paymentData
+        bytes calldata paymentData
     ) external payable returns (bytes32 requestId) {
         // Reentrancy guard
         if (_locked == 2) {
@@ -585,7 +671,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32 paymentType,
         uint256 priorityMechServiceId,
         uint256 responseTimeout,
-        bytes memory paymentData
+        bytes calldata paymentData
     ) external payable returns (bytes32[] memory requestIds) {
         // Reentrancy guard
         if (_locked == 2) {
@@ -603,11 +689,10 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @notice This function can only be called by the mech delivering the request.
     /// @param requestIds Set of request ids.
     /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
-    /// @param deliveryDatas Set of corresponding self-descriptive opaque delivery data-blobs.
+    /// @return deliveredRequests Corresponding set of successful / failed deliveries.
     function deliverMarketplace(
-        bytes32[] memory requestIds,
-        uint256[] memory deliveryRates,
-        bytes[] memory deliveryDatas
+        bytes32[] calldata requestIds,
+        uint256[] memory deliveryRates
     ) external returns (bool[] memory deliveredRequests) {
         // Reentrancy guard
         if (_locked == 2) {
@@ -616,9 +701,8 @@ contract MechMarketplace is IErrorsMarketplace {
         _locked = 2;
 
         // Check array lengths
-        if (requestIds.length == 0 || requestIds.length != deliveryRates.length ||
-            requestIds.length != deliveryDatas.length) {
-            revert WrongArrayLength3(requestIds.length, deliveryRates.length, deliveryDatas.length);
+        if (requestIds.length == 0 || requestIds.length != deliveryRates.length) {
+            revert WrongArrayLength(requestIds.length, deliveryRates.length);
         }
 
         // Check delivery mech and get its service multisig
@@ -720,22 +804,18 @@ contract MechMarketplace is IErrorsMarketplace {
 
         _locked = 1;
     }
-    
+
     /// @dev Delivers signed requests.
     /// @notice This function must be called by mech delivering requests.
     /// @param requester Requester address.
-    /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
-    /// @param signatures Corresponding set of signatures.
+    /// @param deliverWithSignatures Set of DeliverWithSignature structs.
     /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
-    /// @param deliveryDatas Corresponding set of self-descriptive opaque delivery data-blobs.
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester,
-        bytes[] memory requestDatas,
-        bytes[] memory signatures,
-        bytes[] memory deliveryDatas,
-        uint256[] memory deliveryRates,
-        bytes memory paymentData
+        DeliverWithSignature[] calldata deliverWithSignatures,
+        uint256[] calldata deliveryRates,
+        bytes calldata paymentData
     ) external {
         // Reentrancy guard
         if (_locked == 2) {
@@ -744,80 +824,15 @@ contract MechMarketplace is IErrorsMarketplace {
         _locked = 2;
 
         // Array length checks
-        if (requestDatas.length == 0 || requestDatas.length != signatures.length ||
-            requestDatas.length != deliveryDatas.length || requestDatas.length != deliveryRates.length) {
-            revert WrongArrayLength4(requestDatas.length, signatures.length, deliveryDatas.length, deliveryRates.length);
+        if (deliverWithSignatures.length == 0 || deliverWithSignatures.length != deliveryRates.length) {
+            revert WrongArrayLength(deliverWithSignatures.length, deliveryRates.length);
         }
-
-        // Check mech
-        address mechServiceMultisig = checkMech(msg.sender);
-
-        uint256 numRequests = requestDatas.length;
-
-        // Get number of requests
-        // Allocate set for request Ids
-        bytes32[] memory requestIds = new bytes32[](numRequests);
-
-        // Get current nonce
-        uint256 nonce = mapNonces[requester];
 
         // Payment type
         bytes32 paymentType = IMech(msg.sender).paymentType();
 
-        // Traverse all request Ids
-        for (uint256 i = 0; i < numRequests; ++i) {
-            // Check for non-zero data
-            if (requestDatas[i].length == 0) {
-                revert ZeroValue();
-            }
-
-            // Calculate request Id
-            requestIds[i] = getRequestId(msg.sender, requester, requestDatas[i], deliveryRates[i], paymentType, nonce);
-
-            // Verify the signed hash against the operator address
-            _verifySignedHash(requester, requestIds[i], signatures[i]);
-
-            // Get request info struct
-            RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
-
-            // Check for request Id record
-            if (requestInfo.priorityMech != address(0)) {
-                revert AlreadyRequested(requestIds[i]);
-            }
-
-            // Record all the request info
-            requestInfo.priorityMech = msg.sender;
-            requestInfo.deliveryMech = msg.sender;
-            requestInfo.requester = requester;
-            requestInfo.deliveryRate = deliveryRates[i];
-            requestInfo.paymentType = paymentType;
-            // requestInfo.responseTimeout is not set which clearly separates these requests with signature from others
-
-            // Increase nonce
-            nonce++;
-
-            // Symmetrical delivery mech event that in general happens when delivery is called directly through the mech
-            emit Deliver(msg.sender, mechServiceMultisig, requestIds[i], deliveryDatas[i]);
-        }
-
-        // Adjust requester nonce values
-        mapNonces[requester] = nonce;
-
-        // Record the request count
-        mapRequestCounts[requester] += numRequests;
-        // Increase the amount of requester delivered requests
-        mapDeliveryCounts[requester] += numRequests;
-        // Increase the amount of mech delivery counts
-        mapMechDeliveryCounts[msg.sender] += numRequests;
-        // Increase the amount of mech service multisig delivered requests
-        mapMechServiceDeliveryCounts[mechServiceMultisig] += numRequests;
-        // Increase the total number of requests
-        numTotalRequests += numRequests;
-
-        // Increase mech requester karma
-        IKarma(karma).changeRequesterMechKarma(requester, msg.sender, int256(numRequests));
-        // Increase mech karma that delivers the request
-        IKarma(karma).changeMechKarma(msg.sender, int256(numRequests));
+        // Process deliveries
+        _deliverMarketplaceWithSignatures(requester, paymentType, deliverWithSignatures, deliveryRates);
 
         // Get balance tracker address
         address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
@@ -828,11 +843,6 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Process mech payment
         IBalanceTracker(balanceTracker).adjustMechRequesterBalances(msg.sender, requester, deliveryRates, paymentData);
-
-        // Update mech stats
-        IMech(msg.sender).updateNumRequests(numRequests);
-
-        emit MarketplaceDeliveryWithSignatures(msg.sender, requester, numRequests, requestIds);
 
         _locked = 1;
     }

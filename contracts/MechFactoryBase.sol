@@ -38,7 +38,7 @@ abstract contract MechFactoryBase {
     function _createMech(
         address serviceRegistry,
         uint256 serviceId,
-        bytes memory payload
+        bytes calldata payload
     ) internal virtual returns (address mech, uint256 maxDeliveryRate) {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {

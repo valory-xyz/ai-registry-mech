@@ -394,14 +394,21 @@ describe("MechNvmSubscriptionNative", function () {
             // Try to deliver requests not in order
             let reverseDatas = Array.from(datas);
             reverseDatas = reverseDatas.reverse();
+
+            let deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: reverseDatas[i], signature: signatures[i], deliveryData: reverseDatas[i]});
+            }
+
             await expect(
-                priorityMech.deliverMarketplaceWithSignatures(deployer.address, reverseDatas, signatures, reverseDatas,
+                priorityMech.deliverMarketplaceWithSignatures(deployer.address, deliverWithSignatures,
                     deliveryRates, "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
 
-            // Deliver requests
-            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, datas, signatures, datas,
-                deliveryRates, "0x");
+            deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: datas[i], signature: signatures[i], deliveryData: datas[i]});
+            }
         });
     });
 });

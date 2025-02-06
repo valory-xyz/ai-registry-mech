@@ -7,6 +7,16 @@ import {IMechMarketplace} from "./interfaces/IMechMarketplace.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
 
+// DeliverWithSignature struct
+struct DeliverWithSignature {
+    // Self-descriptive opaque request data-blobs
+    bytes requestData;
+    // Signature for requested data
+    bytes signature;
+    // Self-descriptive opaque delivery data-blobs
+    bytes deliveryData;
+}
+
 /// @dev A Mech that is operated by the multisig of an Olas service
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
@@ -93,15 +103,15 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @return deliveryRate Corresponding finalized delivery rate.
     function _preDeliver(
         bytes32 requestId,
-        bytes memory data
+        bytes calldata data
     ) internal virtual returns (bytes memory requestData, uint256 deliveryRate);
 
     /// @dev Registers a request.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
     function _request(
-        bytes32[] memory requestIds,
-        bytes[] memory datas
+        bytes32[] calldata requestIds,
+        bytes[] calldata datas
     ) internal virtual {
         uint256 numRequests = requestIds.length;
 
@@ -139,8 +149,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @return deliveryDatas Corresponding set of processed delivery datas.
     /// @return deliveryRates Set of corresponding finalized delivery rates.
     function _prepareDeliveries(
-        bytes32[] memory requestIds,
-        bytes[] memory datas
+        bytes32[] calldata requestIds,
+        bytes[] calldata datas
     ) internal virtual returns (bytes[] memory deliveryDatas, uint256[] memory deliveryRates) {
         uint256 numRequests = requestIds.length;
         deliveryDatas = new bytes[](numRequests);
@@ -193,7 +203,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @notice This function is called by the marketplace contract since this mech was specified as a priority one.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
-    function requestFromMarketplace(bytes32[] memory requestIds, bytes[] memory datas) external {
+    function requestFromMarketplace(bytes32[] calldata requestIds, bytes[] calldata datas) external {
         // Check for marketplace access
         if (msg.sender != mechMarketplace) {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
@@ -221,10 +231,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @notice This function ultimately calls mech marketplace contract to finalize the delivery.
     /// @param requestIds Set of request ids.
     /// @param datas Corresponding set of self-descriptive opaque delivery data-blobs.
+    /// @return deliveredRequests Corresponding set of successful / failed deliveries.
     function deliverToMarketplace(
-        bytes32[] memory requestIds,
-        bytes[] memory datas
-    ) external onlyOperator {
+        bytes32[] calldata requestIds,
+        bytes[] calldata datas
+    ) external onlyOperator returns (bool[] memory deliveredRequests) {
         // Reentrancy guard
         if (_locked == 2) {
             revert ReentrancyGuard();
@@ -241,8 +252,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
         // Mech marketplace delivery finalization
         // Some of deliveries might be front-run by other mechs, and thus only actually delivered ones are recorded
-        bool[] memory deliveredRequests = IMechMarketplace(mechMarketplace).deliverMarketplace(requestIds,
-            deliveryRates, deliveryDatas);
+        deliveredRequests = IMechMarketplace(mechMarketplace).deliverMarketplace(requestIds, deliveryRates);
 
         uint256 numRequests = requestIds.length;
         uint256 numDeliveries;
@@ -264,21 +274,17 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
     /// @dev Delivers signed requests.
     /// @param requester Requester address.
-    /// @param requestDatas Corresponding set of self-descriptive opaque request data-blobs.
-    /// @param signatures Corresponding set of signatures.
+    /// @param deliverWithSignatures Set of DeliverWithSignature structs.
     /// @param deliveryRates Corresponding set of actual charged delivery rates for each request.
-    /// @param deliveryDatas Corresponding set of self-descriptive opaque delivery data-blobs.
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester,
-        bytes[] memory requestDatas,
-        bytes[] memory signatures,
-        bytes[] memory deliveryDatas,
-        uint256[] memory deliveryRates,
+        DeliverWithSignature[] calldata deliverWithSignatures,
+        uint256[] calldata deliveryRates,
         bytes memory paymentData
     ) external onlyOperator {
-        IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, requestDatas, signatures,
-            deliveryDatas, deliveryRates, paymentData);
+        IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
+            deliveryRates, paymentData);
     }
 
     /// @dev Sets up a mech.

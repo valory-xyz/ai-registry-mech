@@ -6,7 +6,7 @@ interface IMech {
     /// @dev Registers marketplace requests.
     /// @param requestIds Set of request Ids.
     /// @param datas Set of corresponding self-descriptive opaque data-blobs.
-    function requestFromMarketplace(bytes32[] memory requestIds, bytes[] memory datas) external;
+    function requestFromMarketplace(bytes32[] calldata requestIds, bytes[] calldata datas) external;
 
     /// @dev Updates number of requests delivered directly via Marketplace.
     /// @param numRequests Number of requests.

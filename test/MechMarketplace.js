@@ -247,7 +247,7 @@ describe("MechMarketplace", function () {
 
             // Trying to deliver by a random mech
             await expect(
-                mockMech.deliverMarketplace([defaultRequestId], [maxDeliveryRate], [data])
+                mockMech.deliverMarketplace([defaultRequestId], [maxDeliveryRate])
             ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
 
             // Create mock mech via the factory
@@ -261,7 +261,7 @@ describe("MechMarketplace", function () {
 
             // Try to deliver a non-existent request
             await expect(
-                mechMock.deliverMarketplace([defaultRequestId], [maxDeliveryRate], [data])
+                mechMock.deliverMarketplace([defaultRequestId], [maxDeliveryRate])
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
 
             // Request in priority mech
@@ -280,10 +280,10 @@ describe("MechMarketplace", function () {
             await helpers.time.increase(maxResponseTimeout);
 
             // Try to deliver directly via a marketplace
-            await mechMock.deliverMarketplace([requestId], [maxDeliveryRate], [data]);
+            await mechMock.deliverMarketplace([requestId], [maxDeliveryRate]);
 
             // Try to deliver the same request once again (nothing is delivered)
-            await mechMock.deliverMarketplace([requestId], [maxDeliveryRate], [data]);
+            await mechMock.deliverMarketplace([requestId], [maxDeliveryRate]);
 
             // Restore a previous state of blockchain
             snapshot.restore();

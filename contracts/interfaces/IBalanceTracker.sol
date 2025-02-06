@@ -9,7 +9,7 @@ interface IBalanceTracker {
     /// @param deliveryRate Single request delivery rate.
     /// @param paymentData Additional payment-related request data, if applicable.
     function checkAndRecordDeliveryRates(address requester, uint256 numRequests, uint256 deliveryRate,
-        bytes memory paymentData) external payable;
+        bytes calldata paymentData) external payable;
 
     /// @dev Finalizes mech delivery rate based on requested and actual ones.
     /// @param mech Delivery mech address.
@@ -17,14 +17,14 @@ interface IBalanceTracker {
     /// @param deliveredRequests Set of mech request Id statuses: delivered / undelivered.
     /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
     /// @param requesterDeliveryRates Corresponding set of requester agreed delivery rates for each request.
-    function finalizeDeliveryRates(address mech, address[] memory requesters, bool[] memory deliveredRequests,
-        uint256[] memory mechDeliveryRates, uint256[] memory requesterDeliveryRates) external;
+    function finalizeDeliveryRates(address mech, address[] calldata requesters, bool[] calldata deliveredRequests,
+        uint256[] memory mechDeliveryRates, uint256[] calldata requesterDeliveryRates) external;
 
     /// @dev Adjusts mech and requester balances for direct batch request processing.
     /// @param mech Mech address.
     /// @param requester Requester address.
     /// @param mechDeliveryRates Set of actual charged delivery rates for each request.
     /// @param paymentData Additional payment-related request data, if applicable.
-    function adjustMechRequesterBalances(address mech, address requester, uint256[] memory mechDeliveryRates,
-        bytes memory paymentData) external;
+    function adjustMechRequesterBalances(address mech, address requester, uint256[] calldata mechDeliveryRates,
+        bytes calldata paymentData) external;
 }

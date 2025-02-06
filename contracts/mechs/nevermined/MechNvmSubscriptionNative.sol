@@ -36,7 +36,7 @@ contract MechNvmSubscriptionNative is OlasMech {
     /// @return deliveryRate Corresponding finalized delivery rate.
     function _preDeliver(
         bytes32 requestId,
-        bytes memory data
+        bytes calldata data
     ) internal override returns (bytes memory requestData, uint256 deliveryRate) {
         // Extract the request deliver rate as credits to burn
         (deliveryRate, requestData) = abi.decode(data, (uint256, bytes));

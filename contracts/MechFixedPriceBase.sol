@@ -21,7 +21,7 @@ abstract contract MechFixedPriceBase is OlasMech {
     /// @return deliveryRate Corresponding finalized delivery rate.
     function _preDeliver(
         bytes32,
-        bytes memory data
+        bytes calldata data
     ) internal virtual override returns (bytes memory requestData, uint256 deliveryRate) {
         requestData = data;
         deliveryRate = maxDeliveryRate;
