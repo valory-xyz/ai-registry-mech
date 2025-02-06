@@ -255,7 +255,7 @@ contract MechMarketplace is IErrorsMarketplace {
             }
 
             // Calculate request Id
-            requestIds[i] = getRequestId(msg.sender, requestDatas[i], deliveryRate, nonce);
+            requestIds[i] = getRequestId(priorityMech, msg.sender, requestDatas[i], deliveryRate, nonce);
 
             // Get request info struct
             RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
@@ -727,7 +727,7 @@ contract MechMarketplace is IErrorsMarketplace {
         // Traverse all request Ids
         for (uint256 i = 0; i < numRequests; ++i) {
             // Calculate request Id
-            requestIds[i] = getRequestId(requester, requestDatas[i], deliveryRates[i], nonce);
+            requestIds[i] = getRequestId(msg.sender, requester, requestDatas[i], deliveryRates[i], nonce);
 
             // Verify the signed hash against the operator address
             _verifySignedHash(requester, requestIds[i], signatures[i]);
@@ -793,13 +793,15 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     /// @dev Gets the request Id.
-    /// @param account Account address.
+    /// @param mech Mech address.
+    /// @param requester Requester address.
     /// @param data Self-descriptive opaque data-blob.
     /// @param deliveryRate Request delivery rate.
     /// @param nonce Nonce.
     /// @return requestId Corresponding request Id.
     function getRequestId(
-        address account,
+        address mech,
+        address requester,
         bytes memory data,
         uint256 deliveryRate,
         uint256 nonce
@@ -811,7 +813,8 @@ contract MechMarketplace is IErrorsMarketplace {
                 keccak256(
                     abi.encode(
                         address(this),
-                        account,
+                        mech,
+                        requester,
                         data,
                         deliveryRate,
                         nonce
