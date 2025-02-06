@@ -3,20 +3,6 @@ pragma solidity ^0.8.28;
 
 import {OlasMech} from "../../OlasMech.sol";
 
-interface IERC1155 {
-    /// @dev Gets the amount of tokens owned by a specified account.
-    /// @param account Account address.
-    /// @param tokenId Token Id.
-    /// @return Amount of tokens owned.
-    function balanceOf(address account, uint256 tokenId) external view returns (uint256);
-
-    /// @dev Burns a specified amount of account's tokens.
-    /// @param account Account address.
-    /// @param tokenId Token Id.
-    /// @param amount Amount of tokens.
-    function burn(address account, uint256 tokenId, uint256 amount) external;
-}
-
 /// @dev Provided zero subscription address.
 error ZeroAddress();
 

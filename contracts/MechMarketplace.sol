@@ -902,20 +902,21 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requestId Request Id.
     /// @return status Request status.
     function getRequestStatus(bytes32 requestId) external view returns (RequestStatus status) {
-        // Request exists if it has a record in the mapRequestIdInfos
+        // Get request info
         RequestInfo memory requestInfo = mapRequestIdInfos[requestId];
-        if (requestInfo.priorityMech != address(0)) {
-            // Check if the request Id was already delivered: delivery mech address is not zero
-            if (requestInfo.deliveryMech == address(0)) {
-                if (block.timestamp > requestInfo.responseTimeout) {
-                    status = RequestStatus.RequestedExpired;
-                } else {
-                    status = RequestStatus.RequestedPriority;
-                }
-            } else {
-                status = RequestStatus.Delivered;
-            }
+
+        // Request exists if it has a record in the mapRequestIdInfos
+        if (requestInfo.priorityMech == address(0)) return RequestStatus.DoesNotExist;
+
+        // Check if the request Id was already delivered: delivery mech address is not zero
+        if (requestInfo.deliveryMech != address(0)) return RequestStatus.Delivered;
+
+        // Check response timeout which cannot be zero if priority mech is set and delivery mech is not
+        if (block.timestamp > requestInfo.responseTimeout) {
+            return RequestStatus.RequestedExpired;
         }
+
+        return RequestStatus.RequestedPriority;
     }
 }
 
