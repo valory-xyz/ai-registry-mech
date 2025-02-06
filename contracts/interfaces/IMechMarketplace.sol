@@ -20,5 +20,5 @@ interface IMechMarketplace {
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester, DeliverWithSignature[] calldata deliverWithSignatures, uint256[] calldata deliveryRates,
-            bytes memory paymentData) external;
+            bytes calldata paymentData) external;
 }
