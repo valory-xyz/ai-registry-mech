@@ -18,9 +18,13 @@ struct DeliverWithSignature {
 }
 
 /// @dev A Mech that is operated by the multisig of an Olas service
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
-    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, bytes data);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, uint256 deliveryRate,
+        bytes data);
     event Request(address indexed mech, bytes32 requestId, bytes data);
     event RevokeRequest(bytes32 requestId);
     event NumRequestsIncrease(uint256 numRequests);
@@ -266,7 +270,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         for (uint256 i = 0; i < numRequests; ++i) {
             if (deliveredRequests[i]) {
                 numDeliveries++;
-                emit Deliver(address(this), msg.sender, requestIds[i], deliveryDatas[i]);
+                emit Deliver(address(this), msg.sender, requestIds[i], deliveryRates[i], deliveryDatas[i]);
             } else {
                 emit RevokeRequest(requestIds[i]);
             }

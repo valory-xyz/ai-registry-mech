@@ -50,6 +50,7 @@ struct RequestInfo {
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by mechs
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 /// @author Silvere Gangloff - <silvere.gangloff@valory.xyz>
 contract MechMarketplace is IErrorsMarketplace {
     event CreateMech(address indexed mech, uint256 indexed serviceId, address indexed mechFactory);
@@ -63,7 +64,8 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32[] requestIds);
     event MarketplaceDelivery(address indexed deliveryMech, address[] indexed requesters, uint256 numDeliveries,
         bytes32[] requestIds, bool[] deliveredRequests);
-    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, bytes data);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, uint256 deliveryRate,
+        bytes data);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
         uint256 numDeliveries, bytes32[] requestIds);
     event RequesterHashApproved(address indexed requester, bytes32 hash);
@@ -257,7 +259,8 @@ contract MechMarketplace is IErrorsMarketplace {
             nonce++;
 
             // Symmetrical delivery mech event that in general happens when delivery is called directly through the mech
-            emit Deliver(msg.sender, mechServiceMultisig, requestIds[i], deliverWithSignatures[i].deliveryData);
+            emit Deliver(msg.sender, mechServiceMultisig, requestIds[i], deliveryRates[i],
+                deliverWithSignatures[i].deliveryData);
         }
 
         // Adjust requester nonce values
