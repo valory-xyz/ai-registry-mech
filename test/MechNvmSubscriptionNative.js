@@ -3,7 +3,7 @@
 const { expect } = require("chai");
 const { config, ethers } = require("hardhat");
 
-describe.only("MechNvmSubscriptionNative", function () {
+describe("MechNvmSubscriptionNative", function () {
     let priorityMechAddress;
     let priorityMech;
     let serviceRegistry;
