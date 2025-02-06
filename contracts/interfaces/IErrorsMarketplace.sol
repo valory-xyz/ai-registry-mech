@@ -87,11 +87,6 @@ interface IErrorsMarketplace {
     /// @param paymentType Payment type.
     error WrongPaymentType(bytes32 paymentType);
 
-    /// @dev Priority mech response timeout is not yet met.
-    /// @param expected Expected timestamp.
-    /// @param current Current timestamp.
-    error PriorityMechResponseTimeout(uint256 expected, uint256 current);
-
     /// @dev Failure of a transfer.
     /// @param token Address of a token.
     /// @param from Address `from`.

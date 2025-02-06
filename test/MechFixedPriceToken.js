@@ -232,10 +232,8 @@ describe("MechFixedPriceToken", function () {
             // Create a request
             await mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x");
 
-            // Try to deliver by a delivery mech right away
-            await expect(
-                deliveryMech.deliverToMarketplace([requestId], [data])
-            ).to.be.revertedWithCustomError(mechMarketplace, "PriorityMechResponseTimeout");
+            // Try to deliver by a delivery mech right away (nothing is going to happen)
+            await deliveryMech.deliverToMarketplace([requestId], [data]);
 
             // Get the request status (requested priority)
             let status = await mechMarketplace.getRequestStatus(requestId);

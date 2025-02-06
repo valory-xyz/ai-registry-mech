@@ -85,8 +85,6 @@ contract MechMarketplace is IErrorsMarketplace {
     // Max marketplace fee factor (100%)
     uint256 public constant MAX_FEE_FACTOR = 10_000;
 
-    // Original domain separator value
-    bytes32 public immutable domainSeparator;
     // Original chain Id
     uint256 public immutable chainId;
     // Mech karma contract address
@@ -94,6 +92,8 @@ contract MechMarketplace is IErrorsMarketplace {
     // Service registry contract address
     address public immutable serviceRegistry;
 
+    // Domain separator value
+    bytes32 public domainSeparator;
     // Universal mech marketplace fee (max of 10_000 == 100%)
     uint256 public fee;
     // Minimum response time
@@ -148,8 +148,6 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Record chain Id
         chainId = block.chainid;
-        // Compute domain separator
-        domainSeparator = _computeDomainSeparator();
     }
 
     /// @dev Computes domain separator hash.
@@ -299,6 +297,10 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Get balance tracker address
         address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
+        // Check for zero address
+        if (balanceTracker == address(0)) {
+            revert ZeroAddress();
+        }
 
         // Check and record mech delivery rate
         IBalanceTracker(balanceTracker).checkAndRecordDeliveryRates{value: msg.value}(msg.sender, numRequests,
@@ -381,7 +383,11 @@ contract MechMarketplace is IErrorsMarketplace {
             revert AlreadyInitialized();
         }
 
+        // Set initial params
         _changeMarketplaceParams(_fee, _minResponseTimeout, _maxResponseTimeout);
+
+        // Compute domain separator
+        domainSeparator = _computeDomainSeparator();
 
         owner = msg.sender;
         _locked = 1;
@@ -666,8 +672,10 @@ contract MechMarketplace is IErrorsMarketplace {
                     // Needs to stay atomic as each different priorityMech can be any address
                     IKarma(karma).changeMechKarma(priorityMech, -1);
                 } else {
-                    // Priority mech responseTimeout is still >= block.timestamp
-                    revert PriorityMechResponseTimeout(requestInfo.responseTimeout, block.timestamp);
+                    // No need to revert if the priority time is not respected, as the request is being delivered
+                    // by a delivery mech. Each delivery mech request is not stored in its mapping, thus it is possible
+                    // to just continue and mark requests as undelivered, letting others to pass.
+                    continue;
                 }
             }
 
@@ -698,6 +706,10 @@ contract MechMarketplace is IErrorsMarketplace {
 
             // Get balance tracker address
             address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
+            // Check for zero address
+            if (balanceTracker == address(0)) {
+                revert ZeroAddress();
+            }
 
             // Process payment
             IBalanceTracker(balanceTracker).finalizeDeliveryRates(msg.sender, requesters, deliveredRequests,
@@ -754,6 +766,11 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Traverse all request Ids
         for (uint256 i = 0; i < numRequests; ++i) {
+            // Check for non-zero data
+            if (requestDatas[i].length == 0) {
+                revert ZeroValue();
+            }
+
             // Calculate request Id
             requestIds[i] = getRequestId(msg.sender, requester, requestDatas[i], deliveryRates[i], paymentType, nonce);
 
@@ -773,6 +790,7 @@ contract MechMarketplace is IErrorsMarketplace {
             requestInfo.deliveryMech = msg.sender;
             requestInfo.requester = requester;
             requestInfo.deliveryRate = deliveryRates[i];
+            requestInfo.paymentType = paymentType;
 
             // Increase nonce
             nonce++;
@@ -802,6 +820,10 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Get balance tracker address
         address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
+        // Check for zero address
+        if (balanceTracker == address(0)) {
+            revert ZeroAddress();
+        }
 
         // Process mech payment
         IBalanceTracker(balanceTracker).adjustMechRequesterBalances(msg.sender, requester, deliveryRates, paymentData);
