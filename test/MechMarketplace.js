@@ -266,13 +266,15 @@ describe("MechMarketplace", function () {
 
             // Request in priority mech
             // Get request Id
-            const requestId = await mechMarketplace.getRequestId(mechMock.address, data, maxDeliveryRate, 0);
+            const requestId = await mechMarketplace.getRequestId(priorityMech.address, mechMock.address, data,
+                maxDeliveryRate, paymentTypeHash, 0);
 
             // Pseudo-create and deploy requester service
             await serviceRegistry.setServiceOwner(mockServiceId, mechMock.address);
 
             // Post a request
-            await mechMock.request(data, mechServiceId, minResponseTimeout, "0x", {value: maxDeliveryRate});
+            await mechMock.request(data, maxDeliveryRate, paymentTypeHash, mechServiceId, minResponseTimeout, "0x",
+                {value: maxDeliveryRate});
 
             // Increase the time such that the request expires for a priority mech
             await helpers.time.increase(maxResponseTimeout);
