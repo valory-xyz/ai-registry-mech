@@ -53,6 +53,7 @@ struct RequestInfo {
 /// @author Silvere Gangloff - <silvere.gangloff@valory.xyz>
 contract MechMarketplace is IErrorsMarketplace {
     event CreateMech(address indexed mech, uint256 indexed serviceId, address indexed mechFactory);
+    event RemoveMech(address indexed mech, uint256 indexed serviceId);
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
@@ -131,8 +132,8 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(bytes32 => address) public mapPaymentTypeBalanceTrackers;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
-    // Mapping of service ids to mechs
-    mapping(uint256 => address) public mapServiceIdMech;
+    // Mapping of mech to service id
+    mapping(address => uint256) public mapMechServiceIds;
 
 
     /// @dev MechMarketplace constructor.
@@ -289,7 +290,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
     /// @param maxDeliveryRate Max delivery rate requester agrees to supply.
     /// @param paymentType Payment type.
-    /// @param priorityMechServiceId Priority mech service Id.
+    /// @param priorityMech Priority mech address.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestIds Set of request Ids.
@@ -297,7 +298,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes[] memory requestDatas,
         uint256 maxDeliveryRate,
         bytes32 paymentType,
-        uint256 priorityMechServiceId,
+        address priorityMech,
         uint256 responseTimeout,
         bytes calldata paymentData
     ) internal returns (bytes32[] memory requestIds) {
@@ -323,10 +324,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }
 
         // Check priority mech
-        address priorityMech = mapServiceIdMech[priorityMechServiceId];
-        if (priorityMech == address(0)) {
-            revert ZeroAddress();
-        }
+        checkMech(priorityMech);
 
         // Allocate set of requestIds
         requestIds = new bytes32[](numRequests);
@@ -555,6 +553,12 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param mechFactory Mech factory address.
     /// @return mech The created mech instance address.
     function create(uint256 serviceId, address mechFactory, bytes memory payload) external returns (address mech) {
+        // Check for msg.sender to be a serviceId multisig
+        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+        if (msg.sender != multisig) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
         // Check for factory status
         if (!mapMechFactories[mechFactory]) {
             revert UnauthorizedAccount(mechFactory);
@@ -570,11 +574,28 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Record factory that created a mech
         mapAgentMechFactories[mech] = mechFactory;
-        // Add mapping
-        mapServiceIdMech[serviceId] = mech;
+        // Add mapping for mech => service Id
+        mapMechServiceIds[mech] = serviceId;
         numMechs++;
 
         emit CreateMech(mech, serviceId, mechFactory);
+    }
+
+    /// @dev Removes mech from current Mech Marketplace.
+    /// @notice Only mech service Id multisig can call this function.
+    /// @param mech Mech address.
+    function remove(address mech) external {
+        uint256 serviceId = IMech(mech).tokenId();
+
+        // Check mech service Id and get its multisig
+        address multisig = IMech(mech).getOperator();
+        if (msg.sender != multisig) {
+            revert UnauthorizedAccount(msg.sender);
+        }
+
+        delete mapMechServiceIds[mech];
+
+        emit RemoveMech(mech, serviceId);
     }
 
     /// @dev Sets mech factory statues.
@@ -638,7 +659,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requestData Self-descriptive opaque request data-blob.
     /// @param maxDeliveryRate Max delivery rate requester agrees to supply.
     /// @param paymentType Payment type.
-    /// @param priorityMechServiceId Priority mech service Id.
+    /// @param priorityMech Priority mech address.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestId Request Id.
@@ -646,7 +667,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes memory requestData,
         uint256 maxDeliveryRate,
         bytes32 paymentType,
-        uint256 priorityMechServiceId,
+        address priorityMech,
         uint256 responseTimeout,
         bytes calldata paymentData
     ) external payable returns (bytes32 requestId) {
@@ -661,7 +682,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32[] memory requestIds = new bytes32[](1);
 
         requestDatas[0] = requestData;
-        requestIds = _requestBatch(requestDatas, maxDeliveryRate, paymentType, priorityMechServiceId, responseTimeout,
+        requestIds = _requestBatch(requestDatas, maxDeliveryRate, paymentType, priorityMech, responseTimeout,
             paymentData);
 
         requestId = requestIds[0];
@@ -674,7 +695,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
     /// @param maxDeliveryRate Max delivery rate requester agrees to supply for each request.
     /// @param paymentType Payment type.
-    /// @param priorityMechServiceId Priority mech service Id.
+    /// @param priorityMech Priority mech address.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestIds Set of request Ids.
@@ -682,7 +703,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes[] memory requestDatas,
         uint256 maxDeliveryRate,
         bytes32 paymentType,
-        uint256 priorityMechServiceId,
+        address priorityMech,
         uint256 responseTimeout,
         bytes calldata paymentData
     ) external payable returns (bytes32[] memory requestIds) {
@@ -692,8 +713,7 @@ contract MechMarketplace is IErrorsMarketplace {
         }
         _locked = 2;
 
-        requestIds = _requestBatch(requestDatas, maxDeliveryRate, paymentType, priorityMechServiceId, responseTimeout,
-            paymentData);
+        requestIds = _requestBatch(requestDatas, maxDeliveryRate, paymentType, priorityMech, responseTimeout, paymentData);
 
         _locked = 1;
     }
@@ -913,7 +933,7 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 mechServiceId = IMech(mech).tokenId();
 
         // Check mech validity as it must be created and recorded via this marketplace
-        if (mapServiceIdMech[mechServiceId] != mech) {
+        if (mapMechServiceIds[mech] != mechServiceId) {
             revert UnauthorizedAccount(mech);
         }
 

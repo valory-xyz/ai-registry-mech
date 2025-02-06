@@ -150,7 +150,7 @@ describe("MechNvmSubscriptionNative", function () {
 
             // Try to create a request without any subscription balance
             await expect(
-                mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x")
+                mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x")
             ).to.be.reverted;
 
             const numCredits = maxDeliveryRate * 10;
@@ -159,7 +159,7 @@ describe("MechNvmSubscriptionNative", function () {
             await mockNvmSubscriptionNative.mint(subscriptionId, numCredits, {value: numCredits * normalizedRatio});
 
             // Post a request
-            await mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
             let status = await mechMarketplace.getRequestStatus(requestId);
@@ -196,12 +196,12 @@ describe("MechNvmSubscriptionNative", function () {
 
             // Try to create request with insufficient pre-paid amount
             await expect(
-                mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x")
+                mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x")
             ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "InsufficientBalance");
 
             // Try to send additional value when creating a request
             await expect(
-                mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x", {value: 1})
+                mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x", {value: 1})
             ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "NoDepositAllowed");
 
             const numCredits = maxDeliveryRate * 10;
@@ -220,7 +220,7 @@ describe("MechNvmSubscriptionNative", function () {
             ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "ZeroValue");
 
             // Post a request
-            await mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x");
 
             // Get the request status (requested priority)
             let status = await mechMarketplace.getRequestStatus(requestId);
@@ -277,7 +277,7 @@ describe("MechNvmSubscriptionNative", function () {
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
-            await mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x");
 
             // Try to deliver by a mech with bigger max Delivery rate (it's not going to be delivered)
             let deliverData = ethers.utils.defaultAbiCoder.encode(["uint256", "bytes"], [maxDeliveryRate + 1, data]);
@@ -318,7 +318,7 @@ describe("MechNvmSubscriptionNative", function () {
             await mockNvmSubscriptionNative.mint(subscriptionId, maxDeliveryRate, {value: maxDeliveryRate * normalizedRatio});
 
             // Post a request
-            await mechMarketplace.request(data, maxDeliveryRate, paymentType, mechServiceId, minResponseTimeout, "0x");
+            await mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x");
 
             // Change max delivery rate to lower than it was
             const deliverData = ethers.utils.defaultAbiCoder.encode(["uint256", "bytes"], [maxDeliveryRate, data]);
