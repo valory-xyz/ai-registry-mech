@@ -189,7 +189,7 @@ abstract contract BalanceTrackerBase {
         address requester,
         uint256 numRequests,
         uint256 deliveryRate,
-        bytes memory paymentData
+        bytes calldata paymentData
     ) external virtual payable {
         // Reentrancy guard
         if (_locked == 2) {
@@ -290,7 +290,7 @@ abstract contract BalanceTrackerBase {
         address mech,
         address requester,
         uint256[] calldata mechDeliveryRates,
-        bytes memory paymentData
+        bytes calldata paymentData
     ) external virtual {
         // Reentrancy guard
         if (_locked == 2) {

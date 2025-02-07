@@ -728,7 +728,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @return deliveredRequests Corresponding set of successful / failed deliveries.
     function deliverMarketplace(
         bytes32[] calldata requestIds,
-        uint256[] memory deliveryRates
+        uint256[] calldata deliveryRates
     ) external returns (bool[] memory deliveredRequests) {
         // Reentrancy guard
         if (_locked == 2) {

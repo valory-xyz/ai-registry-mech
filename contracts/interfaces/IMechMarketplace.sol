@@ -10,7 +10,7 @@ interface IMechMarketplace {
     /// @param requestIds Set of request ids.
     /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
     /// @return deliveredRequests Corresponding set of successful / failed deliveries.
-    function deliverMarketplace(bytes32[] calldata requestIds, uint256[] memory mechDeliveryRates)
+    function deliverMarketplace(bytes32[] calldata requestIds, uint256[] calldata mechDeliveryRates)
         external returns (bool[] calldata deliveredRequests);
 
     /// @dev Delivers signed requests.
@@ -20,5 +20,5 @@ interface IMechMarketplace {
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester, DeliverWithSignature[] calldata deliverWithSignatures, uint256[] calldata deliveryRates,
-            bytes memory paymentData) external;
+            bytes calldata paymentData) external;
 }

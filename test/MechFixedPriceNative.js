@@ -834,6 +834,12 @@ describe("MechFixedPriceNative", function () {
             // Deliver requests
             await priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, deliverWithSignatures,
                 deliveryRates, "0x");
+
+            // Try to adjustMechRequesterBalances not by marketplace
+            await expect(
+                balanceTrackerFixedPriceNative.adjustMechRequesterBalances(priorityMech.address, deployer.address,
+                    [maxDeliveryRate], data)
+            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "MarketplaceOnly");
         });
     });
 
