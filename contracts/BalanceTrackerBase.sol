@@ -111,11 +111,11 @@ abstract contract BalanceTrackerBase {
     }
 
     /// @dev Adjusts final requester balance accounting for possible delivery rate difference (debit).
-    /// @param requester Requester address.
+    /// @param requesterBalance Requester balance.
     /// @param rateDiff Delivery rate difference.
     /// @return Adjusted balance.
-    function _adjustFinalBalance(address requester, uint256 rateDiff) internal virtual returns (uint256) {
-        return mapRequesterBalances[requester] + rateDiff;
+    function _adjustFinalBalance(uint256 requesterBalance, uint256 rateDiff) internal virtual returns (uint256) {
+        return requesterBalance + rateDiff;
     }
 
     /// @dev Drains specified amount.
@@ -246,13 +246,11 @@ abstract contract BalanceTrackerBase {
 
         // Get total mech and requester delivery rates
         uint256 totalMechDeliveryRate;
-        uint256 totalRequesterDeliveryRate;
         uint256 totalRateDiff;
         for (uint256 i = 0; i < deliveredRequests.length; ++i) {
             // Check if request was delivered
             if (deliveredRequests[i]) {
                 totalMechDeliveryRate += mechDeliveryRates[i];
-                totalRequesterDeliveryRate += requesterDeliveryRates[i];
 
                 // Check for delivery rate difference
                 if (requesterDeliveryRates[i] > mechDeliveryRates[i]) {
@@ -261,7 +259,8 @@ abstract contract BalanceTrackerBase {
                     totalRateDiff += rateDiff;
 
                     // Adjust requester balance
-                    mapRequesterBalances[requesters[i]] = _adjustFinalBalance(requesters[i], rateDiff);
+                    uint256 requesterBalance = mapRequesterBalances[requesters[i]];
+                    mapRequesterBalances[requesters[i]] = _adjustFinalBalance(requesterBalance, rateDiff);
                 }
             }
         }
