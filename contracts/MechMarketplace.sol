@@ -68,7 +68,6 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes data);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
         uint256 numDeliveries, bytes32[] requestIds);
-    event RequesterHashApproved(address indexed requester, bytes32 hash);
 
     enum RequestStatus {
         DoesNotExist,
