@@ -30,10 +30,6 @@ interface IErrorsMarketplace {
     /// @param amount Value amount.
     error NoDepositAllowed(uint256 amount);
 
-    /// @dev Request Id not found.
-    /// @param requestId Request Id.
-    error RequestIdNotFound(bytes32 requestId);
-
     /// @dev Value overflow.
     /// @param provided Overflow value.
     /// @param max Maximum possible value.
@@ -45,11 +41,6 @@ interface IErrorsMarketplace {
     /// @dev Account is unauthorized.
     /// @param account Account address.
     error UnauthorizedAccount(address account);
-
-    /// @dev Specified service Id is not staked.
-    /// @param stakingInstance Staking contract instance.
-    /// @param serviceId Service Id.
-    error ServiceNotStaked(address stakingInstance, uint256 serviceId);
 
     /// @dev Wrong state of a service.
     /// @param state Service state.
@@ -65,10 +56,6 @@ interface IErrorsMarketplace {
     /// @dev The request is already requested.
     /// @param requestId Request Id.
     error AlreadyRequested(bytes32 requestId);
-
-    /// @dev The request is already delivered.
-    /// @param requestId Request Id.
-    error AlreadyDelivered(bytes32 requestId);
 
     /// @dev Wrong payment type.
     /// @param paymentType Payment type.
