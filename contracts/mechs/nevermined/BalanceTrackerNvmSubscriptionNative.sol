@@ -95,7 +95,7 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
             IERC1155(subscriptionNFT).burn(requester, subscriptionTokenId, maxDeliveryRate);
         }
 
-        emit RequesterCreditsRedeemed(requester, balance);
+        emit RequesterCreditsRedeemed(requester, maxDeliveryRate);
 
         return balance;
     }
