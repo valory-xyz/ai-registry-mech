@@ -132,8 +132,6 @@ contract MechMarketplace is IErrorsMarketplace {
     mapping(bytes32 => address) public mapPaymentTypeBalanceTrackers;
     // Mapping of account nonces
     mapping(address => uint256) public mapNonces;
-    // Mapping of mech to service id
-    mapping(address => uint256) public mapMechServiceIds;
 
 
     /// @dev MechMarketplace constructor.
@@ -574,29 +572,9 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Record factory that created a mech
         mapAgentMechFactories[mech] = mechFactory;
-        // Add mapping for mech => service Id
-        mapMechServiceIds[mech] = serviceId;
         numMechs++;
 
         emit CreateMech(mech, serviceId, mechFactory);
-    }
-
-    /// @dev Removes mech from current Mech Marketplace.
-    /// @notice Only mech service Id multisig can call this function.
-    /// @param mech Mech address.
-    function remove(address mech) external {
-        uint256 serviceId = IMech(mech).tokenId();
-
-        // Check mech service Id and get its multisig
-        address multisig = IMech(mech).getOperator();
-        if (msg.sender != multisig) {
-            revert UnauthorizedAccount(msg.sender);
-        }
-
-        delete mapAgentMechFactories[mech];
-        delete mapMechServiceIds[mech];
-
-        emit RemoveMech(mech, serviceId);
     }
 
     /// @dev Sets mech factory statues.

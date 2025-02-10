@@ -291,14 +291,6 @@ describe("MechFixedPriceNative", function () {
             // Check requester mech karma
             mechKarma = await karma.mapRequesterMechKarma(deployer.address, priorityMech.address);
             expect(mechKarma).to.equal(1);
-
-            // Remove mech
-            await mechMarketplace.remove(priorityMech.address);
-
-            // Try to send a request to a removed mech again
-            await expect(
-                mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x")
-            ).to.be.revertedWithCustomError(balanceTrackerFixedPriceNative, "UnauthorizedAccount");
         });
 
         it("Delivering a request by a priority mech with pre-paid logic", async function () {
