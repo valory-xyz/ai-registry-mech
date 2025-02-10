@@ -273,7 +273,7 @@ abstract contract BalanceTrackerBase {
         // Record payment into mech balance
         uint256 mechBalance = mapMechBalances[mech];
         mechBalance += totalMechDeliveryRate;
-        mapMechBalances[mech] += totalMechDeliveryRate;
+        mapMechBalances[mech] = mechBalance;
 
         emit MechBalanceAdjusted(mech, totalMechDeliveryRate, mechBalance, totalRateDiff);
 
