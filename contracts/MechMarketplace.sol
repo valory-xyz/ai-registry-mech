@@ -53,7 +53,6 @@ struct RequestInfo {
 /// @author Silvere Gangloff - <silvere.gangloff@valory.xyz>
 contract MechMarketplace is IErrorsMarketplace {
     event CreateMech(address indexed mech, uint256 indexed serviceId, address indexed mechFactory);
-    event RemoveMech(address indexed mech, uint256 indexed serviceId);
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event MarketplaceParamsUpdated(uint256 fee, uint256 minResponseTimeout, uint256 maxResponseTimeout);
