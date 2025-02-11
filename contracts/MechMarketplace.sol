@@ -552,12 +552,6 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param mechFactory Mech factory address.
     /// @return mech The created mech instance address.
     function create(uint256 serviceId, address mechFactory, bytes memory payload) external returns (address mech) {
-        // Check for msg.sender to be a serviceId multisig
-        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
-        if (msg.sender != multisig) {
-            revert UnauthorizedAccount(msg.sender);
-        }
-
         // Check for factory status
         if (!mapMechFactories[mechFactory]) {
             revert UnauthorizedAccount(mechFactory);
