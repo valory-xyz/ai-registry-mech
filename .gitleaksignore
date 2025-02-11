@@ -48,3 +48,4 @@ f202b4e5c9eab47e87c4eae48ac4b3c17d1f5d14:scripts/deployment/globals_gnosis_mainn
 dc14d94fd2eecdfa0b22095e23a652c541107941:scripts/deployment/globals_gnosis_mainnet_test.json:generic-api-key:1
 ec77593f17d1da874883e687901feb0bafa7e20a:scripts/deployment/globals_base_mainnet_test.json:generic-api-key:1
 c96219648ec4b71159e083f109625a0596aac4fd:scripts/deployment/globals_gnosis_mainnet.json:generic-api-key:1
+38c4ea30fb979b699150086b6e96c62cc5a1c9f2:scripts/deployment/globals_gnosis_mainnet.json:generic-api-key:1
