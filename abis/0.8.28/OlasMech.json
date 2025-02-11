@@ -690,13 +690,13 @@
       "inputs": [
         {
           "internalType": "bytes",
-          "name": "initParams",
+          "name": "",
           "type": "bytes"
         }
       ],
       "name": "setUp",
       "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "pure",
       "type": "function"
     },
     {
