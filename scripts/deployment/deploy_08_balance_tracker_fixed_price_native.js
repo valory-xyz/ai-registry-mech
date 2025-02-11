@@ -48,7 +48,6 @@ async function main() {
     console.log("You are signing the following transaction: BalanceTrackerFixedPriceNative.connect(EOA).deploy()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const BalanceTrackerFixedPriceNative = await ethers.getContractFactory("BalanceTrackerFixedPriceNative");
-    // TODO Put real drainer, now just HomeMediator address
     const balanceTrackerFixedPriceNative = await BalanceTrackerFixedPriceNative.connect(EOA).deploy(mechMarketplaceProxyAddress,
         drainerAddress, wrappedNativeTokenAddress, { gasPrice });
     // In case when gas calculation is not working correctly on Arbitrum
