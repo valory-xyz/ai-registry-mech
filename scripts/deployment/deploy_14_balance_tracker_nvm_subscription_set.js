@@ -15,6 +15,7 @@ async function main() {
     const balanceTrackerNvmSubscriptionNativeAddress = parsedData.balanceTrackerNvmSubscriptionNativeAddress;
     const subscriptionNFTAddress = parsedData.subscriptionNFTAddress;
     const subscriptionTokenId = parsedData.subscriptionTokenId;
+    const tokenCreditRatio = parsedData.tokenCreditRatio;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -51,7 +52,7 @@ async function main() {
     console.log("You are signing the following transaction: BalanceTrackerNvmSubscriptionNative.connect(EOA).setSubscription()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const result = await balanceTrackerNvmSubscription.connect(EOA).setSubscription(subscriptionNFTAddress,
-        subscriptionTokenId, { gasPrice });
+        subscriptionTokenId, tokenCreditRatio, { gasPrice });
 
     // Transaction details
     console.log("Contract deployment: BalanceTrackerNvmSubscriptionNative");
