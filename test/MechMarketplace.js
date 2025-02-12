@@ -253,6 +253,11 @@ describe("MechMarketplace", function () {
             // Create mock mech via the factory
             let mockServiceId = await mockMech.tokenId();
 
+            // Try to create a mech not by the corresponding service Id multisig
+            await expect(
+                mechMarketplace.create(mockServiceId, mockMechFactory.address, data)
+            ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
+
             // Become owner of the mock service Id
             await serviceRegistry.setServiceOwner(mockServiceId, deployer.address);
 

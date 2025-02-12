@@ -23,4 +23,9 @@ interface IServiceRegistry {
     /// @return state Service state.
     function mapServices(uint256 serviceId) external view returns (uint96 securityDeposit, address multisig,
         bytes32 configHash, uint32 threshold, uint32 maxNumAgentInstances, uint32 numAgentInstances, ServiceState state);
+
+    /// @dev Gets the owner of a specified service Id.
+    /// @param serviceId Service Id.
+    /// @return serviceOwner Service owner address.
+    function ownerOf(uint256 serviceId) external view returns (address serviceOwner);
 }
