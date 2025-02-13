@@ -304,6 +304,11 @@ abstract contract BalanceTrackerBase {
         }
         _locked = 2;
 
+        // Check for marketplace access
+        if (msg.sender != mechMarketplace) {
+            revert MarketplaceOnly(msg.sender, mechMarketplace);
+        }
+
         // Get total mech delivery rate
         uint256 totalMechDeliveryRate;
         for (uint256 i = 0; i < mechDeliveryRates.length; ++i) {
