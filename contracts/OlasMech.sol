@@ -90,7 +90,11 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(bytes32 requestId, bytes memory data) internal virtual returns (bytes memory requestData);
+    /// @return deliveryRate Corresponding finalized delivery rate.
+    function _preDeliver(
+        bytes32 requestId,
+        bytes memory data
+    ) internal virtual returns (bytes memory requestData, uint256 deliveryRate);
 
     /// @dev Registers a request.
     /// @param requestIds Set of request Ids.
@@ -133,19 +137,21 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     /// @param requestIds Set of request Ids.
     /// @param datas Corresponding set of self-descriptive opaque delivery data-blobs.
     /// @return deliveryDatas Corresponding set of processed delivery datas.
+    /// @return deliveryRates Set of corresponding finalized delivery rates.
     function _prepareDeliveries(
         bytes32[] memory requestIds,
         bytes[] memory datas
-    ) internal virtual returns (bytes[] memory deliveryDatas) {
+    ) internal virtual returns (bytes[] memory deliveryDatas, uint256[] memory deliveryRates) {
         uint256 numRequests = requestIds.length;
         deliveryDatas = new bytes[](numRequests);
+        deliveryRates = new uint256[](numRequests);
 
         uint256 numSelfRequests;
         // Traverse requests
         for (uint256 i = 0; i < numRequests; ++i) {
             bytes32 requestId = requestIds[i];
-            // Perform a pre-delivery of the data if it needs additional parsing
-            deliveryDatas[i] = _preDeliver(requestId, datas[i]);
+            // Perform a pre-delivery of the data if it needs additional parsing and get finalized request delivery rate
+            (deliveryDatas[i], deliveryRates[i]) = _preDeliver(requestId, datas[i]);
 
             // Clean request info
             // Get request Id from the request Ids map
@@ -230,11 +236,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             revert WrongArrayLength(requestIds.length, datas.length);
         }
 
-        // Preliminary delivery processing
-        bytes[] memory deliveryDatas = _prepareDeliveries(requestIds, datas);
-
-        // Get finalized delivery rates
-        uint256[] memory deliveryRates = getFinalizedDeliveryRates(requestIds);
+        // Preliminary delivery processing and getting finalized delivery rates
+        (bytes[] memory deliveryDatas, uint256[] memory deliveryRates) = _prepareDeliveries(requestIds, datas);
 
         // Mech marketplace delivery finalization
         // Some of deliveries might be front-run by other mechs, and thus only actually delivered ones are recorded
@@ -362,9 +365,4 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             }
         }
     }
-
-    /// @dev Gets finalized delivery rates for request Ids.
-    /// @param requestIds Set of request Ids.
-    /// @return deliveryRates Set of corresponding finalized delivery rates.
-    function getFinalizedDeliveryRates(bytes32[] memory requestIds) public view virtual returns (uint256[] memory deliveryRates);
 }

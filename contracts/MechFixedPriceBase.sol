@@ -18,21 +18,12 @@ abstract contract MechFixedPriceBase is OlasMech {
     /// @dev Performs actions before the delivery of a request.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
-    function _preDeliver(bytes32, bytes memory data) internal virtual override returns (bytes memory requestData) {
+    /// @return deliveryRate Corresponding finalized delivery rate.
+    function _preDeliver(
+        bytes32,
+        bytes memory data
+    ) internal virtual override returns (bytes memory requestData, uint256 deliveryRate) {
         requestData = data;
-    }
-
-    /// @dev Gets finalized delivery rate for request Ids.
-    /// @param requestIds Set of request Ids.
-    /// @return deliveryRates Set of corresponding finalized delivery rates.
-    function getFinalizedDeliveryRates(
-        bytes32[] memory requestIds
-    ) public view virtual override returns (uint256[] memory deliveryRates) {
-        uint256 numRequests = requestIds.length;
-        deliveryRates = new uint256[](numRequests);
-
-        for (uint256 i = 0; i < numRequests; ++i) {
-            deliveryRates[i] = maxDeliveryRate;
-        }
+        deliveryRate = maxDeliveryRate;
     }
 }

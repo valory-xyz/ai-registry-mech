@@ -17,9 +17,6 @@ contract MechNvmSubscriptionNative is OlasMech {
     // keccak256(NvmSubscriptionNative) = 803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316
     bytes32 public constant PAYMENT_TYPE = 0x803dd08fe79d91027fc9024e254a0942372b92f3ccabc1bd19f4a5c2b251c316;
 
-    // Mapping for requestId => finalized delivery rates
-    mapping(bytes32 => uint256) public mapRequestIdFinalizedRates;
-
     /// @dev MechNvmSubscription constructor.
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _serviceRegistry Address of the token contract.
@@ -33,30 +30,14 @@ contract MechNvmSubscriptionNative is OlasMech {
     /// @param requestId Request Id.
     /// @param data Self-descriptive opaque data-blob.
     /// @return requestData Data for the request processing.
+    /// @return deliveryRate Corresponding finalized delivery rate.
     function _preDeliver(
         bytes32 requestId,
         bytes memory data
-    ) internal override returns (bytes memory requestData) {
+    ) internal override returns (bytes memory requestData, uint256 deliveryRate) {
         // Extract the request deliver rate as credits to burn
-        uint256 deliveryRate;
         (deliveryRate, requestData) = abi.decode(data, (uint256, bytes));
 
-        mapRequestIdFinalizedRates[requestId] = deliveryRate;
-
         emit RequestRateFinalized(requestId, deliveryRate);
-    }
-
-    /// @dev Gets finalized delivery rate for request Ids.
-    /// @param requestIds Set of request Ids.
-    /// @return deliveryRates Set of corresponding finalized delivery rates.
-    function getFinalizedDeliveryRates(
-        bytes32[] memory requestIds
-    ) public view virtual override returns (uint256[] memory deliveryRates) {
-        uint256 numRequests = requestIds.length;
-        deliveryRates = new uint256[](numRequests);
-
-        for (uint256 i = 0; i < numRequests; ++i) {
-            deliveryRates[i] = mapRequestIdFinalizedRates[requestIds[i]];
-        }
     }
 }
