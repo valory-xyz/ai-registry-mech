@@ -203,12 +203,16 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Registers batch of requests.
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
+    /// @param maxDeliveryRate Max delivery rate requester agrees to supply.
+    /// @param paymentType Payment type.
     /// @param priorityMechServiceId Priority mech service Id.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestIds Set of request Ids.
     function _requestBatch(
         bytes[] memory requestDatas,
+        uint256 maxDeliveryRate,
+        bytes32 paymentType,
         uint256 priorityMechServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
@@ -221,6 +225,11 @@ contract MechMarketplace is IErrorsMarketplace {
         // Response timeout bounds
         if (responseTimeout < minResponseTimeout || responseTimeout > maxResponseTimeout) {
             revert OutOfBounds(responseTimeout, minResponseTimeout, maxResponseTimeout);
+        }
+
+        // Check for zero values
+        if (maxDeliveryRate == 0 || paymentType == 0) {
+            revert ZeroValue();
         }
 
         uint256 numRequests = requestDatas.length;
@@ -240,9 +249,15 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Get deliveryRate as priority mech max delivery rate
         uint256 deliveryRate = IMech(priorityMech).maxDeliveryRate();
+        // Check priority mech delivery rate vs requester specified max delivery rate
+        if (deliveryRate > maxDeliveryRate) {
+            revert Overflow(deliveryRate, maxDeliveryRate);
+        }
 
-        // Get priority mech payment type
-        bytes32 paymentType = IMech(priorityMech).paymentType();
+        // Check requester specified payment type vs the priority mech payment type
+        if (paymentType != IMech(priorityMech).paymentType()) {
+            revert WrongPaymentType(paymentType);
+        }
 
         // Get nonce
         uint256 nonce = mapNonces[msg.sender];
@@ -255,7 +270,7 @@ contract MechMarketplace is IErrorsMarketplace {
             }
 
             // Calculate request Id
-            requestIds[i] = getRequestId(priorityMech, msg.sender, requestDatas[i], deliveryRate, nonce);
+            requestIds[i] = getRequestId(priorityMech, msg.sender, requestDatas[i], deliveryRate, paymentType, nonce);
 
             // Get request info struct
             RequestInfo storage requestInfo = mapRequestIdInfos[requestIds[i]];
@@ -516,12 +531,16 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Registers a request.
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestData Self-descriptive opaque request data-blob.
+    /// @param maxDeliveryRate Max delivery rate requester agrees to supply.
+    /// @param paymentType Payment type.
     /// @param priorityMechServiceId Priority mech service Id.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestId Request Id.
     function request(
         bytes memory requestData,
+        uint256 maxDeliveryRate,
+        bytes32 paymentType,
         uint256 priorityMechServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
@@ -537,7 +556,8 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32[] memory requestIds = new bytes32[](1);
 
         requestDatas[0] = requestData;
-        requestIds = _requestBatch(requestDatas, priorityMechServiceId, responseTimeout, paymentData);
+        requestIds = _requestBatch(requestDatas, maxDeliveryRate, paymentType, priorityMechServiceId, responseTimeout,
+            paymentData);
 
         requestId = requestIds[0];
 
@@ -547,12 +567,16 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Registers batch of requests.
     /// @notice The request is going to be registered for a specified priority mech.
     /// @param requestDatas Set of self-descriptive opaque request data-blobs.
+    /// @param maxDeliveryRate Max delivery rate requester agrees to supply for each request.
+    /// @param paymentType Payment type.
     /// @param priorityMechServiceId Priority mech service Id.
     /// @param responseTimeout Relative response time in sec.
     /// @param paymentData Additional payment-related request data (optional).
     /// @return requestIds Set of request Ids.
     function requestBatch(
         bytes[] memory requestDatas,
+        uint256 maxDeliveryRate,
+        bytes32 paymentType,
         uint256 priorityMechServiceId,
         uint256 responseTimeout,
         bytes memory paymentData
@@ -563,7 +587,8 @@ contract MechMarketplace is IErrorsMarketplace {
         }
         _locked = 2;
 
-        requestIds = _requestBatch(requestDatas, priorityMechServiceId, responseTimeout, paymentData);
+        requestIds = _requestBatch(requestDatas, maxDeliveryRate, paymentType, priorityMechServiceId, responseTimeout,
+            paymentData);
 
         _locked = 1;
     }
@@ -724,10 +749,13 @@ contract MechMarketplace is IErrorsMarketplace {
         // Get current nonce
         uint256 nonce = mapNonces[requester];
 
+        // Payment type
+        bytes32 paymentType = IMech(msg.sender).paymentType();
+
         // Traverse all request Ids
         for (uint256 i = 0; i < numRequests; ++i) {
             // Calculate request Id
-            requestIds[i] = getRequestId(msg.sender, requester, requestDatas[i], deliveryRates[i], nonce);
+            requestIds[i] = getRequestId(msg.sender, requester, requestDatas[i], deliveryRates[i], paymentType, nonce);
 
             // Verify the signed hash against the operator address
             _verifySignedHash(requester, requestIds[i], signatures[i]);
@@ -773,7 +801,7 @@ contract MechMarketplace is IErrorsMarketplace {
         IKarma(karma).changeMechKarma(msg.sender, int256(numRequests));
 
         // Get balance tracker address
-        address balanceTracker = mapPaymentTypeBalanceTrackers[IMech(msg.sender).paymentType()];
+        address balanceTracker = mapPaymentTypeBalanceTrackers[paymentType];
 
         // Process mech payment
         IBalanceTracker(balanceTracker).adjustMechRequesterBalances(msg.sender, requester, deliveryRates, paymentData);
@@ -797,6 +825,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param requester Requester address.
     /// @param data Self-descriptive opaque data-blob.
     /// @param deliveryRate Request delivery rate.
+    /// @param paymentType Payment type.
     /// @param nonce Nonce.
     /// @return requestId Corresponding request Id.
     function getRequestId(
@@ -804,6 +833,7 @@ contract MechMarketplace is IErrorsMarketplace {
         address requester,
         bytes memory data,
         uint256 deliveryRate,
+        bytes32 paymentType,
         uint256 nonce
     ) public view returns (bytes32 requestId) {
         requestId = keccak256(
@@ -815,8 +845,9 @@ contract MechMarketplace is IErrorsMarketplace {
                         address(this),
                         mech,
                         requester,
-                        data,
+                        keccak256(data),
                         deliveryRate,
+                        paymentType,
                         nonce
                     )
                 )
