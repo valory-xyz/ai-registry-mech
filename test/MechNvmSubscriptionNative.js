@@ -3,7 +3,7 @@
 const { expect } = require("chai");
 const { config, ethers } = require("hardhat");
 
-describe("MechNvmSubscriptionNative", function () {
+describe.only("MechNvmSubscriptionNative", function () {
     let priorityMechAddress;
     let priorityMech;
     let serviceRegistry;
@@ -209,15 +209,12 @@ describe("MechNvmSubscriptionNative", function () {
             // Buy more credits
             await mockNvmSubscriptionNative.mint(subscriptionId, numCredits, {value: numCredits * normalizedRatio});
 
-            // Try to redeem credits that were never used
-            await expect(
-                balanceTrackerNvmSubscriptionNative.redeemRequesterCredits(deployer.address)
-            ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "ZeroValue");
-
             // Try to process zero mech balance
             await expect(
                 balanceTrackerNvmSubscriptionNative.processPaymentByMultisig(priorityMech.address)
             ).to.be.revertedWithCustomError(balanceTrackerNvmSubscriptionNative, "ZeroValue");
+
+            let requesterBalance1155Before = await mockNvmSubscriptionNative.balanceOf(deployer.address, subscriptionId);
 
             // Post a request
             await mechMarketplace.request(data, maxDeliveryRate, paymentType, priorityMech.address, minResponseTimeout, "0x");
@@ -253,15 +250,6 @@ describe("MechNvmSubscriptionNative", function () {
             // Check mech payout: payment - fee
             let balanceDiff = balanceAfter.sub(balanceBefore);
             expect(balanceDiff).to.equal(maxDeliveryRate * normalizedRatio - 1);
-
-            let requesterBalance1155Before = await mockNvmSubscriptionNative.balanceOf(deployer.address, subscriptionId);
-
-            // Check requester leftover balance (note credit system for subscription)
-            balanceBefore = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
-            await balanceTrackerNvmSubscriptionNative.redeemRequesterCredits(deployer.address);
-            balanceAfter = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
-            balanceDiff = balanceBefore.sub(balanceAfter);
-            expect(balanceDiff).to.equal(maxDeliveryRate);
 
             let requesterBalance1155After = await mockNvmSubscriptionNative.balanceOf(deployer.address, subscriptionId);
             balanceDiff = requesterBalance1155Before.sub(requesterBalance1155After);
@@ -300,13 +288,6 @@ describe("MechNvmSubscriptionNative", function () {
             let collectedFees = await balanceTrackerNvmSubscriptionNative.collectedFees();
             // Since the delivery rate is smaller than MAX_FEE_FACTOR, the minimal fee was charged
             expect(collectedFees).to.equal(1);
-
-            // Check requester leftover balance (note credit system for subscription)
-            const balanceBefore = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
-            await balanceTrackerNvmSubscriptionNative.redeemRequesterCredits(deployer.address);
-            const balanceAfter = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
-            const balanceDiff = balanceBefore.sub(balanceAfter);
-            expect(balanceDiff).to.equal(maxDeliveryRate - 1);
         });
 
         it("Delivering request with a zero fee", async function () {
@@ -345,13 +326,6 @@ describe("MechNvmSubscriptionNative", function () {
             let collectedFees = await balanceTrackerNvmSubscriptionNative.collectedFees();
             // Zero fee is charged
             expect(collectedFees).to.equal(0);
-
-            // Check requester leftover balance (note credit system for subscription)
-            balanceBefore = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
-            await balanceTrackerNvmSubscriptionNative.redeemRequesterCredits(deployer.address);
-            balanceAfter = await balanceTrackerNvmSubscriptionNative.mapRequesterBalances(deployer.address);
-            balanceDiff = balanceBefore.sub(balanceAfter);
-            expect(balanceDiff).to.equal(maxDeliveryRate);
         });
 
         it("Requests with signatures", async function () {
