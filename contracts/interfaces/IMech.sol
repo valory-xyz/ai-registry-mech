@@ -14,11 +14,11 @@ interface IMech {
 
     /// @dev Gets mech max delivery rate.
     /// @return Mech maximum delivery rate.
-    function maxDeliveryRate() external returns (uint256);
+    function maxDeliveryRate() external view returns (uint256);
 
     /// @dev Gets mech payment type hash.
     /// @return Mech payment type hash.
-    function paymentType() external returns (bytes32);
+    function paymentType() external view returns (bytes32);
 
     /// @dev Gets mech token Id (service Id).
     /// @return serviceId Service Id.

@@ -64,7 +64,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             revert ZeroValue();
         }
 
-        bytes memory initParams = abi.encode(_serviceRegistry, _serviceId);
         (, address multisig, , , , , IServiceRegistry.ServiceState state) =
             IServiceRegistry(_serviceRegistry).mapServices(_serviceId);
 
@@ -77,6 +76,9 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         if (state != IServiceRegistry.ServiceState.Deployed) {
             revert WrongServiceState(uint256(state), _serviceId);
         }
+
+        // Define initial parameters and set up a mech
+        bytes memory initParams = abi.encode(_serviceRegistry, _serviceId);
         setUp(initParams);
 
         mechMarketplace = _mechMarketplace;
@@ -110,6 +112,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
             // Previous element will be zero, next element will be the current next element
             bytes32 curNextRequestIdLink = requestIdLinks[1];
+            // Note that newRequestIdLinks[0] is 0 by default as pointing to the sentinel node
             newRequestIdLinks[1] = curNextRequestIdLink;
             // Next element of the zero element will be the newly created element
             requestIdLinks[1] = requestId;
