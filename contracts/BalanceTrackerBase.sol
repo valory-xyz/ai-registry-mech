@@ -315,6 +315,11 @@ abstract contract BalanceTrackerBase {
             totalMechDeliveryRate += mechDeliveryRates[i];
         }
 
+        // Check for zero value
+        if (totalMechDeliveryRate == 0) {
+            revert ZeroValue();
+        }
+
         // Get requester balance
         uint256 requesterBalance = mapRequesterBalances[requester];
         // Adjust requester balance
