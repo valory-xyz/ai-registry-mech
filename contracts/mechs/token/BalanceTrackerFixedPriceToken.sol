@@ -85,7 +85,7 @@ contract BalanceTrackerFixedPriceToken is BalanceTrackerBase {
         // Transfer tokens
         IToken(token).transfer(account, amount);
 
-        emit Withdraw(msg.sender, token, amount);
+        emit Withdraw(account, token, amount);
     }
 
     /// @dev Deposits token funds for requester.

@@ -16,10 +16,6 @@ interface IErrorsMech {
     /// @param marketplace Required marketplace address.
     error MarketplaceOnly(address sender, address marketplace);
 
-    /// @dev Request Id not found.
-    /// @param requestId Request Id.
-    error RequestIdNotFound(bytes32 requestId);
-
     /// @dev Value overflow.
     /// @param provided Overflow value.
     /// @param max Maximum possible value.

@@ -18,7 +18,7 @@ interface IBalanceTracker {
     /// @param mechDeliveryRates Corresponding set of actual charged delivery rates for each request.
     /// @param requesterDeliveryRates Corresponding set of requester agreed delivery rates for each request.
     function finalizeDeliveryRates(address mech, address[] calldata requesters, bool[] calldata deliveredRequests,
-        uint256[] memory mechDeliveryRates, uint256[] calldata requesterDeliveryRates) external;
+        uint256[] calldata mechDeliveryRates, uint256[] calldata requesterDeliveryRates) external;
 
     /// @dev Adjusts mech and requester balances for direct batch request processing.
     /// @param mech Mech address.

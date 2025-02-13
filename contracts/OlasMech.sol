@@ -18,9 +18,13 @@ struct DeliverWithSignature {
 }
 
 /// @dev A Mech that is operated by the multisig of an Olas service
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
-    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, bytes data);
+    event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, uint256 deliveryRate,
+        bytes data);
     event Request(address indexed mech, bytes32 requestId, bytes data);
     event RevokeRequest(bytes32 requestId);
     event NumRequestsIncrease(uint256 numRequests);
@@ -29,6 +33,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
     string public constant VERSION = "1.0.0";
     // Mech marketplace address
     address public immutable mechMarketplace;
+    // Service Registry address
+    address public immutable serviceRegistry;
+    // Service Id
+    uint256 public immutable serviceId;
     // Mech payment type
     bytes32 public immutable paymentType;
 
@@ -92,6 +100,8 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         setUp(initParams);
 
         mechMarketplace = _mechMarketplace;
+        serviceRegistry = _serviceRegistry;
+        serviceId = _serviceId;
         maxDeliveryRate = _maxDeliveryRate;
         paymentType = _paymentType;
     }
@@ -260,7 +270,7 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         for (uint256 i = 0; i < numRequests; ++i) {
             if (deliveredRequests[i]) {
                 numDeliveries++;
-                emit Deliver(address(this), msg.sender, requestIds[i], deliveryDatas[i]);
+                emit Deliver(address(this), msg.sender, requestIds[i], deliveryRates[i], deliveryDatas[i]);
             } else {
                 emit RevokeRequest(requestIds[i]);
             }
@@ -298,24 +308,19 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
 
     /// @dev Gets mech token (service registry) address.
     /// @return serviceRegistry Service registry address.
-    function token() external view returns (address serviceRegistry) {
-        // Get service registry
-        serviceRegistry = abi.decode(readImmutable(), (address));
+    function token() external view returns (address ) {
+        return serviceRegistry;
     }
 
     /// @dev Gets mech token Id (service Id).
     /// @return serviceId Service Id.
-    function tokenId() external view returns (uint256 serviceId) {
-        // Get service Id
-        (, serviceId) = abi.decode(readImmutable(), (address, uint256));
+    function tokenId() external view returns (uint256) {
+        return serviceId;
     }
 
     /// @dev Gets mech operator (service multisig).
     /// @return Service multisig address.
     function getOperator() public view returns (address) {
-        // Get service registry and service Id
-        (address serviceRegistry, uint256 serviceId) = abi.decode(readImmutable(), (address, uint256));
-
         (, address multisig, , , , , IServiceRegistry.ServiceState state) =
             IServiceRegistry(serviceRegistry).mapServices(serviceId);
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerBase, ZeroAddress, InsufficientBalance, TransferFailed} from "../../BalanceTrackerBase.sol";
+import {BalanceTrackerBase, ZeroAddress, TransferFailed} from "../../BalanceTrackerBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
 interface IToken {
@@ -76,7 +76,7 @@ contract BalanceTrackerFixedPriceNative is BalanceTrackerBase {
             revert TransferFailed(address(0), address(this), account, amount);
         }
 
-        emit Withdraw(msg.sender, address(0), amount);
+        emit Withdraw(account, address(0), amount);
     }
 
     /// @dev Wraps native token.

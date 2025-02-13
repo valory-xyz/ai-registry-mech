@@ -45,7 +45,7 @@ contract Karma {
     mapping(address => mapping(address => int256)) public mapRequesterMechKarma;
 
     /// @dev Karma initializer.
-    function initialize() external{
+    function initialize() external {
         if (owner != address(0)) {
             revert AlreadyInitialized();
         }
@@ -146,14 +146,5 @@ contract Karma {
         mapRequesterMechKarma[requester][mech] += karmaChange;
 
         emit RequesterMechKarmaChanged(requester, mech, karmaChange);
-    }
-
-    /// @dev Gets the implementation address.
-    /// @return implementation Implementation address.
-    function getImplementation() external view returns (address implementation) {
-        // solhint-disable-next-line avoid-low-level-calls
-        assembly {
-            implementation := sload(KARMA_PROXY)
-        }
     }
 }
