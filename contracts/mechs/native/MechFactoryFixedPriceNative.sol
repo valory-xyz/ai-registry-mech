@@ -22,7 +22,7 @@ contract MechFactoryFixedPriceNative is MechFactoryBase {
     function createMech(
         address serviceRegistry,
         uint256 serviceId,
-        bytes memory payload
+        bytes calldata payload
     ) external returns (address mech) {
         uint256 maxDeliveryRate;
         // Create mech

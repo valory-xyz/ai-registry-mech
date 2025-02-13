@@ -228,10 +228,10 @@ abstract contract BalanceTrackerBase {
     /// @param requesterDeliveryRates Corresponding set of requester agreed delivery rates for each request.
     function finalizeDeliveryRates(
         address mech,
-        address[] memory requesters,
-        bool[] memory deliveredRequests,
-        uint256[] memory mechDeliveryRates,
-        uint256[] memory requesterDeliveryRates
+        address[] calldata requesters,
+        bool[] calldata deliveredRequests,
+        uint256[] calldata mechDeliveryRates,
+        uint256[] calldata requesterDeliveryRates
     ) external virtual {
         // Reentrancy guard
         if (_locked == 2) {
@@ -244,29 +244,24 @@ abstract contract BalanceTrackerBase {
             revert MarketplaceOnly(msg.sender, mechMarketplace);
         }
 
-        uint256 numRequests = deliveredRequests.length;
-        uint256 balance;
-
         // Get total mech and requester delivery rates
         uint256 totalMechDeliveryRate;
         uint256 totalRequesterDeliveryRate;
         uint256 totalRateDiff;
-        for (uint256 i = 0; i < numRequests; ++i) {
+        for (uint256 i = 0; i < deliveredRequests.length; ++i) {
             // Check if request was delivered
             if (deliveredRequests[i]) {
                 totalMechDeliveryRate += mechDeliveryRates[i];
                 totalRequesterDeliveryRate += requesterDeliveryRates[i];
 
                 // Check for delivery rate difference
-                uint256 rateDiff;
                 if (requesterDeliveryRates[i] > mechDeliveryRates[i]) {
                     // Return back requester overpayment debit / credit
-                    rateDiff = requesterDeliveryRates[i] - mechDeliveryRates[i];
+                    uint256 rateDiff = requesterDeliveryRates[i] - mechDeliveryRates[i];
                     totalRateDiff += rateDiff;
 
                     // Adjust requester balance
-                    balance = _adjustFinalBalance(requesters[i], rateDiff);
-                    mapRequesterBalances[requesters[i]] = balance;
+                    mapRequesterBalances[requesters[i]] = _adjustFinalBalance(requesters[i], rateDiff);
                 }
             }
         }
@@ -277,11 +272,11 @@ abstract contract BalanceTrackerBase {
         }
 
         // Record payment into mech balance
-        balance = mapMechBalances[mech];
-        balance += totalMechDeliveryRate;
-        mapMechBalances[mech] = balance;
+        uint256 mechBalance = mapMechBalances[mech];
+        mechBalance += totalMechDeliveryRate;
+        mapMechBalances[mech] += totalMechDeliveryRate;
 
-        emit MechBalanceAdjusted(mech, totalMechDeliveryRate, balance, totalRateDiff);
+        emit MechBalanceAdjusted(mech, totalMechDeliveryRate, mechBalance, totalRateDiff);
 
         _locked = 1;
     }
@@ -295,7 +290,7 @@ abstract contract BalanceTrackerBase {
     function adjustMechRequesterBalances(
         address mech,
         address requester,
-        uint256[] memory mechDeliveryRates,
+        uint256[] calldata mechDeliveryRates,
         bytes memory paymentData
     ) external virtual {
         // Reentrancy guard

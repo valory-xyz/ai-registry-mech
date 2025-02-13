@@ -272,7 +272,7 @@ describe("MechFixedPriceNative", function () {
 
             // Try to deliver request not by the mech
             await expect(
-                mechMarketplace.deliverMarketplace([requestId], [0], [data])
+                mechMarketplace.deliverMarketplace([requestId], [0])
             ).to.be.reverted;
 
             // Deliver a request
@@ -428,7 +428,7 @@ describe("MechFixedPriceNative", function () {
                 deliveryMech.deliverToMarketplace([requestId], [data])
             ).to.be.revertedWithCustomError(mechMarketplace, "ZeroAddress");
             await expect(
-                mechMarketplace.deliverMarketplace([requestId], [0], [data])
+                mechMarketplace.deliverMarketplace([requestId], [0])
             ).to.be.reverted;
 
             // Get the non-existent request status
@@ -751,13 +751,24 @@ describe("MechFixedPriceNative", function () {
             // Try to deliver requests not in order
             let reverseDatas = Array.from(datas);
             reverseDatas = reverseDatas.reverse();
+
+            let deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: reverseDatas[i], signature: signatures[i], deliveryData: reverseDatas[i]});
+            }
+
             await expect(
-                priorityMech.deliverMarketplaceWithSignatures(deployer.address, reverseDatas, signatures, reverseDatas,
+                priorityMech.deliverMarketplaceWithSignatures(deployer.address, deliverWithSignatures,
                     deliveryRates, "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
 
+            deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: datas[i], signature: signatures[i], deliveryData: datas[i]});
+            }
+
             // Deliver requests
-            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, datas, signatures, datas,
+            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, deliverWithSignatures,
                 deliveryRates, "0x");
 
             // Check requests counts
@@ -796,13 +807,24 @@ describe("MechFixedPriceNative", function () {
             // Try to deliver requests not in order
             let reverseDatas = Array.from(datas);
             reverseDatas = reverseDatas.reverse();
+
+            let deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: reverseDatas[i], signature: signatures[i], deliveryData: reverseDatas[i]});
+            }
+
             await expect(
-                priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, reverseDatas, signatures,
-                    reverseDatas, deliveryRates, "0x")
+                priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, deliverWithSignatures,
+                    deliveryRates, "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
 
+            deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: datas[i], signature: signatures[i], deliveryData: datas[i]});
+            }
+
             // Deliver requests
-            await priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, datas, signatures, datas,
+            await priorityMech.deliverMarketplaceWithSignatures(mockOperatorContract.address, deliverWithSignatures,
                 deliveryRates, "0x");
         });
     });
