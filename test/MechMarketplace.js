@@ -252,6 +252,15 @@ describe("MechMarketplace", function () {
 
             // Create mock mech via the factory
             let mockServiceId = await mockMech.tokenId();
+
+            // Try to create a mech not by the corresponding service Id multisig
+            await expect(
+                mechMarketplace.create(mockServiceId, mockMechFactory.address, data)
+            ).to.be.revertedWithCustomError(mechMarketplace, "UnauthorizedAccount");
+
+            // Become owner of the mock service Id
+            await serviceRegistry.setServiceOwner(mockServiceId, deployer.address);
+
             let tx = await mechMarketplace.create(mockServiceId, mockMechFactory.address, data);
             let res = await tx.wait();
             // Get mech contract address from the event
@@ -273,7 +282,7 @@ describe("MechMarketplace", function () {
             await serviceRegistry.setServiceOwner(mockServiceId, mechMock.address);
 
             // Post a request
-            await mechMock.request(data, maxDeliveryRate, paymentTypeHash, mechServiceId, minResponseTimeout, "0x",
+            await mechMock.request(data, maxDeliveryRate, paymentTypeHash, priorityMech.address, minResponseTimeout, "0x",
                 {value: maxDeliveryRate});
 
             // Increase the time such that the request expires for a priority mech
