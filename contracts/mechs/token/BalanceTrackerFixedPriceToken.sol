@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import {BalanceTrackerBase, ZeroAddress} from "../../BalanceTrackerBase.sol";
 import {IMech} from "../../interfaces/IMech.sol";
 
+// IToken interface with ERC20 support
+// Note that if the safe version is needed, make sure to update this contract
 interface IToken {
     /// @dev Transfers the token amount.
     /// @param to Address to transfer to.
