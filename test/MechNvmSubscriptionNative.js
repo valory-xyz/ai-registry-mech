@@ -97,7 +97,7 @@ describe("MechNvmSubscriptionNative", function () {
         // Buy back burner are not relevant for now
         BalanceTrackerNvmSubscriptionNative = await ethers.getContractFactory("BalanceTrackerNvmSubscriptionNative");
         balanceTrackerNvmSubscriptionNative = await BalanceTrackerNvmSubscriptionNative.deploy(mechMarketplace.address,
-            deployer.address, weth.address, tokenCreditRatio);
+            deployer.address, weth.address);
         await balanceTrackerNvmSubscriptionNative.deployed();
 
         // Deploy mock NVM subscription
@@ -107,7 +107,8 @@ describe("MechNvmSubscriptionNative", function () {
         await mockNvmSubscriptionNative.deployed();
 
         // Set subscription contract address
-        await balanceTrackerNvmSubscriptionNative.setSubscription(mockNvmSubscriptionNative.address, subscriptionId);
+        await balanceTrackerNvmSubscriptionNative.setSubscription(mockNvmSubscriptionNative.address, subscriptionId,
+            tokenCreditRatio);
 
         // Whitelist balance tracker
         paymentType = await priorityMech.paymentType();
@@ -116,29 +117,29 @@ describe("MechNvmSubscriptionNative", function () {
 
     context("Initialization", async function () {
         it("Checking for arguments passed to the constructor and subscription setting", async function () {
-            // Zero credits token ratio
-            await expect(
-                BalanceTrackerNvmSubscriptionNative.deploy(deployer.address, deployer.address, deployer.address, 0)
-            ).to.be.revertedWithCustomError(BalanceTrackerNvmSubscriptionNative, "ZeroValue");
-
             // Subscription already set
             await expect(
-                balanceTrackerNvmSubscriptionNative.setSubscription(deployer.address, deployer.address)
+                balanceTrackerNvmSubscriptionNative.setSubscription(AddressZero, AddressZero, 0)
             ).to.be.revertedWithCustomError(BalanceTrackerNvmSubscriptionNative, "OwnerOnly");
 
             // Deploy another balance tracker contract
             const balanceTrackerNvmSubscriptionNativeTest = await BalanceTrackerNvmSubscriptionNative.deploy(mechMarketplace.address,
-                deployer.address, weth.address, tokenCreditRatio);
+                deployer.address, weth.address);
             await balanceTrackerNvmSubscriptionNativeTest.deployed();
 
             // Zero subscription address
             await expect(
-                balanceTrackerNvmSubscriptionNativeTest.setSubscription(AddressZero, 0)
+                balanceTrackerNvmSubscriptionNativeTest.setSubscription(AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(BalanceTrackerNvmSubscriptionNative, "ZeroAddress");
 
             // Zero subscription token Id
             await expect(
-                balanceTrackerNvmSubscriptionNativeTest.setSubscription(deployer.address, 0)
+                balanceTrackerNvmSubscriptionNativeTest.setSubscription(deployer.address, 0, 0)
+            ).to.be.revertedWithCustomError(BalanceTrackerNvmSubscriptionNative, "ZeroValue");
+
+            // Zero tokenCreditRatio
+            await expect(
+                balanceTrackerNvmSubscriptionNativeTest.setSubscription(deployer.address, subscriptionId, 0)
             ).to.be.revertedWithCustomError(BalanceTrackerNvmSubscriptionNative, "ZeroValue");
         });
     });

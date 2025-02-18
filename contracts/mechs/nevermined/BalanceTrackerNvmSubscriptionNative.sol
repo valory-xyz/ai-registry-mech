@@ -37,14 +37,13 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
     event SubscriptionSet(address indexed token, uint256 indexed tokenId);
     event RequesterCreditsRedeemed(address indexed account, uint256 amount);
 
-    // Credit to token ratio in 1e18 form
-    // N credits for M tokens, tokenCreditRatio = M * 10^18 / N
-    uint256 public immutable tokenCreditRatio;
-
     // Subscription NFT
     address public subscriptionNFT;
     // Subscription token Id
     uint256 public subscriptionTokenId;
+    // Credit to token ratio in 1e18 form
+    // N credits for M tokens, tokenCreditRatio = M * 10^18 / N
+    uint256 public tokenCreditRatio;
 
     // Current contract balance
     uint256 public trackerBalance;
@@ -55,15 +54,9 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
     /// @param _mechMarketplace Mech marketplace address.
     /// @param _drainer Drainer address.
     /// @param _wrappedNativeToken Wrapped native token address.
-    /// @param _tokenCreditRatio Token to credit ratio in 1e18 form.
-    constructor(address _mechMarketplace, address _drainer, address _wrappedNativeToken, uint256 _tokenCreditRatio)
+    constructor(address _mechMarketplace, address _drainer, address _wrappedNativeToken)
         BalanceTrackerFixedPriceNative(_mechMarketplace, _drainer, _wrappedNativeToken)
     {
-        if (_tokenCreditRatio == 0) {
-            revert ZeroValue();
-        }
-
-        tokenCreditRatio = _tokenCreditRatio;
         owner = msg.sender;
     }
 
@@ -139,7 +132,8 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
     /// @dev Sets subscription.
     /// @param _subscriptionNFT Subscription NFT address.
     /// @param _subscriptionTokenId Subscription token Id.
-    function setSubscription(address _subscriptionNFT, uint256 _subscriptionTokenId) external {
+    /// @param _tokenCreditRatio Token to credit ratio in 1e18 form.
+    function setSubscription(address _subscriptionNFT, uint256 _subscriptionTokenId, uint256 _tokenCreditRatio) external {
         // Check for ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -149,12 +143,13 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
             revert ZeroAddress();
         }
 
-        if (_subscriptionTokenId == 0) {
+        if (_subscriptionTokenId == 0 || _tokenCreditRatio == 0) {
             revert ZeroValue();
         }
 
         subscriptionNFT = _subscriptionNFT;
         subscriptionTokenId = _subscriptionTokenId;
+        tokenCreditRatio = _tokenCreditRatio;
 
         // Reset owner after setting subscription params
         owner = address(0);

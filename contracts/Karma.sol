@@ -77,7 +77,7 @@ contract Karma {
 
     /// @dev Changes contract owner address.
     /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
+    function changeOwner(address newOwner) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);

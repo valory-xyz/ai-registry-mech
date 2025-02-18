@@ -548,14 +548,20 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     /// @dev Registers service as a mech.
+    /// @notice Mech is created by corresponding service owner or service multisig.
     /// @param serviceId Service id.
     /// @param mechFactory Mech factory address.
     /// @return mech The created mech instance address.
     function create(uint256 serviceId, address mechFactory, bytes memory payload) external returns (address mech) {
-        // Check for msg.sender to be a serviceId multisig
-        (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
-        if (msg.sender != multisig) {
-            revert UnauthorizedAccount(msg.sender);
+        // Get service owner address
+        address serviceOwner = IServiceRegistry(serviceRegistry).ownerOf(serviceId);
+        // Check for msg.sender to be a service owner
+        if (msg.sender != serviceOwner) {
+            // Check for msg.sender to be a serviceId multisig
+            (, address multisig, , , , , ) = IServiceRegistry(serviceRegistry).mapServices(serviceId);
+            if (msg.sender != multisig) {
+                revert UnauthorizedAccount(msg.sender);
+            }
         }
 
         // Check for factory status
