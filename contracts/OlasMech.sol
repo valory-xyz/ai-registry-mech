@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import {IErrorsMech} from "./interfaces/IErrorsMech.sol";
-import {ImmutableStorage} from "../lib/gnosis-mech/contracts/base/ImmutableStorage.sol";
 import {IMechMarketplace} from "./interfaces/IMechMarketplace.sol";
 import {IServiceRegistry} from "./interfaces/IServiceRegistry.sol";
 import {Mech} from "../lib/gnosis-mech/contracts/base/Mech.sol";
@@ -21,7 +20,7 @@ struct DeliverWithSignature {
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
+abstract contract OlasMech is Mech, IErrorsMech {
     event MaxDeliveryRateUpdated(uint256 maxDeliveryRate);
     event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, uint256 deliveryRate,
         bytes data);
@@ -94,10 +93,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
         if (state != IServiceRegistry.ServiceState.Deployed) {
             revert WrongServiceState(uint256(state), _serviceId);
         }
-
-        // Define initial parameters and set up a mech
-        bytes memory initParams = abi.encode(_serviceRegistry, _serviceId);
-        setUp(initParams);
 
         mechMarketplace = _mechMarketplace;
         serviceRegistry = _serviceRegistry;
@@ -297,15 +292,6 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
             deliveryRates, paymentData);
     }
 
-    /// @dev Sets up a mech.
-    /// @param initParams Mech initial parameters.
-    function setUp(bytes memory initParams) public override {
-        if (readImmutable().length != 0) {
-            revert AlreadyInitialized();
-        }
-        writeImmutable(initParams);
-    }
-
     /// @dev Gets mech token (service registry) address.
     /// @return serviceRegistry Service registry address.
     function token() external view returns (address ) {
@@ -375,5 +361,10 @@ abstract contract OlasMech is Mech, IErrorsMech, ImmutableStorage {
                 curRequestId = mapRequestIds[curRequestId][1];
             }
         }
+    }
+
+    /// @dev Mech compatibility setUp function.
+    function setUp(bytes memory) public pure override {
+        revert AlreadyInitialized();
     }
 }
