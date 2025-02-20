@@ -173,6 +173,18 @@ async function checkBalanceTracker(chainId, provider, globalsInstance, configCon
     const drainer = await balanceTracker.drainer();
     customExpect(drainer, globalsInstance["drainerAddress"], log + ", function: drainer()");
 
+    // Additionally check fixed native token
+    if (contractName === "BalanceTrackerFixedPriceNative") {
+        const wrappedNativeToken = await balanceTracker.wrappedNativeToken();
+        customExpect(wrappedNativeToken, globalsInstance["wrappedNativeTokenAddress"], log + ", function: wrappedNativeToken()");
+    }
+
+    // Additionally check fixed token
+    if (contractName === "BalanceTrackerFixedPriceToken") {
+        const token = await balanceTracker.token();
+        customExpect(token, globalsInstance["olasAddress"], log + ", function: token()");
+    }
+
     // Additionally check NVM subscription
     if (contractName === "BalanceTrackerNvmSubscriptionNative") {
         const subscriptionNFT = await balanceTracker.subscriptionNFT();
@@ -180,6 +192,9 @@ async function checkBalanceTracker(chainId, provider, globalsInstance, configCon
 
         const subscriptionTokenId = await balanceTracker.subscriptionTokenId();
         customExpect(subscriptionTokenId.toString(), ethers.BigNumber.from(globalsInstance["subscriptionTokenId"]).toString(), log + ", function: subscriptionTokenId()");
+
+        const tokenCreditRatio = await balanceTracker.tokenCreditRatio();
+        customExpect(tokenCreditRatio.toString(), ethers.BigNumber.from(globalsInstance["tokenCreditRatio"]).toString(), log + ", function: tokenCreditRatio()");
     }
 }
 
@@ -229,8 +244,8 @@ async function main() {
     // ################################# VERIFY CONTRACTS SETUP #################################
     if (verifySetup) {
         const globalNames = {
-            "gnosis": "scripts/deployment/globals_gnosis_mainnet_test.json",
-            "base": "scripts/deployment/globals_base_mainnet_test.json"
+            "gnosis": "scripts/deployment/globals_gnosis_mainnet.json",
+            "base": "scripts/deployment/globals_base_mainnet.json"
         };
 
         const providerLinks = {
