@@ -46,7 +46,7 @@
       {
         "name": "BalanceTrackerFixedPriceToken",
         "artifact": "abis/0.8.28/BalanceTrackerFixedPriceToken.json",
-        "address": ""
+        "address": "0x53Bd432516707a5212A70216284a99A563aAC1D1"
       },
       {
         "name": "BalanceTrackerNvmSubscriptionNative",
