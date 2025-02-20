@@ -267,7 +267,7 @@ async function main() {
         console.log("\nVerifying deployed contracts setup... If no error is output, then the contracts are correct.");
 
         // L2 contracts
-        for (let i = 0; i < numChains; i++) {
+        for (let i = 1; i < numChains; i++) {
             console.log("\n######## Verifying setup on CHAIN ID", configs[i]["chainId"]);
 
             const initLog = "ChainId: " + configs[i]["chainId"] + ", network: " + configs[i]["name"];

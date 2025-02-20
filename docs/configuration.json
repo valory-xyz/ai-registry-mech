@@ -62,52 +62,52 @@
       {
         "name": "Karma",
         "artifact": "abis/0.8.28/Karma.json",
-        "address": "0x94676070018ff7D09BC32DAc6bb01Ae67282b8E8"
+        "address": "0x1f84F8F70dE0651C2d51Bf8850FE9D0289Ba3B3A"
       },
       {
         "name": "KarmaProxy",
         "artifact": "abis/0.8.28/KarmaProxy.json",
-        "address": "0x6f7661F52fE1919996d0A4F68D09B344093a349d"
+        "address": "0x7F69B6783855772d10A4bc2AFAaE650599F040DB"
       },
       {
         "name": "MechMarketplace",
         "artifact": "abis/0.8.28/MechMarketplace.json",
-        "address": "0xd6AA4Ec948d84f6Db8EEf25104CeE0Ecd280C74e"
+        "address": "0x0e998DaAedaCD59ba2F65558a29417b69f05D972"
       },
       {
         "name": "MechMarketplaceProxy",
         "artifact": "abis/0.8.28/MechMarketplaceProxy.json",
-        "address": "0x95dA0F8C3eC5D40209f0EF1ED5E61deD28307d8d"
+        "address": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020"
       },
       {
         "name": "MechFactoryFixedPriceNative",
         "artifact": "abis/0.8.28/MechFactoryFixedPriceNative.json",
-        "address": "0x0338893fB1A1D9Df03F72CC53D8f786487d3D03E"
+        "address": "0x2E008211f34b25A7d7c102403c6C2C3B665a1abe"
       },
       {
         "name": "MechFactoryFixedPriceToken",
         "artifact": "abis/0.8.28/MechFactoryFixedPriceToken.json",
-        "address": "0x1d333b46dB6e8FFd271b6C2D2B254868BD9A2dbd"
+        "address": "0x97371B1C0cDA1D04dFc43DFb50a04645b7Bc9BEe"
       },
       {
         "name": "MechFactoryNvmSubscriptionNative",
         "artifact": "abis/0.8.28/MechFactoryNvmSubscriptionNative.json",
-        "address": "0x4cEB52802ef86edF8796632546d89e55c87a0901"
+        "address": "0x847bBE8b474e0820215f818858e23F5f5591855A"
       },
       {
         "name": "BalanceTrackerFixedPriceNative",
         "artifact": "abis/0.8.28/BalanceTrackerFixedPriceNative.json",
-        "address": "0x6d9b08701Af43D68D991c074A27E4d90Af7f2276"
+        "address": "0xB3921F8D8215603f0Bd521341Ac45eA8f2d274c1"
       },
       {
         "name": "BalanceTrackerFixedPriceToken",
         "artifact": "abis/0.8.28/BalanceTrackerFixedPriceToken.json",
-        "address": "0x3c3007a2e4ba7f73C764F69f6D6C1983D9EB6B26"
+        "address": "0x43fB32f25dce34EB76c78C7A42C8F40F84BCD237"
       },
       {
         "name": "BalanceTrackerNvmSubscriptionNative",
         "artifact": "abis/0.8.28/BalanceTrackerNvmSubscriptionNative.json",
-        "address": "0xaC26774616bbeD41b0CB69EA2ae7de366F430b23"
+        "address": "0x3d79737f05966c5925a04d1b04110006F5a072bE"
       }
     ]
   },
