@@ -245,7 +245,7 @@ async function main() {
     if (verifySetup) {
         const globalNames = {
             "gnosis": "scripts/deployment/globals_gnosis_mainnet.json",
-            "base": "scripts/deployment/globals_base_mainnet_test.json"
+            "base": "scripts/deployment/globals_base_mainnet.json"
         };
 
         const providerLinks = {
