@@ -14,7 +14,7 @@ const main = async () => {
     console.log("Deployer:", deployer.address);
 
     // Get requester balances
-    const accounts = ["", ""];
+    const accounts = [""];
     const subscription = await ethers.getContractAt("MockNvmSubscriptionNative", parsedData.subscriptionNFTAddress);
     for (let i = 0; i < accounts.length; i++) {
         const subscriptionBalance = await subscription.balanceOf(accounts[i], parsedData.subscriptionTokenId);
