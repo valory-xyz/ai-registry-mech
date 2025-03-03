@@ -18,6 +18,14 @@ interface IERC1155 {
     function burn(address account, uint256 tokenId, uint256 amount) external;
 }
 
+// IERC20 interface
+interface IERC20 {
+    /// @dev Gets the amount of tokens owned by a specified account.
+    /// @param account Account address.
+    /// @return Amount of tokens owned.
+    function balanceOf(address account) external view returns (uint256);
+}
+
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
 /// @param owner Required sender address as an owner.
@@ -41,8 +49,6 @@ contract BalanceTrackerNvmSubscriptionToken is BalanceTrackerFixedPriceToken {
     // N credits for M tokens, tokenCreditRatio = M * 10^18 / N
     uint256 public tokenCreditRatio;
 
-    // Current contract balance
-    uint256 public trackerBalance;
     // Temporary owner address
     address public owner;
 
@@ -111,6 +117,7 @@ contract BalanceTrackerNvmSubscriptionToken is BalanceTrackerFixedPriceToken {
         mapMechBalances[mech] = balance;
 
         // Check current contract balance
+        uint256 trackerBalance = IERC20(token).balanceOf(address(this));
         if (balance > trackerBalance) {
             revert Overflow(balance, trackerBalance);
         }
