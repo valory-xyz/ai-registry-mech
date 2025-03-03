@@ -1,5 +1,4 @@
 /* global process */
-const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 // This works on a fork only!
