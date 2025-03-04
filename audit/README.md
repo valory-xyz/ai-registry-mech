@@ -8,6 +8,7 @@ An internal audit with a focus on updated marketplace contracts is located in th
 An internal audit with a focus on re-design marketplace contracts is located in this folder: [internal audit 3](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits/internal3). <br>
 An internal audit with a focus on latest re-design marketplace contracts is located in this folder: [internal audit 4](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits/internal4). <br>
 An internal audit with a focus on latest re-design ref:nmv marketplace contracts is located in this folder: [internal audit 5](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits/internal5). <br>
+An internal audit with a focus on token-usdc ref:nmv marketplace contracts is located in this folder: [internal audit 6](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits/internal6). <br>
 
 
 ### External audits
