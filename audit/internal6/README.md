@@ -37,7 +37,7 @@ Does different decimals in ERC20 affect it somehow? I don't think so, and everyt
             revert Overflow(balance, trackerBalance);
         }
 ```
-[]
+[x] Discussed, not an issue
 
 
 
