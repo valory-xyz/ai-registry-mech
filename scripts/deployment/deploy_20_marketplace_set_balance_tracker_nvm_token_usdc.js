@@ -46,7 +46,7 @@ async function main() {
     const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
 
     // Transaction signing and execution
-    console.log("19. EOA to set Balance tracker NVM subscription token USDC");
+    console.log("20. EOA to set Balance tracker NVM subscription token USDC");
     console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const result = await mechMarketplace.connect(EOA).setPaymentTypeBalanceTrackers(

@@ -12,10 +12,8 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const balanceTrackerNvmSubscriptionTokenAddress = parsedData.balanceTrackerNvmSubscriptionTokenAddress;
-    const subscriptionNFTAddress = parsedData.subscriptionNFTAddress;
-    const subscriptionTokenIdUSDC = parsedData.subscriptionTokenIdUSDC;
-    const tokenCreditRatio = parsedData.tokenCreditRatio;
+    const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
+    const mechFactoryNvmSubscriptionTokenUSDCAddress = parsedData.mechFactoryNvmSubscriptionTokenUSDCAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -45,18 +43,19 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get the contract instance
-    const balanceTrackerNvmSubscription = await ethers.getContractAt("BalanceTrackerNvmSubscriptionNative", balanceTrackerNvmSubscriptionTokenAddress);
+    const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
 
     // Transaction signing and execution
-    console.log("14. EOA to set Balance trackers NVM subscription");
-    console.log("You are signing the following transaction: BalanceTrackerNvmSubscriptionNative.connect(EOA).setSubscription()");
+    console.log("19. EOA to set Mech factories");
+    console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await balanceTrackerNvmSubscription.connect(EOA).setSubscription(subscriptionNFTAddress,
-        subscriptionTokenIdUSDC, tokenCreditRatio, { gasPrice });
+    const result = await mechMarketplace.connect(EOA).setMechFactoryStatuses(
+        [mechFactoryNvmSubscriptionTokenUSDCAddress], [true], { gasPrice }
+    );
 
     // Transaction details
-    console.log("Contract deployment: BalanceTrackerNvmSubscriptionNative");
-    console.log("Contract address:", balanceTrackerNvmSubscription.address);
+    console.log("Contract deployment: MechMarketplaceProxy");
+    console.log("Contract address:", mechMarketplace.address);
     console.log("Transaction:", result.hash);
 }
 
