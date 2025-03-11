@@ -1,4 +1,4 @@
-/*global process*/
+/*global process, hre*/
 
 const { ethers } = require("hardhat");
 const { LedgerSigner } = require("@anders-t/ethers-ledger");
