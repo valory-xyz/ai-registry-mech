@@ -73,8 +73,10 @@ async function main() {
 
     // Contract verification
     if (parsedData.contractVerification) {
-        const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/verify_04_mech_marketplace_proxy.js --network " + providerName + " " + mechMarketplaceProxy.address, { encoding: "utf-8" });
+        await hre.run("verify:verify", {
+            address: mechMarketplaceProxy.address,
+            constructorArguments: [mechMarketplaceAddress, proxyPayload]
+        });
     }
 }
 
