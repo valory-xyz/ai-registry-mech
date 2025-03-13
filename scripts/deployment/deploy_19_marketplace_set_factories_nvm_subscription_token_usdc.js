@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const balanceTrackerNvmSubscriptionTokenAddress = parsedData.balanceTrackerNvmSubscriptionTokenAddress;
+    const mechFactoryNvmSubscriptionTokenUSDCAddress = parsedData.mechFactoryNvmSubscriptionTokenUSDCAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -46,13 +46,11 @@ async function main() {
     const mechMarketplace = await ethers.getContractAt("MechMarketplace", mechMarketplaceProxyAddress);
 
     // Transaction signing and execution
-    console.log("19. EOA to set Balance tracker NVM subscription token USDC");
+    console.log("19. EOA to set Mech factories");
     console.log("You are signing the following transaction: MechMarketplaceProxy.connect(EOA).setMechFactoryStatuses()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const result = await mechMarketplace.connect(EOA).setPaymentTypeBalanceTrackers(
-        ["0x0d6fd99afa9c4c580fab5e341922c2a5c4b61d880da60506193d7bf88944dd14"],
-        [balanceTrackerNvmSubscriptionTokenAddress],
-        { gasPrice }
+    const result = await mechMarketplace.connect(EOA).setMechFactoryStatuses(
+        [mechFactoryNvmSubscriptionTokenUSDCAddress], [true], { gasPrice }
     );
 
     // Transaction details

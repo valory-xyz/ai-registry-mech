@@ -1,4 +1,4 @@
-/*global process, hre*/
+/*global process*/
 
 const { ethers } = require("hardhat");
 const { LedgerSigner } = require("@anders-t/ethers-ledger");
@@ -12,8 +12,10 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const serviceRegistryAddress = parsedData.serviceRegistryAddress;
-    const karmaProxyAddress = parsedData.karmaProxyAddress;
+    const balanceTrackerNvmSubscriptionTokenAddress = parsedData.balanceTrackerNvmSubscriptionTokenAddress;
+    const subscriptionNFTAddress = parsedData.subscriptionNFTAddress;
+    const subscriptionTokenIdUSDC = parsedData.subscriptionTokenIdUSDC;
+    const tokenCreditRatio = parsedData.tokenCreditRatio;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -42,35 +44,20 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
+    // Get the contract instance
+    const balanceTrackerNvmSubscription = await ethers.getContractAt("BalanceTrackerNvmSubscriptionToken", balanceTrackerNvmSubscriptionTokenAddress);
+
     // Transaction signing and execution
-    console.log("3. EOA to deploy Mech Marketplace");
-    console.log("You are signing the following transaction: MechMarketplace.connect(EOA).deploy()");
+    console.log("21. EOA to set Balance trackers NVM subscription Token");
+    console.log("You are signing the following transaction: BalanceTrackerNvmSubscriptionToken.connect(EOA).setSubscription()");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const MechMarketplace = await ethers.getContractFactory("MechMarketplace");
-    const mechMarketplace = await MechMarketplace.connect(EOA).deploy(serviceRegistryAddress, karmaProxyAddress, { gasPrice });
-    // In case when gas calculation is not working correctly on Arbitrum
-    //const gasLimit = 60000000;
-    const result = await mechMarketplace.deployed();
+    const result = await balanceTrackerNvmSubscription.connect(EOA).setSubscription(subscriptionNFTAddress,
+        subscriptionTokenIdUSDC, tokenCreditRatio, { gasPrice });
 
     // Transaction details
-    console.log("Contract deployment: MechMarketplace");
-    console.log("Contract address:", mechMarketplace.address);
-    console.log("Transaction:", result.deployTransaction.hash);
-
-    // Wait for half a minute for the transaction completion
-    await new Promise(r => setTimeout(r, 30000));
-
-    // Writing updated parameters back to the JSON file
-    parsedData.mechMarketplaceAddress = mechMarketplace.address;
-    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
-
-    // Contract verification
-    if (parsedData.contractVerification) {
-        await hre.run("verify:verify", {
-            address: mechMarketplace.address,
-            constructorArguments: [serviceRegistryAddress, karmaProxyAddress]
-        });
-    }
+    console.log("Contract deployment: BalanceTrackerNvmSubscriptionToken");
+    console.log("Contract address:", balanceTrackerNvmSubscription.address);
+    console.log("Transaction:", result.hash);
 }
 
 main()
