@@ -68,4 +68,5 @@ cc8e19cb3e80831b83e808ce99c7663c829f4476:scripts/deployment/globals_base_mainnet
 fc12c6214c593ed2ae5f4ff4295bc4622e814872:scripts/deployment/globals_base_mainnet_test.json:generic-api-key:1
 4295cdafa5c3cf0649926c9ca0719cd626aa25e5:scripts/deployment/globals_base_mainnet.json:generic-api-key:1
 a7bc7a3c66de0813cc13b453d42f03c479ea3196:scripts/deployment/globals_base_mainnet.json:generic-api-key:1
+5e672c8ac2462a80c88c314f842ce30485789bf2:globals.json:generic-api-key:1
 
