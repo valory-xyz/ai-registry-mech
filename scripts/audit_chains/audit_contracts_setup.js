@@ -158,11 +158,15 @@ async function checkMechMarketplaceProxy(chainId, provider, globalsInstance, con
 
 // Check BalanceTracker: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkBalanceTracker(chainId, provider, globalsInstance, configContracts, contractName, log) {
-    // Check the bytecode
-    await checkBytecode(provider, configContracts, contractName, log);
-
     // Get the contract instance
     const balanceTracker = await findContractInstance(provider, configContracts, contractName);
+    // Check if the contract exists, since different networks might have different set of balance trackers
+    if (typeof balanceTracker === "undefined") {
+        return;
+    }
+
+    // Check the bytecode
+    await checkBytecode(provider, configContracts, contractName, log);
 
     log += ", address: " + balanceTracker.address;
     // Check mech marketplace
@@ -185,16 +189,34 @@ async function checkBalanceTracker(chainId, provider, globalsInstance, configCon
         customExpect(token, globalsInstance["olasAddress"], log + ", function: token()");
     }
 
-    // Additionally check NVM subscription
+    // Additionally check NVM subscription for native
     if (contractName === "BalanceTrackerNvmSubscriptionNative") {
         const subscriptionNFT = await balanceTracker.subscriptionNFT();
         customExpect(subscriptionNFT, globalsInstance["subscriptionNFTAddress"], log + ", function: subscriptionNFT()");
 
-        const subscriptionTokenId = await balanceTracker.subscriptionTokenId();
-        customExpect(subscriptionTokenId.toString(), ethers.BigNumber.from(globalsInstance["subscriptionTokenId"]).toString(), log + ", function: subscriptionTokenId()");
+        // Check if subscription exists
+        if (globalsInstance["subscriptionTokenId"] !== "") {
+            const subscriptionTokenId = await balanceTracker.subscriptionTokenId();
+            customExpect(subscriptionTokenId.toString(), ethers.BigNumber.from(globalsInstance["subscriptionTokenId"]).toString(), log + ", function: subscriptionTokenId()");
 
-        const tokenCreditRatio = await balanceTracker.tokenCreditRatio();
-        customExpect(tokenCreditRatio.toString(), ethers.BigNumber.from(globalsInstance["tokenCreditRatio"]).toString(), log + ", function: tokenCreditRatio()");
+            const tokenCreditRatio = await balanceTracker.tokenCreditRatio();
+            customExpect(tokenCreditRatio.toString(), ethers.BigNumber.from(globalsInstance["tokenCreditRatio"]).toString(), log + ", function: tokenCreditRatio()");
+        }
+    }
+
+    // Additionally check NVM subscription for tokens
+    if (contractName === "BalanceTrackerNvmSubscriptionToken") {
+        const subscriptionNFT = await balanceTracker.subscriptionNFT();
+        customExpect(subscriptionNFT, globalsInstance["subscriptionNFTAddress"], log + ", function: subscriptionNFT()");
+
+        // Different possible tokens
+        if (typeof globalsInstance["subscriptionTokenIdUSDC"] !== "undefined") {
+            const subscriptionTokenId = await balanceTracker.subscriptionTokenId();
+            customExpect(subscriptionTokenId.toString(), ethers.BigNumber.from(globalsInstance["subscriptionTokenIdUSDC"]).toString(), log + ", function: subscriptionTokenIdUSDC()");
+
+            const tokenCreditRatio = await balanceTracker.tokenCreditRatio();
+            customExpect(tokenCreditRatio.toString(), ethers.BigNumber.from(globalsInstance["tokenCreditRatio"]).toString(), log + ", function: tokenCreditRatio()");
+        }
     }
 }
 
@@ -286,6 +308,9 @@ async function main() {
 
             log = initLog + ", contract: " + "BalanceTrackerNvmSubscriptionNative";
             await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerNvmSubscriptionNative", log);
+
+            log = initLog + ", contract: " + "BalanceTrackerNvmSubscriptionToken";
+            await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerNvmSubscriptionToken", log);
         }
     }
     // ################################# /VERIFY CONTRACTS SETUP #################################

@@ -95,8 +95,8 @@
         "address": "0x847bBE8b474e0820215f818858e23F5f5591855A"
       },
       {
-        "name": "mechFactoryNvmSubscriptionTokenUSDCAddress",
-        "artifact": "abis/0.8.28/mechFactoryNvmSubscriptionTokenUSDCAddress.json",
+        "name": "mechFactoryNvmSubscriptionTokenUSDC",
+        "artifact": "abis/0.8.28/mechFactoryNvmSubscriptionTokenUSDC.json",
         "address": "0x7beD01f8482fF686F025628e7780ca6C1f0559fc"
       },
       {
@@ -115,8 +115,8 @@
         "address": "0x3d79737f05966c5925a04d1b04110006F5a072bE"
       },
       {
-        "name": "balanceTrackerNvmSubscriptionTokenAddress",
-        "artifact": "abis/0.8.28/balanceTrackerNvmSubscriptionTokenAddress.json",
+        "name": "BalanceTrackerNvmSubscriptionToken",
+        "artifact": "abis/0.8.28/balanceTrackerNvmSubscriptionToken.json",
         "address": "0xaaFBeef195BDAb1Bb6f3Dc9cEbA875Cd72499230" 
       }
     ]
