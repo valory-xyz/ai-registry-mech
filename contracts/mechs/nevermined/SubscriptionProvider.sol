@@ -47,6 +47,33 @@ interface NVM {
     )
     external
     returns (ConditionState);
+
+    /**
+     * @notice addDIDProvider add new DID provider.
+     *
+     * @dev it adds new DID provider to the providers list. A provider
+     *      is any entity that can serve the registered asset
+     * @param _did refers to decentralized identifier (a bytes32 length ID).
+     * @param _provider provider's address.
+     */
+    function addDIDProvider(
+        bytes32 _did,
+        address _provider
+    )
+    external;
+
+    /**
+     * @notice removeDIDProvider delete an existing DID provider.
+     * @param _did refers to decentralized identifier (a bytes32 length ID).
+     * @param _provider provider's address.
+     */
+    function removeDIDProvider(
+        bytes32 _did,
+        address _provider
+    )
+    external;
+
+    function transferOwnership(address newOwner) external;
 }
 
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
@@ -54,10 +81,12 @@ interface NVM {
 /// @param owner Required sender address as an owner.
 error OwnerOnly(address sender, address owner);
 
+/// @dev Provided zero address.
+error ZeroAddress();
+
 /// @title SubscriptionProvider - smart contract for subscription provider management
 contract SubscriptionProvider {
-    event SubscriptionSet(address indexed token, uint256 indexed tokenId);
-    event RequesterCreditsRedeemed(address indexed account, uint256 amount);
+    event OwnerUpdated(address indexed owner);
 
     // Subscription token Id
     uint256 public immutable subscriptionTokenId;
@@ -90,6 +119,23 @@ contract SubscriptionProvider {
         owner = msg.sender;
     }
 
+    /// @dev Changes contract owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
     function fulfillForDelegate(
         bytes32 _agreementId,
         bytes32 _did,
@@ -118,5 +164,32 @@ contract SubscriptionProvider {
     ) external returns (NVM.ConditionState) {
         return NVM(escrowPaymentCondition).fulfill(_agreementId, _did, _amounts, _receivers, _returnAddress,
             _lockCondition, _tokenAddress, _lockCondition, _releaseCondition);
+    }
+
+    function addDIDProvider(bytes32 _did, address _provider) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        NVM(didRegistry).addDIDProvider(_did, _provider);
+    }
+
+    function removeDIDProvider(bytes32 _did, address _provider) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        NVM(didRegistry).removeDIDProvider(_did, _provider);
+    }
+
+    function transferOwnership(address newOwner) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        NVM(didRegistry).transferOwnership(newOwner);
     }
 }
