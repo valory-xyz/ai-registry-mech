@@ -4,75 +4,41 @@ pragma solidity ^0.8.28;
 interface NVM {
     enum ConditionState { Uninitialized, Unfulfilled, Fulfilled, Aborted }
 
-    function fulfill(
-        bytes32 _agreementId,
-        bytes32 _did,
-        uint256[] memory _amounts,
-        address[] memory _receivers,
-        address _returnAddress,
-        address _lockPaymentAddress,
-        address _tokenAddress,
-        bytes32 _lockCondition,
-        bytes32 _releaseCondition
-    )
-    external
-    returns (ConditionState);
+    function fulfill(bytes32 _agreementId, bytes32 _did, uint256[] memory _amounts, address[] memory _receivers,
+        address _returnAddress, address _lockPaymentAddress, address _tokenAddress, bytes32 _lockCondition,
+        bytes32 _releaseCondition) external returns (ConditionState);
 
-    /**
-     * @notice fulfill the transfer NFT condition
-     * @dev Fulfill method transfer a certain amount of NFTs
-     *       to the _nftReceiver address in the DIDRegistry contract.
-     *       When true then fulfill the condition
-     * @param _agreementId agreement identifier
-     * @param _did refers to the DID in which secret store will issue the decryption keys
-     * @param _nftReceiver is the address of the account to receive the NFT
-     * @param _nftAmount amount of NFTs to transfer
-     * @param _lockPaymentCondition lock payment condition identifier
-     * @param _nftHolder is the address of the account to receive the NFT
-     * @param _nftContractAddress the address of the ERC-1155 NFT contract
-     * @param _transfer if yes it does a transfer if false it mints the NFT
-     * @param _expirationBlock Block in which the token expires. If zero means no expiration
-     * @return condition state (Fulfilled/Aborted)
-     */
-    function fulfillForDelegate(
-        bytes32 _agreementId,
-        bytes32 _did,
-        address _nftHolder,
-        address _nftReceiver,
-        uint256 _nftAmount,
-        bytes32 _lockPaymentCondition,
-        address _nftContractAddress,
-        bool _transfer,
-        uint256 _expirationBlock
-    )
-    external
-    returns (ConditionState);
+    /// @notice fulfill the transfer NFT condition
+    /// @dev Fulfill method transfer a certain amount of NFTs
+    ///       to the _nftReceiver address in the DIDRegistry contract.
+    ///       When true then fulfill the condition
+    /// @param _agreementId agreement identifier
+    /// @param _did refers to the DID in which secret store will issue the decryption keys
+    /// @param _nftReceiver is the address of the account to receive the NFT
+    /// @param _nftAmount amount of NFTs to transfer
+    /// @param _lockPaymentCondition lock payment condition identifier
+    /// @param _nftHolder is the address of the account to receive the NFT
+    /// @param _nftContractAddress the address of the ERC-1155 NFT contract
+    /// @param _transfer if yes it does a transfer if false it mints the NFT
+    /// @param _expirationBlock Block in which the token expires. If zero means no expiration
+    /// @return condition state (Fulfilled/Aborted)
+    function fulfillForDelegate(bytes32 _agreementId, bytes32 _did, address _nftHolder, address _nftReceiver,
+        uint256 _nftAmount, bytes32 _lockPaymentCondition, address _nftContractAddress, bool _transfer,
+        uint256 _expirationBlock) external returns (ConditionState);
 
-    /**
-     * @notice addDIDProvider add new DID provider.
-     *
-     * @dev it adds new DID provider to the providers list. A provider
-     *      is any entity that can serve the registered asset
-     * @param _did refers to decentralized identifier (a bytes32 length ID).
-     * @param _provider provider's address.
-     */
-    function addDIDProvider(
-        bytes32 _did,
-        address _provider
-    )
-    external;
+    /// @notice addDIDProvider add new DID provider.
+    /// @dev Adds new DID provider to the providers list. A provider is any entity that can serve the registered asset
+    /// @param _did refers to decentralized identifier (a bytes32 length ID).
+    /// @param _provider provider's address.
+    function addDIDProvider(bytes32 _did, address _provider) external;
 
-    /**
-     * @notice removeDIDProvider delete an existing DID provider.
-     * @param _did refers to decentralized identifier (a bytes32 length ID).
-     * @param _provider provider's address.
-     */
-    function removeDIDProvider(
-        bytes32 _did,
-        address _provider
-    )
-    external;
+    /// @notice removeDIDProvider delete an existing DID provider.
+    /// @param _did refers to decentralized identifier (a bytes32 length ID).
+    /// @param _provider provider's address.
+    function removeDIDProvider(bytes32 _did, address _provider) external;
 
+    /// @dev Transfers DID ownership.
+    /// @param newOwner New owner address.
     function transferOwnership(address newOwner) external;
 }
 
@@ -156,6 +122,11 @@ contract SubscriptionProvider {
         emit OwnerUpdated(newOwner);
     }
 
+    /// @dev Fulfills subscription NFT condition.
+    /// @param agreementId Agreement identifier.
+    /// @param did Refers to the DID in which secret store will issue the decryption keys.
+    /// @param fulfillParams Fulfill params.
+    /// @param fulfillForDelegateParams Fulfill for delegate params.
     function fulfill(
         bytes32 agreementId,
         bytes32 did,
