@@ -84,6 +84,26 @@ error OwnerOnly(address sender, address owner);
 /// @dev Provided zero address.
 error ZeroAddress();
 
+struct FulfillParams {
+    uint256[] amounts;
+    address[] receivers;
+    address returnAddress;
+    address lockPaymentAddress;
+    address tokenAddress;
+    bytes32 lockCondition;
+    bytes32 releaseCondition;
+}
+
+struct FulfillForDelegateParams {
+    address nftHolder;
+    address nftReceiver;
+    uint256 nftAmount;
+    bytes32 lockPaymentCondition;
+    address nftContractAddress;
+    bool transfer;
+    uint256 expirationBlock;
+}
+
 /// @title SubscriptionProvider - smart contract for subscription provider management
 contract SubscriptionProvider {
     event OwnerUpdated(address indexed owner);
@@ -136,52 +156,38 @@ contract SubscriptionProvider {
         emit OwnerUpdated(newOwner);
     }
 
-    function fulfillForDelegate(
-        bytes32 _agreementId,
-        bytes32 _did,
-        address _nftHolder,
-        address _nftReceiver,
-        uint256 _nftAmount,
-        bytes32 _lockPaymentCondition,
-        address _nftContractAddress,
-        bool _transfer,
-        uint256 _expirationBlock
-    ) external returns (NVM.ConditionState) {
-        return NVM(transferNFTCondition).fulfillForDelegate(_agreementId, _did, _nftHolder, _nftReceiver, _nftAmount,
-            _lockPaymentCondition, _nftContractAddress, _transfer, _expirationBlock);
-    }
-
     function fulfill(
-        bytes32 _agreementId,
-        bytes32 _did,
-        uint256[] memory _amounts,
-        address[] memory _receivers,
-        address _returnAddress,
-        address _lockPaymentAddress,
-        address _tokenAddress,
-        bytes32 _lockCondition,
-        bytes32 _releaseCondition
-    ) external returns (NVM.ConditionState) {
-        return NVM(escrowPaymentCondition).fulfill(_agreementId, _did, _amounts, _receivers, _returnAddress,
-            _lockCondition, _tokenAddress, _lockCondition, _releaseCondition);
+        bytes32 agreementId,
+        bytes32 did,
+        FulfillParams memory fulfillParams,
+        FulfillForDelegateParams memory fulfillForDelegateParams
+    ) external returns (NVM.ConditionState fulfillConditionState, NVM.ConditionState fulfillForDelegateConditionState) {
+        fulfillConditionState = NVM(escrowPaymentCondition).fulfill(agreementId, did, fulfillParams.amounts,
+            fulfillParams.receivers, fulfillParams.returnAddress, fulfillParams.lockPaymentAddress,
+            fulfillParams.tokenAddress, fulfillParams.lockCondition, fulfillParams.releaseCondition);
+
+        fulfillForDelegateConditionState = NVM(transferNFTCondition).fulfillForDelegate(agreementId, did,
+            fulfillForDelegateParams.nftHolder, fulfillForDelegateParams.nftReceiver, fulfillForDelegateParams.nftAmount,
+            fulfillForDelegateParams.lockPaymentCondition, fulfillForDelegateParams.nftContractAddress,
+            fulfillForDelegateParams.transfer, fulfillForDelegateParams.expirationBlock);
     }
 
-    function addDIDProvider(bytes32 _did, address _provider) external {
+    function addDIDProvider(bytes32 did, address provider) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        NVM(didRegistry).addDIDProvider(_did, _provider);
+        NVM(didRegistry).addDIDProvider(did, provider);
     }
 
-    function removeDIDProvider(bytes32 _did, address _provider) external {
+    function removeDIDProvider(bytes32 did, address provider) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        NVM(didRegistry).removeDIDProvider(_did, _provider);
+        NVM(didRegistry).removeDIDProvider(did, provider);
     }
 
     function transferOwnership(address newOwner) external {
