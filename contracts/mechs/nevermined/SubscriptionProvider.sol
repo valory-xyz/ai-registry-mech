@@ -143,6 +143,9 @@ contract SubscriptionProvider {
             fulfillForDelegateParams.transfer, fulfillForDelegateParams.expirationBlock);
     }
 
+    /// @dev Adds new DID provider.
+    /// @param did Refers to decentralized identifier (a bytes32 length ID).
+    /// @param provider Provider address.
     function addDIDProvider(bytes32 did, address provider) external {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -152,6 +155,9 @@ contract SubscriptionProvider {
         NVM(didRegistry).addDIDProvider(did, provider);
     }
 
+    /// @dev Removes DID provider.
+    /// @param did Refers to decentralized identifier (a bytes32 length ID).
+    /// @param provider Provider address.
     function removeDIDProvider(bytes32 did, address provider) external {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -161,6 +167,8 @@ contract SubscriptionProvider {
         NVM(didRegistry).removeDIDProvider(did, provider);
     }
 
+    /// @dev Transfers DID ownership.
+    /// @param newOwner New owner address.
     function transferOwnership(address newOwner) external {
         // Check for the ownership
         if (msg.sender != owner) {
