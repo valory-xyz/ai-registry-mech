@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 interface NVM {
     enum ConditionState { Uninitialized, Unfulfilled, Fulfilled, Aborted }
 
+    /// @notice Settles payment from escrow to target receivers via NVM escrowPaymentCondition contract.
     function fulfill(bytes32 _agreementId, bytes32 _did, uint256[] memory _amounts, address[] memory _receivers,
         address _returnAddress, address _lockPaymentAddress, address _tokenAddress, bytes32 _lockCondition,
         bytes32 _releaseCondition) external returns (ConditionState);
@@ -125,22 +126,22 @@ contract SubscriptionProvider {
     /// @dev Fulfills subscription NFT condition.
     /// @param agreementId Agreement identifier.
     /// @param did Refers to the DID in which secret store will issue the decryption keys.
-    /// @param fulfillParams Fulfill params.
     /// @param fulfillForDelegateParams Fulfill for delegate params.
+    /// @param fulfillParams Fulfill params.
     function fulfill(
         bytes32 agreementId,
         bytes32 did,
-        FulfillParams memory fulfillParams,
-        FulfillForDelegateParams memory fulfillForDelegateParams
-    ) external returns (NVM.ConditionState fulfillConditionState, NVM.ConditionState fulfillForDelegateConditionState) {
-        fulfillConditionState = NVM(escrowPaymentCondition).fulfill(agreementId, did, fulfillParams.amounts,
-            fulfillParams.receivers, fulfillParams.returnAddress, fulfillParams.lockPaymentAddress,
-            fulfillParams.tokenAddress, fulfillParams.lockCondition, fulfillParams.releaseCondition);
-
+        FulfillForDelegateParams memory fulfillForDelegateParams,
+        FulfillParams memory fulfillParams
+    ) external returns (NVM.ConditionState fulfillForDelegateConditionState, NVM.ConditionState fulfillConditionState) {
         fulfillForDelegateConditionState = NVM(transferNFTCondition).fulfillForDelegate(agreementId, did,
             fulfillForDelegateParams.nftHolder, fulfillForDelegateParams.nftReceiver, fulfillForDelegateParams.nftAmount,
             fulfillForDelegateParams.lockPaymentCondition, fulfillForDelegateParams.nftContractAddress,
             fulfillForDelegateParams.transfer, fulfillForDelegateParams.expirationBlock);
+
+        fulfillConditionState = NVM(escrowPaymentCondition).fulfill(agreementId, did, fulfillParams.amounts,
+            fulfillParams.receivers, fulfillParams.returnAddress, fulfillParams.lockPaymentAddress,
+            fulfillParams.tokenAddress, fulfillParams.lockCondition, fulfillParams.releaseCondition);
     }
 
     /// @dev Adds new DID provider.
