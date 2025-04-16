@@ -13,10 +13,10 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const subscriptionTokenId = parsedData.subscriptionTokenId;
-    const subscriptionNFT = parsedData.subscriptionNFT;
-    const didRegistry = parsedData.didRegistry;
-    const transferNFTCondition = parsedData.transferNFTCondition;
-    const escrowPaymentCondition = parsedData.escrowPaymentCondition;
+    const subscriptionNFTAddress = parsedData.subscriptionNFTAddress;
+    const didRegistryAddress = parsedData.didRegistryAddress;
+    const transferNFTConditionAddress = parsedData.transferNFTConditionAddress;
+    const escrowPaymentConditionAddress = parsedData.escrowPaymentConditionAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -51,7 +51,7 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const SubscriptionProvider = await ethers.getContractFactory("SubscriptionProvider");
     const subscriptionProvider = await SubscriptionProvider.connect(EOA).deploy(subscriptionTokenId,
-        subscriptionNFT, didRegistry, transferNFTCondition, escrowPaymentCondition, { gasPrice });
+        subscriptionNFTAddress, didRegistryAddress, transferNFTConditionAddress, escrowPaymentConditionAddress, { gasPrice });
     // In case when gas calculation is not working correctly on Arbitrum
     //const gasLimit = 60000000;
     const result = await subscriptionProvider.deployed();
@@ -72,7 +72,7 @@ async function main() {
     if (parsedData.contractVerification) {
         await hre.run("verify:verify", {
             address: subscriptionProvider.address,
-            constructorArguments: [subscriptionTokenId, subscriptionNFT, didRegistry, transferNFTCondition, escrowPaymentCondition]
+            constructorArguments: [subscriptionTokenId, subscriptionNFTAddress, didRegistryAddress, transferNFTConditionAddress, escrowPaymentConditionAddress]
         });
     }
 }
