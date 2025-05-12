@@ -20,7 +20,7 @@ error UnauthorizedAccount(address account);
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-abstract contract MechMetadataUpdater {
+contract MechMetadataUpdater {
     event MetadataUpdated(address indexed mech, bytes32 indexed hash);
 
     // Olas mech version number
