@@ -25,8 +25,6 @@ abstract contract MechMetadataUpdater {
 
     // Olas mech version number
     string public constant VERSION = "0.1.0";
-    // Service Registry address
-    address public immutable serviceRegistry;
 
     // Reentrancy lock
     uint256 internal _locked = 1;
