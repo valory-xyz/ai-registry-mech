@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {MechFactoryBase} from "../../../MechFactoryBase.sol";
+import {MechFactoryBase} from "../../../../MechFactoryBase.sol";
 import {MechNvmSubscriptionTokenUSDC} from "./MechNvmSubscriptionTokenUSDC.sol";
 
 /// @title MechFactoryNvmSubscriptionToken - Periphery smart contract for managing Nevermined ERC20 subscription mech creation
