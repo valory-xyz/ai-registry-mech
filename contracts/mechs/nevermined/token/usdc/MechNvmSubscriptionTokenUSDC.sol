@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {OlasMech} from "../../../OlasMech.sol";
+import {OlasMech} from "../../../../OlasMech.sol";
 
 /// @dev Provided zero subscription address.
 error ZeroAddress();

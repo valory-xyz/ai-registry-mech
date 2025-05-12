@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {BalanceTrackerFixedPriceToken, ZeroAddress, NoDepositAllowed} from "../token/BalanceTrackerFixedPriceToken.sol";
-import {ZeroValue, InsufficientBalance} from "../../BalanceTrackerBase.sol";
+import {BalanceTrackerFixedPriceToken, ZeroAddress, NoDepositAllowed} from "../../token/BalanceTrackerFixedPriceToken.sol";
+import {ZeroValue, InsufficientBalance} from "../../../BalanceTrackerBase.sol";
 
 interface IERC1155 {
     /// @dev Gets the amount of tokens owned by a specified account.
