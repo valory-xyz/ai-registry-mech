@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 interface NVM {
     enum ConditionState { Uninitialized, Unfulfilled, Fulfilled, Aborted }
@@ -75,10 +75,6 @@ struct FulfillForDelegateParams {
 contract SubscriptionProvider {
     event OwnerUpdated(address indexed owner);
 
-    // Subscription token Id
-    uint256 public immutable subscriptionTokenId;
-    // Subscription NFT
-    address public immutable subscriptionNFT;
     // DID registry address
     address public immutable didRegistry;
     // Transfer NFT Condition address
@@ -90,15 +86,7 @@ contract SubscriptionProvider {
     address public owner;
 
     /// @dev SubscriptionProvider constructor.
-    constructor(
-        uint256 _subscriptionTokenId,
-        address _subscriptionNFT,
-        address _didRegistry,
-        address _transferNFTCondition,
-        address _escrowPaymentCondition
-    ) {
-        subscriptionTokenId = _subscriptionTokenId;
-        subscriptionNFT = _subscriptionNFT;
+    constructor(address _didRegistry, address _transferNFTCondition, address _escrowPaymentCondition) {
         didRegistry = _didRegistry;
         transferNFTCondition = _transferNFTCondition;
         escrowPaymentCondition = _escrowPaymentCondition;
