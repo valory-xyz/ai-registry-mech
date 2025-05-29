@@ -39,8 +39,9 @@ interface NVM {
     function removeDIDProvider(bytes32 _did, address _provider) external;
 
     /// @dev Transfers DID ownership.
-    /// @param newOwner New owner address.
-    function transferOwnership(address newOwner) external;
+    /// @param _did refers to decentralized identifier (a bytes32 length ID).
+    /// @param _newOwner new owner address.
+    function transferOwnership(bytes32 _did, address _newOwner) external;
 }
 
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
@@ -157,13 +158,14 @@ contract SubscriptionProvider {
     }
 
     /// @dev Transfers DID ownership.
+    /// @param did Refers to decentralized identifier (a bytes32 length ID).
     /// @param newOwner New owner address.
-    function transferOwnership(address newOwner) external {
+    function transferOwnership(bytes32 did, address newOwner) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        NVM(didRegistry).transferOwnership(newOwner);
+        NVM(didRegistry).transferOwnership(did, newOwner);
     }
 }
