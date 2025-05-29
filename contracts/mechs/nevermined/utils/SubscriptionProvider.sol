@@ -41,7 +41,7 @@ interface NVM {
     /// @dev Transfers DID ownership.
     /// @param _did refers to decentralized identifier (a bytes32 length ID).
     /// @param _newOwner new owner address.
-    function transferOwnership(bytes32 _did, address _newOwner) external;
+    function transferDIDOwnership(bytes32 _did, address _newOwner) external;
 }
 
 /// @dev Only `owner` has a privilege, but the `sender` was provided.
@@ -160,12 +160,12 @@ contract SubscriptionProvider {
     /// @dev Transfers DID ownership.
     /// @param did Refers to decentralized identifier (a bytes32 length ID).
     /// @param newOwner New owner address.
-    function transferOwnership(bytes32 did, address newOwner) external {
+    function transferDIDOwnership(bytes32 did, address newOwner) external {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        NVM(didRegistry).transferOwnership(did, newOwner);
+        NVM(didRegistry).transferDIDOwnership(did, newOwner);
     }
 }
