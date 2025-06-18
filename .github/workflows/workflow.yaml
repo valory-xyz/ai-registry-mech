@@ -11,18 +11,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository and submodules
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Get a specific Node.js version such that hardhat does not hang periodically
-        uses: actions/setup-node@v3
-        with:
-          node-version: "18.15.0"
+      - name: Install Node.js
+        uses: actions/setup-node@v4
 
       # Install modules
       - name: Install modules
         run: yarn install
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
 
       # Run linters
       - name: Run ESLint
