@@ -52,6 +52,11 @@
         "name": "BalanceTrackerNvmSubscriptionNative",
         "artifact": "abis/0.8.28/BalanceTrackerNvmSubscriptionNative.json",
         "address": "0x7D686bD1fD3CFF6E45a40165154D61043af7D67c"
+      },
+      {
+        "name": "SubscriptionProvider",
+        "artifact": "abis/0.8.30/SubscriptionProvider.json",
+        "address": "0x4a2f40E14309c20c0C3803c3CcCd5E9B5F2D4eCA"
       }
     ]
   },
@@ -118,6 +123,11 @@
         "name": "BalanceTrackerNvmSubscriptionToken",
         "artifact": "abis/0.8.28/balanceTrackerNvmSubscriptionToken.json",
         "address": "0xaaFBeef195BDAb1Bb6f3Dc9cEbA875Cd72499230" 
+      },
+      {
+        "name": "SubscriptionProvider",
+        "artifact": "abis/0.8.30/SubscriptionProvider.json",
+        "address": "0x5050c577583D25Ff9C9492A39e8D1B94028ffA55"
       }
     ]
   },
