@@ -784,6 +784,84 @@ describe("MechFixedPriceNative", function () {
             expect(numRequestCounts).to.equal(numRequests);
         });
 
+        it("Requests with signatures with zero values except for the last one", async function () {
+            const numRequests = 10;
+            const datas = new Array();
+            const requestIds = new Array();
+            const signatures = new Array();
+            const deliveryRates = new Array(numRequests).fill(0);
+            deliveryRates[numRequests - 1] = 1;
+            let requestCount = 0;
+
+            // Pre-pay the contract insufficient amount for posting a request
+            await deployer.sendTransaction({to: balanceTrackerFixedPriceNative.address, value: maxDeliveryRate * numRequests});
+
+            // Get deployer wallet
+            const accounts = config.networks.hardhat.accounts;
+            const wallet = ethers.Wallet.fromMnemonic(accounts.mnemonic, accounts.path + `/${0}`);
+            const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
+
+            // Try to update mech num requests not by a Marketplace
+            await expect(
+                priorityMech.updateNumRequests(numRequests)
+            ).to.be.revertedWithCustomError(priorityMech, "MarketplaceOnly");
+
+            // Stack all requests
+            for (let i = 0; i < numRequests; i++) {
+                datas[i] = data + "00".repeat(i);
+                if (i < numRequests - 1) {
+                    requestIds[i] = await mechMarketplace.getRequestId(priorityMech.address, deployer.address, datas[i],
+                        0, paymentType, requestCount);
+                } else {
+                    requestIds[i] = await mechMarketplace.getRequestId(priorityMech.address, deployer.address, datas[i],
+                        1, paymentType, requestCount);
+                }
+                const signature = signingKey.signDigest(requestIds[i]);
+                // Extract v, r, s
+                const r = ethers.utils.arrayify(signature.r);
+                const s = ethers.utils.arrayify(signature.s);
+                const v = ethers.utils.arrayify(signature.v);
+                // Assemble 65 bytes of signature
+                signatures[i] = ethers.utils.hexlify(ethers.utils.concat([r, s, v]));
+                requestCount++;
+            }
+
+            // Try to deliver requests not in order
+            let reverseDatas = Array.from(datas);
+            reverseDatas = reverseDatas.reverse();
+
+            let deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: reverseDatas[i], signature: signatures[i], deliveryData: reverseDatas[i]});
+            }
+
+            await expect(
+                priorityMech.deliverMarketplaceWithSignatures(deployer.address, deliverWithSignatures,
+                    deliveryRates, "0x")
+            ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
+
+            deliverWithSignatures = [];
+            for (let i = 0; i < requestCount; i++) {
+                deliverWithSignatures.push({requestData: datas[i], signature: signatures[i], deliveryData: datas[i]});
+            }
+
+            // Deliver requests
+            await priorityMech.deliverMarketplaceWithSignatures(deployer.address, deliverWithSignatures,
+                deliveryRates, "0x");
+
+            // Check requests counts
+            let numRequestCounts = await mechMarketplace.mapRequestCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.mapDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.mapMechDeliveryCounts(priorityMech.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.mapMechServiceDeliveryCounts(deployer.address);
+            expect(numRequestCounts).to.equal(numRequests);
+            numRequestCounts = await mechMarketplace.numTotalRequests();
+            expect(numRequestCounts).to.equal(numRequests);
+        });
+
         it("Requests with signatures for contracts", async function () {
             const numRequests = 10;
             const datas = new Array();

@@ -5,6 +5,7 @@
   "providerName": "base",
   "chainId": "8453",
   "networkURL": "https://mainnet.base.org",
+  "blockscoutURL":"https://base.blockscout.com",
   "gasPriceInGwei": "0.003",
   "bridgeMediatorAddress": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA",
   "serviceRegistryAddress": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",

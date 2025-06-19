@@ -5,6 +5,7 @@
   "providerName": "gnosis",
   "chainId": "100",
   "networkURL": "https://rpc.gnosischain.com",
+  "blockscoutURL":"https://gnosis.blockscout.com",
   "gasPriceInGwei": "1",
   "olasAddress": "0xcE11e14225575945b8E6Dc0D4F2dD4C570f79d9f",
   "bridgeMediatorAddress": "0x15bd56669F57192a97dF41A2aa8f4403e9491776",
