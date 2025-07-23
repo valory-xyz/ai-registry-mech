@@ -1,0 +1,7 @@
+      | Contract                                                                                                                 |   CodeLine |
+----------------------------------------------------------------------------------------------------------------------------------------------
+    1 | contracts/mechs/nevermined/token/BalanceTrackerNvmSubscriptionToken.sol                                                  |         84 |
+    2 | contracts/mechs/nevermined/token/usdc/MechFactoryNvmSubscriptionTokenUSDC.sol                                            |         28 |
+    3 | contracts/mechs/nevermined/token/usdc/MechNvmSubscriptionTokenUSDC.sol                                                   |         18 |
+----------------------------------------------------------------------------------------------------------------------------------------------
+    3 | All contracts                                                                                                            |        130 |
