@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import {IErrorsMarketplace} from "./interfaces/IErrorsMarketplace.sol";
 import {IBalanceTracker} from "./interfaces/IBalanceTracker.sol";
@@ -60,11 +60,11 @@ contract MechMarketplace is IErrorsMarketplace {
     event SetMechFactoryStatuses(address[] mechFactories, bool[] statuses);
     event SetPaymentTypeBalanceTrackers(bytes32[] paymentTypes, address[] balanceTrackers);
     event MarketplaceRequest(address indexed priorityMech, address indexed requester, uint256 numRequests,
-        bytes32[] requestIds);
-    event MarketplaceDelivery(address indexed deliveryMech, address[] indexed requesters, uint256 numDeliveries,
+        bytes32[] requestIds, bytes[] requestDatas);
+    event MarketplaceDelivery(address indexed deliveryMech, address[] requesters, uint256 numDeliveries,
         bytes32[] requestIds, bool[] deliveredRequests);
     event Deliver(address indexed mech, address indexed mechServiceMultisig, bytes32 requestId, uint256 deliveryRate,
-        bytes data);
+        bytes requestData, bytes deliveryData);
     event MarketplaceDeliveryWithSignatures(address indexed deliveryMech, address indexed requester,
         uint256 numDeliveries, bytes32[] requestIds);
 
@@ -206,7 +206,7 @@ contract MechMarketplace is IErrorsMarketplace {
     function _deliverMarketplaceWithSignatures(
         address requester,
         bytes32 paymentType,
-        DeliverWithSignature[] calldata deliverWithSignatures,
+        DeliverWithSignature[] memory deliverWithSignatures,
         uint256[] calldata deliveryRates
     ) internal {
         // Check mech
@@ -256,7 +256,7 @@ contract MechMarketplace is IErrorsMarketplace {
 
             // Symmetrical delivery mech event that in general happens when delivery is called directly through the mech
             emit Deliver(msg.sender, mechServiceMultisig, requestIds[i], deliveryRates[i],
-                deliverWithSignatures[i].deliveryData);
+                deliverWithSignatures[i].requestData, deliverWithSignatures[i].deliveryData);
         }
 
         // Adjust requester nonce values
@@ -299,7 +299,7 @@ contract MechMarketplace is IErrorsMarketplace {
         bytes32 paymentType,
         address priorityMech,
         uint256 responseTimeout,
-        bytes calldata paymentData
+        bytes memory paymentData
     ) internal returns (bytes32[] memory requestIds) {
         // Response timeout limits
         if (responseTimeout + block.timestamp > type(uint32).max) {
@@ -402,7 +402,7 @@ contract MechMarketplace is IErrorsMarketplace {
         // Process request by a specified priority mech
         IMech(priorityMech).requestFromMarketplace(requestIds, requestDatas);
 
-        emit MarketplaceRequest(priorityMech, msg.sender, numRequests, requestIds);
+        emit MarketplaceRequest(priorityMech, msg.sender, numRequests, requestIds, requestDatas);
     }
 
     /// @dev Verifies provided request hash against its signature.

@@ -1,5 +1,6 @@
 [profile.default]
-solc = "0.8.30"
+#solc = "0.8.30"
+auto_detect_solc = true
 src = "contracts"
 out = "out"
 libs = ["lib"]
@@ -9,4 +10,7 @@ evm_version = "prague"
 
 remappings = [
     "@gnosis.pm=node_modules/@gnosis.pm",
+    "@openzeppelin=node_modules/@openzeppelin",
+    "@account-abstraction=node_modules/@account-abstraction",
+    "canonical-weth=node_modules/canonical-weth",
 ]
