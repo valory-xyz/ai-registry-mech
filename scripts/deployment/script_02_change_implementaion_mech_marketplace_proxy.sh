@@ -52,8 +52,6 @@ echo "RPC: $networkURL"
 echo "${green}Change implementation in MechMarketplaceProxy contracts${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
-
-echo "${green}Change owner in MechMarketplaceProxy${reset}"
 castArgs="$mechMarketplaceProxyAddress changeImplementation(address) $mechMarketplaceAddress"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"

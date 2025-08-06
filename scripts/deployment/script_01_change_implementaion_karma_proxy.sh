@@ -52,8 +52,6 @@ echo "RPC: $networkURL"
 echo "${green}Change implementation in KarmaProxy contracts${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
-
-echo "${green}Change owner in KarmaProxy${reset}"
 castArgs="$karmaProxyAddress changeImplementation(address) $karmaAddress"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
