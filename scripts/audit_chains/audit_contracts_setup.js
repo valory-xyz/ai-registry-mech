@@ -47,13 +47,22 @@ async function checkBytecode(provider, configContracts, contractName, log) {
             // Get the contract instance
             const contractFromJSON = fs.readFileSync(configContracts[i]["artifact"], "utf8");
             const parsedFile = JSON.parse(contractFromJSON);
-            const bytecode = parsedFile["deployedBytecode"];
+            // Forge JSON
+            let bytecode = parsedFile["deployedBytecode"]["object"];
+            if (bytecode === undefined) {
+                // Hardhat JSON
+                bytecode = parsedFile["deployedBytecode"];
+            }
             const onChainCreationCode = await provider.getCode(configContracts[i]["address"]);
+            // Bytecode DEBUG
+            //if (contractName === "ContractName") {
+            //    console.log("onChainCreationCode", onChainCreationCode);
+            //    console.log("bytecode", bytecode);
+            //}
 
-            // Compare last 8-th part of deployed bytecode bytes (wveOLAS can't manage more)
+            // Compare last 43 bytes as they reflect the deployed contract metadata hash
             // We cannot compare the full one since the repo deployed bytecode does not contain immutable variable info
-            const slicePart = -bytecode.length / 8;
-            customExpectContain(onChainCreationCode, bytecode.slice(slicePart),
+            customExpectContain(onChainCreationCode, bytecode.slice(-86),
                 log + ", address: " + configContracts[i]["address"] + ", failed bytecode comparison");
             return;
         }
@@ -229,34 +238,21 @@ async function main() {
     let numChains = configs.length;
     // ################################# VERIFY CONTRACTS WITH REPO #################################
     if (verifyRepo) {
-        // For now gnosis chains are not supported
-        const networks = {
-            "mainnet": "etherscan",
-            "polygon": "polygonscan",
-            "optimistic": "optimistic.etherscan"
-        };
-
-        console.log("\nVerifying deployed contracts vs the repo... If no error is output, then the contracts are correct.");
-
         // Traverse all chains
         for (let i = 0; i < numChains; i++) {
-            // Skip unsupported chains
-            if (!networks[configs[i]["name"]]) {
-                continue;
-            }
-
             console.log("\n\nNetwork:", configs[i]["name"]);
-            const network = networks[configs[i]["name"]];
             const contracts = configs[i]["contracts"];
+            const chainId = configs[i]["chainId"];
+            console.log("chainId", chainId);
 
             // Verify contracts
             for (let j = 0; j < contracts.length; j++) {
                 console.log("Checking " + contracts[j]["name"]);
                 const execSync = require("child_process").execSync;
                 try {
-                    execSync("scripts/audit_chains/audit_repo_contract.sh " + network + " " + contracts[j]["name"] + " " + contracts[j]["address"]);
-                } catch (error) {
-                    continue;
+                    execSync("scripts/audit_chains/audit_repo_contract.sh " + chainId + " " + contracts[j]["name"] + " " + contracts[j]["address"]);
+                } catch (err) {
+                    err.stderr.toString();
                 }
             }
         }
