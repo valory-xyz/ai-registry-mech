@@ -22,7 +22,7 @@
   "mechFactoryNvmSubscriptionTokenUSDCAddress": "0x7ED124AF35f5e12318C898ba35b63863908e1eB8",
   "balanceTrackerNvmSubscriptionTokenAddress": "0xc53B500b4d8FcC6865ec91b977651eec045ad8D1",
   "subscriptionTokenId": "0x635b227e2fffa750c1914009b33462e9c24b18a167dfe6c972ea5d17ed104a59",
-  "mechMarketplaceAddress": "0x155547857680A6D51bebC5603397488988DEb1c8",
+  "mechMarketplaceAddress": "0xCcC600827b415Fb6259414e05110Eae79d7c3588",
   "mechMarketplaceProxyAddress": "0x5FDc466f4A7547c876eF40CD30fFA2A89F1EcDE7",
   "mechFactoryNvmSubscriptionNativeAddress": "0x4cEB52802ef86edF8796632546d89e55c87a0901",
   "balanceTrackerNvmSubscriptionNativeAddress": "0xaC26774616bbeD41b0CB69EA2ae7de366F430b23",
