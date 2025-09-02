@@ -58,12 +58,15 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-serviceRegistryAddress=$(jq -r '.serviceRegistryAddress' $globals)
-karmaProxyAddress=$(jq -r '.karmaProxyAddress' $globals)
+mechMarketplaceAddress=$(jq -r '.mechMarketplaceAddress' $globals)
+fee=$(jq -r '.fee' $globals)
+minResponseTimeout=$(jq -r '.minResponseTimeout' $globals)
+maxResponseTimeout=$(jq -r '.maxResponseTimeout' $globals)
+proxyData=$(cast calldata "initialize(uint256,uint256,uint256)" $fee $minResponseTimeout $maxResponseTimeout)
 
-contractName="MechMarketplace"
-contractPath="contracts/$contractName.sol:$contractName"
-constructorArgs="$serviceRegistryAddress $karmaProxyAddress"
+contractName="MechMarketplaceProxy"
+contractPath="contracts/proxies/$contractName.sol:$contractName"
+constructorArgs="$mechMarketplaceAddress $proxyData"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -84,10 +87,10 @@ echo "${green}Deployment of: $contractArgs${reset}"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-mechMarketplaceAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+mechMarketplaceProxyAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#mechMarketplaceAddress}
+outputLength=${#mechMarketplaceProxyAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
@@ -96,11 +99,11 @@ if [ $outputLength != 42 ]; then
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"mechMarketplaceAddress":"'$mechMarketplaceAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"mechMarketplaceProxyAddress":"'$mechMarketplaceProxyAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$mechMarketplaceAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address)" $constructorArgs)"
+  contractParams="$mechMarketplaceProxyAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,bytes)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
@@ -113,4 +116,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "${green}$contractName deployed at: $mechMarketplaceAddress${reset}"
+echo "${green}$contractName deployed at: $mechMarketplaceProxyAddress${reset}"
