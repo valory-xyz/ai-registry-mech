@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import {BalanceTrackerFixedPriceNative, ZeroAddress} from "../native/BalanceTrackerFixedPriceNative.sol";
 import {ZeroValue, InsufficientBalance} from "../../BalanceTrackerBase.sol";
@@ -163,5 +163,10 @@ contract BalanceTrackerNvmSubscriptionNative is BalanceTrackerFixedPriceNative {
         trackerBalance += msg.value;
 
         emit Deposit(msg.sender, address(0), msg.value);
+    }
+
+    /// @dev Deposits token funds for requester.
+    function depositFor(address) external payable virtual override {
+        revert NoDepositAllowed(msg.value);
     }
 }
