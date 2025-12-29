@@ -149,3 +149,6 @@ fc12c6214c593ed2ae5f4ff4295bc4622e814872:scripts/deployment/globals_base_mainnet
 132798534f3e5a09474b29eade75538808836452:scripts/deployment/globals_eth_sepolia.json:generic-api-key:15
 3204adee6283f2c5571edeaee53de6a09d4a954a:scripts/deployment/globals_polygon_mainnet.json:generic-api-key:1
 d81a99fdaefc40f7032a1b87c975e813d62d1232:scripts/deployment/globals_polygon_mainnet.json:generic-api-key:1
+4c583524221e39e7a75a65507e7ce3203d0fa5c6:scripts/deployment/globals_optimism_sepolia.json:generic-api-key:41
+4c583524221e39e7a75a65507e7ce3203d0fa5c6:scripts/deployment/globals_optimism_sepolia.json:generic-api-key:42
+4c583524221e39e7a75a65507e7ce3203d0fa5c6:scripts/deployment/globals_polygon_mainnet.json:generic-api-key:1
