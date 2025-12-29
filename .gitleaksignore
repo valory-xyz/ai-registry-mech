@@ -147,3 +147,4 @@ fc12c6214c593ed2ae5f4ff4295bc4622e814872:scripts/deployment/globals_base_mainnet
 4425e0cb54909128ffe8cd5da0653bd87e8910c8:scripts/deployment/globals_gnosis_mainnet_test.json:generic-api-key:29
 132798534f3e5a09474b29eade75538808836452:scripts/deployment/globals_eth_mainnet.json:generic-api-key:15
 132798534f3e5a09474b29eade75538808836452:scripts/deployment/globals_eth_sepolia.json:generic-api-key:15
+3204adee6283f2c5571edeaee53de6a09d4a954a:scripts/deployment/globals_polygon_mainnet.json:generic-api-key:1
