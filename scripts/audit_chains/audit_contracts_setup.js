@@ -263,12 +263,16 @@ async function main() {
     if (verifySetup) {
         const globalNames = {
             "gnosis": "scripts/deployment/globals_gnosis_mainnet.json",
-            "base": "scripts/deployment/globals_base_mainnet.json"
+            "base": "scripts/deployment/globals_base_mainnet.json",
+            "polygon": "scripts/deployment/globals_polygon_mainnet.json",
+            "optimism": "scripts/deployment/globals_optimism_mainnet.json"
         };
 
         const providerLinks = {
             "gnosis": "https://rpc.gnosischain.com",
-            "base": "https://mainnet.base.org"
+            "base": "https://mainnet.base.org",
+            "polygon": "https://polygon-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MATIC,
+            "optimism": "https://public-op-mainnet.fastnode.io"
         };
 
         // Get all the globals processed
@@ -302,11 +306,14 @@ async function main() {
             log = initLog + ", contract: " + "BalanceTrackerFixedPriceToken";
             await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerFixedPriceToken", log);
 
-            log = initLog + ", contract: " + "BalanceTrackerNvmSubscriptionNative";
-            await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerNvmSubscriptionNative", log);
+            // Skip networks where not deployed
+            if (i < 2) {
+                log = initLog + ", contract: " + "BalanceTrackerNvmSubscriptionNative";
+                await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerNvmSubscriptionNative", log);
 
-            log = initLog + ", contract: " + "BalanceTrackerNvmSubscriptionToken";
-            await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerNvmSubscriptionToken", log);
+                log = initLog + ", contract: " + "BalanceTrackerNvmSubscriptionToken";
+                await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerNvmSubscriptionToken", log);
+            }
         }
     }
     // ################################# /VERIFY CONTRACTS SETUP #################################
