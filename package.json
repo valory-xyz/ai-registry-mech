@@ -1,5 +1,5 @@
 {
-  "name": "ai-registry-mech",
+  "name": "autonolas-marketplace",
   "version": "1.0.0",
   "description": "Set of Autonolas registries contracts",
   "main": "index.js",
@@ -8,15 +8,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/valory-xyz/ai-registry-mech.git"
+    "url": "git+https://github.com/valory-xyz/autonolas-marketplace.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/valory-xyz/ai-registry-mech/issues"
+    "url": "https://github.com/valory-xyz/autonolas-marketplace/issues"
   },
-  "homepage": "https://github.com/valory-xyz/ai-registry-mech#readme",
+  "homepage": "https://github.com/valory-xyz/autonolas-marketplace#readme",
   "devDependencies": {
     "@account-abstraction/contracts": "^0.5.0",
     "@gnosis.pm/safe-contracts": "^1.3.0",

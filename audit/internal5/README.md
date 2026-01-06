@@ -1,6 +1,6 @@
-# Internal audit of ai-registry-mech
+# Internal audit of autonolas-marketplace
 The review has been performed based on the contract code in the following repository:<br>
-`https://github.com/valory-xyz/ai-registry-mech` <br>
+`https://github.com/valory-xyz/autonolas-marketplace` <br>
 commit: 7b31870dfa20e5b227c76b646cda415a7b9112d9 (tag: v0.4.0-pre-internal-audit4) <br> 
 
 ## Objectives

@@ -1,6 +1,6 @@
-# Internal audit of ai-registry-mech
+# Internal audit of autonolas-marketplace
 The review has been performed based on the contract code in the following repository:<br>
-`https://github.com/valory-xyz/ai-registry-mech` <br>
+`https://github.com/valory-xyz/autonolas-marketplace` <br>
 commit: 4f5c44c069e5c94435420abbbac6e0f0cba67c39 (tag: v0.4.0-pre-internal-audit3) <br> 
 
 ## Objectives
@@ -8,7 +8,7 @@ The audit focused on updated marketplace contracts in this repo. <br>
 Limits: The subject of the audit is not contracts used as library contracts. Thus, this audit is not a full-fledged audit of contracts underlying the contract ERC721Mech. <br>
 
 ### Flatten version
-Flatten version of contracts. [contracts](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits/internal4/analysis/contracts)
+Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-marketplace/blob/main/audits/internal4/analysis/contracts)
 
 ### Security issues. Updated 07-01-24
 #### Problems found instrumentally
@@ -129,12 +129,12 @@ in function _withdraw(address account, uint256 amount) internal virtual override
         bool success = IToken(olas).transfer(account, amount);
 -> checking status
 -> not checking status in
-~/valory/ai-registry-mech$ grep -r ".transfer" ./contracts/ | grep IToken
+~/valory/autonolas-marketplace$ grep -r ".transfer" ./contracts/ | grep IToken
 ./contracts/mechs/token/BalanceTrackerFixedPriceToken.sol:        IToken(olas).transfer(buyBackBurner, amount);
 ./contracts/mechs/token/BalanceTrackerFixedPriceToken.sol:        IToken(olas).transferFrom(requester, address(this), amount);
 ./contracts/mechs/token/BalanceTrackerFixedPriceToken.sol:        IToken(olas).transferFrom(msg.sender, address(this), amount);
 ./contracts/mechs/native/BalanceTrackerFixedPriceNative.sol:        IToken(wrappedNativeToken).transfer(buyBackBurner, amount);
-~/valory/ai-registry-mech$ 
+~/valory/autonolas-marketplace$ 
 
 ```
 [x] fixed

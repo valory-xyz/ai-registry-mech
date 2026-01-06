@@ -1,9 +1,9 @@
 # Security Policy
-This document outlines security procedures and general policies for the `ai-registry-mech` project.
+This document outlines security procedures and general policies for the `autonolas-marketplace` project.
 
 ## Reporting a Vulnerability
-The `ai-registry-mech` team and community take all security bugs in `ai-registry-mech` very seriously.
-Thank you for improving the security of `ai-registry-mech`. We appreciate your efforts and responsible disclosure and will make
+The `autonolas-marketplace` team and community take all security bugs in `autonolas-marketplace` very seriously.
+Thank you for improving the security of `autonolas-marketplace`. We appreciate your efforts and responsible disclosure and will make
 every effort to acknowledge your contributions.
 
 Report security bugs by emailing to `security@valory.xyz`.
