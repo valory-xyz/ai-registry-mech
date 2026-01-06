@@ -1,6 +1,6 @@
 # Internal audit of autonolas-staking-programmes
 The review has been performed based on the contract code in the following repository:<br>
-`https://github.com/valory-xyz/ai-registry-mech` <br>
+`https://github.com/valory-xyz/autonolas-marketplace` <br>
 commit: `05ff5b68a7ff506ab8d0f0feca4015408f067979` <br> 
 
 ## Objectives
@@ -8,7 +8,7 @@ The audit focused on contracts in this repo. <br>
 Limits: The subject of the audit is not contracts used as library contracts. Thus, this audit is not a full-fledged audit of contracts underlying the contract ERC721Mech. <br>
 
 ### Flatten version
-Flatten version of contracts. [contracts](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits/internal/analysis/contracts) 
+Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-marketplace/blob/main/audits/internal/analysis/contracts) 
 
 ### ERC20/ERC721 checks
 ```bash

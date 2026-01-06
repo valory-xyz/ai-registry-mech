@@ -1,8 +1,10 @@
-# AI Registry Mech
+# Autonolas Marketplace
 
 ## Introduction
 
-This repository contains the Mech Marketplace set of contracts registering mechs and performing their interactions for requests delivery via the means of the Marketplace. The core workflow of the Marketplace, including the roles and interactions of key participants, as well as an overview of the smart contracts, can be found [here](https://github.com/valory-xyz/ai-registry-mech/tree/main/docs/MechMarketplaceDescriptionAndContractsOverviewRepo.pdf).
+This repository contains the Mech Marketplace set of contracts registering mechs and performing their interactions for requests
+delivery via the means of the Marketplace. The core workflow of the Marketplace, including the roles and interactions of key
+participants, as well as an overview of the smart contracts, can be found [here](https://github.com/valory-xyz/autonolas-marketplace/tree/main/docs/MechMarketplaceDescriptionAndContractsOverviewRepo.pdf).
 
 
 ## Development
@@ -53,16 +55,16 @@ several steps in order to be verified. Those include:
 
 ## Deployment and redeployment
 The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
-The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/ai-registry-mech/blob/main/scripts/deployment).
+The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-marketplace/blob/main/scripts/deployment).
 
-The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/ai-registry-mech/blob/main/abis).
+The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/autonolas-marketplace/blob/main/abis).
 Each folder there contains contracts compiled with the solidity version before their deployment.
 
-The actual list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration.json).
+The actual list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-marketplace/blob/main/docs/configuration.json).
 
 ### Previous versions, to be deprecated soon
 
-The older list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/ai-registry-mech/blob/main/docs/configuration_v0.json).
+The older list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-marketplace/blob/main/docs/configuration_v0.json).
 
 | Network | AI Agent Registry    | AgentFactory    | AgentFactorySubscription   | MechMarketplace   |
 | :---:   | :---: | :---: | :---: | :---: |
@@ -81,7 +83,7 @@ The older list of contract addresses for different chains and their full contrac
 
 
 ### Audits
-- The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/ai-registry-mech/blob/main/audits).
+- The audit is provided as development matures. The latest audit report can be found here: [audits](https://github.com/valory-xyz/autonolas-marketplace/blob/main/audits).
 
 
 ## Architecture diagram

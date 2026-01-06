@@ -1,11 +1,11 @@
 'solc --version' running
-'solc ./AgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc ./AgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-marketplace/audit/internal/analysis/contracts' running
 'solc --version' running
-'solc ./AgentRegistry-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc ./AgentRegistry-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-marketplace/audit/internal/analysis/contracts' running
 'solc --version' running
-'solc ./AgentMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc ./AgentMech-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-marketplace/audit/internal/analysis/contracts' running
 'solc --version' running
-'solc ./ExtendedAgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/ai-registry-mech/audit/internal/analysis/contracts' running
+'solc ./ExtendedAgentFactory-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-marketplace/audit/internal/analysis/contracts' running
 INFO:Printers:Inheritance
 Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
 + UserOperationLib
