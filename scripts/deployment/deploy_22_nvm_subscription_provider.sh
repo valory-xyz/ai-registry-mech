@@ -34,7 +34,8 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-contractPath="contracts/mechs/nevermined/utils/SubscriptionProvider.sol:SubscriptionProvider"
+contractName="SubscriptionProvider"
+contractPath="contracts/mechs/nevermined/utils/$contractName.sol:$contractName"
 constructorArgs="$didRegistryAddress $transferNFTConditionAddress $escrowPaymentConditionAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
@@ -83,4 +84,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Contract deployed at: $subscriptionProviderAddress"
+echo "$contractName deployed at: $subscriptionProviderAddress"
