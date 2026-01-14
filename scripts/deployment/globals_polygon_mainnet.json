@@ -42,5 +42,6 @@
   "balanceTrackerFixedPriceTokenAddress": "0x1521918961bDBC9Ed4C67a7103D5999e4130E6CB",
   "didRegistryAddress": "0xCE22eb974Df2EcfD30607A08510d6c201092D9dc",
   "transferNFTConditionAddress": "0xC1f51a6B8aEdC540d34F18756C56Fe4AAF436E3f",
-  "escrowPaymentConditionAddress": "0xbc66b68C2d5EAb343902af766A4CCB86c55E7Ceb"
+  "escrowPaymentConditionAddress": "0xbc66b68C2d5EAb343902af766A4CCB86c55E7Ceb",
+  "subscriptionProviderAddress": "0xCf9B4710fe450Dca52374f28e4917FDCd44F9487"
 }
