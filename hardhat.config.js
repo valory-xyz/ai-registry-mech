@@ -90,7 +90,7 @@ module.exports = {
             chainId: 11155111,
         },
         polygonMumbai: {
-            url: "https://polygon-mumbai.g.alchemy.com/v2/" + ALCHEMY_API_KEY_MUMBAI,
+            url: "https://polygon-amoy.g.alchemy.com/v2/" + ALCHEMY_API_KEY_MUMBAI,
             accounts: accounts,
         },
         chiado: {

@@ -43,5 +43,7 @@
   "didRegistryAddress": "0x5FD091093152403BEE33a5c4Db60721Fc513985D",
   "transferNFTConditionAddress": "0x17a49d0942b987ebDE9D6400A045159bd3936541",
   "escrowPaymentConditionAddress": "0xA33f6149563CfEC51C9e7961A3FB5DdF5F9D5B68",
-  "subscriptionProviderAddress": "0x8Bb87107CDAdE4cD7f470DC90CD58Ba1595B1D64"
+  "subscriptionProviderAddress": "0x8Bb87107CDAdE4cD7f470DC90CD58Ba1595B1D64",
+  "usdcAddress": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+  "tokenCreditRatio": "990000000000000000"
 }
