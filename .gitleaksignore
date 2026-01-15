@@ -159,3 +159,5 @@ d81a99fdaefc40f7032a1b87c975e813d62d1232:scripts/deployment/globals_polygon_main
 5068036d19f05ea598418c8894bf4982d4233c74:scripts/deployment/globals_polygon_mainnet.json:generic-api-key:42
 6419e5f7ee4a4e81325f9151bb594127a349bf47:scripts/deployment/globals_polygon_mainnet.json:generic-api-key:42
 6419e5f7ee4a4e81325f9151bb594127a349bf47:scripts/deployment/globals_optimism_mainnet.json:generic-api-key:42
+86d88ba925f5416ee2682dd7f28aa213535aa6e3:scripts/deployment/globals_base_mainnet_test.json:generic-api-key:22
+86d88ba925f5416ee2682dd7f28aa213535aa6e3:scripts/deployment/globals_base_mainnet_test.json:generic-api-key:23
