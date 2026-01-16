@@ -45,5 +45,7 @@
   "escrowPaymentConditionAddress": "0xbc66b68C2d5EAb343902af766A4CCB86c55E7Ceb",
   "subscriptionProviderAddress": "0xCf9B4710fe450Dca52374f28e4917FDCd44F9487",
   "usdcAddress": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-  "tokenCreditRatio": "990000000000000000"
+  "tokenCreditRatio": "990000000000000000",
+  "mechFactoryNvmSubscriptionTokenUSDCAddress": "0x43fB32f25dce34EB76c78C7A42C8F40F84BCD237",
+  "balanceTrackerNvmSubscriptionTokenAddress": "0xd00Cb760Bf30183EAFE67f0E590BEeE190F35Cf3"
 }
