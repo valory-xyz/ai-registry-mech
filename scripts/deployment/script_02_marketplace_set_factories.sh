@@ -20,6 +20,7 @@ networkURL=$(jq -r '.networkURL' $globals)
 mechMarketplaceProxyAddress=$(jq -r ".mechMarketplaceProxyAddress" $globals)
 mechFactoryFixedPriceNativeAddress=$(jq -r ".mechFactoryFixedPriceNativeAddress" $globals)
 mechFactoryFixedPriceTokenAddress=$(jq -r ".mechFactoryFixedPriceTokenAddress" $globals)
+mechFactoryNvmSubscriptionTokenUSDCAddress=$(jq -r ".mechFactoryNvmSubscriptionTokenUSDCAddress" $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -52,7 +53,7 @@ echo "RPC: $networkURL"
 echo "${green}Set factories in MechMarketplaceProxy${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
-castArgs="$mechMarketplaceProxyAddress setMechFactoryStatuses(address[],bool[]) [$mechFactoryFixedPriceNativeAddress,$mechFactoryFixedPriceTokenAddress] [true,true]"
+castArgs="$mechMarketplaceProxyAddress setMechFactoryStatuses(address[],bool[]) [$mechFactoryFixedPriceNativeAddress,$mechFactoryFixedPriceTokenAddress,$mechFactoryNvmSubscriptionTokenUSDCAddress] [true,true,true]"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)

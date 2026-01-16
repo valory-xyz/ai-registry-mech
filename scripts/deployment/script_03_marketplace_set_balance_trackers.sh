@@ -20,6 +20,7 @@ networkURL=$(jq -r '.networkURL' $globals)
 mechMarketplaceProxyAddress=$(jq -r ".mechMarketplaceProxyAddress" $globals)
 balanceTrackerFixedPriceNativeAddress=$(jq -r ".balanceTrackerFixedPriceNativeAddress" $globals)
 balanceTrackerFixedPriceTokenAddress=$(jq -r ".balanceTrackerFixedPriceTokenAddress" $globals)
+balanceTrackerNvmSubscriptionTokenAddress=$(jq -r ".balanceTrackerNvmSubscriptionTokenAddress" $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -52,7 +53,7 @@ echo "RPC: $networkURL"
 echo "${green}Set balance trackers in MechMarketplaceProxy${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
-castArgs="$mechMarketplaceProxyAddress setPaymentTypeBalanceTrackers(bytes32[],address[]) [0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1,0x3679d66ef546e66ce9057c4a052f317b135bc8e8c509638f7966edfd4fcf45e9] [$balanceTrackerFixedPriceNativeAddress,$balanceTrackerFixedPriceTokenAddress]"
+castArgs="$mechMarketplaceProxyAddress setPaymentTypeBalanceTrackers(bytes32[],address[]) [0xba699a34be8fe0e7725e93dcbce1701b0211a8ca61330aaeb8a05bf2ec7abed1,0x3679d66ef546e66ce9057c4a052f317b135bc8e8c509638f7966edfd4fcf45e9,0x0d6fd99afa9c4c580fab5e341922c2a5c4b61d880da60506193d7bf88944dd14] [$balanceTrackerFixedPriceNativeAddress,$balanceTrackerFixedPriceTokenAddress,$balanceTrackerNvmSubscriptionTokenAddress]"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)
