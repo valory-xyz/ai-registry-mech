@@ -17,10 +17,8 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-balanceTrackerNvmSubscriptionTokenUSDCAddress=$(jq -r ".balanceTrackerNvmSubscriptionTokenUSDCAddress" $globals)
-subscriptionNFTAddress=$(jq -r ".subscriptionNFTAddress" $globals)
-subscriptionTokenIdUSDC=$(jq -r ".subscriptionTokenIdUSDC" $globals)
-tokenCreditRatio=$(jq -r ".tokenCreditRatio" $globals)
+mechMarketplaceProxyAddress=$(jq -r ".mechMarketplaceProxyAddress" $globals)
+balanceTrackerFixedPriceTokenUSDCAddress=$(jq -r ".balanceTrackerFixedPriceTokenUSDCAddress" $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -50,10 +48,10 @@ fi
 # Cast command
 echo "${green}Casting from: $deployer${reset}"
 echo "RPC: $networkURL"
-echo "${green}Set NVM balance tracker config${reset}"
+echo "${green}Set balance trackers in MechMarketplaceProxy${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
-castArgs="$balanceTrackerNvmSubscriptionTokenUSDCAddress setSubscription(address,uint256,uint256) $subscriptionNFTAddress $subscriptionTokenIdUSDC $tokenCreditRatio"
+castArgs="$mechMarketplaceProxyAddress setPaymentTypeBalanceTrackers(bytes32[],address[]) [0x6406bb5f31a732f898e1ce9fdd988a80a808d36ab5d9a4a4805a8be8d197d5e3] [$balanceTrackerFixedPriceTokenUSDCAddress]"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)

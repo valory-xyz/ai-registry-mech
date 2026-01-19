@@ -13,7 +13,7 @@ async function main() {
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
     const mechMarketplaceProxyAddress = parsedData.mechMarketplaceProxyAddress;
-    const balanceTrackerNvmSubscriptionTokenAddress = parsedData.balanceTrackerNvmSubscriptionTokenAddress;
+    const balanceTrackerNvmSubscriptionTokenUSDCAddress = parsedData.balanceTrackerNvmSubscriptionTokenUSDCAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -51,7 +51,7 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const result = await mechMarketplace.connect(EOA).setPaymentTypeBalanceTrackers(
         ["0x0d6fd99afa9c4c580fab5e341922c2a5c4b61d880da60506193d7bf88944dd14"],
-        [balanceTrackerNvmSubscriptionTokenAddress],
+        [balanceTrackerNvmSubscriptionTokenUSDCAddress],
         { gasPrice }
     );
 

@@ -20,7 +20,7 @@
   "tokenCreditRatio": "990000000000000000",
   "subscriptionNFTAddress": "0xd5318d1A17819F65771B6c9277534C08Dd765498",
   "mechFactoryNvmSubscriptionTokenUSDCAddress": "0x7beD01f8482fF686F025628e7780ca6C1f0559fc",
-  "balanceTrackerNvmSubscriptionTokenAddress": "0xaaFBeef195BDAb1Bb6f3Dc9cEbA875Cd72499230",
+  "balanceTrackerNvmSubscriptionTokenUSDCAddress": "0xaaFBeef195BDAb1Bb6f3Dc9cEbA875Cd72499230",
   "subscriptionTokenId": "",
   "mechMarketplaceAddress": "0x155547857680A6D51bebC5603397488988DEb1c8",
   "mechMarketplaceProxyAddress": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020",

@@ -63,7 +63,7 @@ async function main() {
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.balanceTrackerNvmSubscriptionTokenAddress = balanceTrackerNvmSubscriptionToken.address;
+    parsedData.balanceTrackerNvmSubscriptionTokenUSDCAddress = balanceTrackerNvmSubscriptionToken.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
