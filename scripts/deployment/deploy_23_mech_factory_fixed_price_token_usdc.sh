@@ -59,16 +59,10 @@ elif [ $chainId == 80002 ]; then
 fi
 
 mechMarketplaceProxyAddress=$(jq -r '.mechMarketplaceProxyAddress' $globals)
-if [ $chainId == 1 ] || [ $chainId == 11155111 ]; then
-  drainerAddress=$(jq -r '.burnerAddress' $globals)
-else
-  drainerAddress=$(jq -r '.drainerAddress' $globals)
-fi
-usdcAddress=$(jq -r '.usdcAddress' $globals)
 
-contractName="BalanceTrackerNvmSubscriptionToken"
-contractPath="contracts/mechs/nevermined/token/$contractName.sol:$contractName"
-constructorArgs="$mechMarketplaceProxyAddress $drainerAddress $usdcAddress"
+contractName="MechFactoryFixedPriceTokenUSDC"
+contractPath="contracts/mechs/token/usdc/$contractName.sol:$contractName"
+constructorArgs="$mechMarketplaceProxyAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -89,10 +83,10 @@ echo "${green}Deployment of: $contractArgs${reset}"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-balanceTrackerNvmSubscriptionTokenAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+mechFactoryFixedPriceTokenUSDCAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#balanceTrackerNvmSubscriptionTokenAddress}
+outputLength=${#mechFactoryFixedPriceTokenUSDCAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
@@ -101,11 +95,11 @@ if [ $outputLength != 42 ]; then
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"balanceTrackerNvmSubscriptionTokenAddress":"'$balanceTrackerNvmSubscriptionTokenAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"mechFactoryFixedPriceTokenUSDCAddress":"'$mechFactoryFixedPriceTokenUSDCAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$balanceTrackerNvmSubscriptionTokenAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address)" $constructorArgs)"
+  contractParams="$mechFactoryFixedPriceTokenUSDCAddress $contractPath --constructor-args $(cast abi-encode "constructor(address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
@@ -118,4 +112,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "${green}$contractName deployed at: $balanceTrackerNvmSubscriptionTokenAddress${reset}"
+echo "${green}$contractName deployed at: $mechFactoryFixedPriceTokenUSDCAddress${reset}"
