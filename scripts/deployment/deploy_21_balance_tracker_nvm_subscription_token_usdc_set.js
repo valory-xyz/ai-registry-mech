@@ -12,7 +12,7 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const balanceTrackerNvmSubscriptionTokenAddress = parsedData.balanceTrackerNvmSubscriptionTokenAddress;
+    const balanceTrackerNvmSubscriptionTokenUSDCAddress = parsedData.balanceTrackerNvmSubscriptionTokenUSDCAddress;
     const subscriptionNFTAddress = parsedData.subscriptionNFTAddress;
     const subscriptionTokenIdUSDC = parsedData.subscriptionTokenIdUSDC;
     const tokenCreditRatio = parsedData.tokenCreditRatio;
@@ -45,7 +45,7 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get the contract instance
-    const balanceTrackerNvmSubscription = await ethers.getContractAt("BalanceTrackerNvmSubscriptionToken", balanceTrackerNvmSubscriptionTokenAddress);
+    const balanceTrackerNvmSubscription = await ethers.getContractAt("BalanceTrackerNvmSubscriptionToken", balanceTrackerNvmSubscriptionTokenUSDCAddress);
 
     // Transaction signing and execution
     console.log("21. EOA to set Balance trackers NVM subscription Token");

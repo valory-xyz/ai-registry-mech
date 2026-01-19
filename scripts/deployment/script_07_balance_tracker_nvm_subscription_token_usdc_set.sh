@@ -17,7 +17,7 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-balanceTrackerNvmSubscriptionTokenAddress=$(jq -r ".balanceTrackerNvmSubscriptionTokenAddress" $globals)
+balanceTrackerNvmSubscriptionTokenUSDCAddress=$(jq -r ".balanceTrackerNvmSubscriptionTokenUSDCAddress" $globals)
 subscriptionNFTAddress=$(jq -r ".subscriptionNFTAddress" $globals)
 subscriptionTokenIdUSDC=$(jq -r ".subscriptionTokenIdUSDC" $globals)
 tokenCreditRatio=$(jq -r ".tokenCreditRatio" $globals)
@@ -53,7 +53,7 @@ echo "RPC: $networkURL"
 echo "${green}Set NVM balance tracker config${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
-castArgs="$balanceTrackerNvmSubscriptionTokenAddress setSubscription(address,uint256,uint256) $subscriptionNFTAddress $subscriptionTokenIdUSDC $tokenCreditRatio"
+castArgs="$balanceTrackerNvmSubscriptionTokenUSDCAddress setSubscription(address,uint256,uint256) $subscriptionNFTAddress $subscriptionTokenIdUSDC $tokenCreditRatio"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)
