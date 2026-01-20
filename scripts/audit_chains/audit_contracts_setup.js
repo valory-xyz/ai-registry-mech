@@ -6,7 +6,6 @@ const fs = require("fs");
 
 const verifyRepo = false;
 const verifySetup = true;
-const AddressZero = ethers.constants.AddressZero;
 
 // Custom expect that is wrapped into try / catch block
 function customExpect(arg1, arg2, log) {
@@ -154,9 +153,9 @@ async function checkMechMarketplaceProxy(chainId, provider, globalsInstance, con
         isFactoryWhitelisted = await mechMarketplaceProxy.mapMechFactories(globalsInstance["mechFactoryNvmSubscriptionNativeAddress"]);
         customExpect(isFactoryWhitelisted, true, log + ", function: mapMechFactories()");
     } else {
-         isFactoryWhitelisted = await mechMarketplaceProxy.mapMechFactories(globalsInstance["mechFactoryNvmSubscriptionTokenUSDCAddress"]);
-         customExpect(isFactoryWhitelisted, true, log + ", function: mapMechFactories()");
-     }
+        isFactoryWhitelisted = await mechMarketplaceProxy.mapMechFactories(globalsInstance["mechFactoryNvmSubscriptionTokenUSDCAddress"]);
+        customExpect(isFactoryWhitelisted, true, log + ", function: mapMechFactories()");
+    }
 
     // Check whitelisted balance trackers
     // FixedPriceNative
@@ -291,9 +290,9 @@ async function main() {
 
         const providerLinks = {
             "gnosis": "https://rpc.gnosischain.com",
-            "base": "https://restless-boldest-vineyard.base-mainnet.quiknode.pro/e4fc280d88844ea4ed44ad5fb54fb4c25eda1a35/",
-            "polygon": "https://capable-orbital-emerald.matic.quiknode.pro/68d1e7112a7966bfeb83a0f9fb45eb4098cadba1/",
-            "optimism": "https://necessary-necessary-tent.optimism.quiknode.pro/75831f776c688fd6a0091a724218236b29a39b5d/"
+            "base": "https://mainnet.base.org",
+            "polygon": "https://polygon-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MATIC,
+            "optimism": "https://public-op-mainnet.fastnode.io"
         };
 
         // Get all the globals processed
@@ -326,7 +325,7 @@ async function main() {
 
             log = initLog + ", contract: " + "BalanceTrackerFixedPriceToken";
             await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerFixedPriceToken", log);
-continue;
+
             // Skip networks where not deployed
             log = initLog + ", contract: " + "BalanceTrackerNvmSubscriptionNative";
             await checkBalanceTracker(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "BalanceTrackerNvmSubscriptionNative", log);
