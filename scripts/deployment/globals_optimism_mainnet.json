@@ -47,5 +47,7 @@
   "usdcAddress": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
   "tokenCreditRatio": "990000000000000000",
   "mechFactoryNvmSubscriptionTokenUSDCAddress": "0x02C26437B292D86c5F4F21bbCcE0771948274f84",
-  "balanceTrackerNvmSubscriptionTokenUSDCAddress": "0x1a0bFCC27051BCcDDc444578f56A4F5920e0E083"
+  "balanceTrackerNvmSubscriptionTokenUSDCAddress": "0x1a0bFCC27051BCcDDc444578f56A4F5920e0E083",
+  "mechFactoryFixedPriceTokenUSDCAddress": "0x93111f6C267068A5d7356114D61d0f09bFD53a54",
+  "balanceTrackerFixedPriceTokenUSDCAddress": "0xA123748Ce7609F507060F947b70298D0bde621E6"
 }
