@@ -59,11 +59,7 @@ elif [ $chainId == 80002 ]; then
 fi
 
 mechMarketplaceProxyAddress=$(jq -r '.mechMarketplaceProxyAddress' $globals)
-if [ $chainId == 1 ] || [ $chainId == 11155111 ]; then
-  drainerAddress=$(jq -r '.burnerAddress' $globals)
-else
-  drainerAddress=$(jq -r '.drainerAddress' $globals)
-fi
+drainerAddress=$(jq -r '.drainerAddress' $globals)
 usdcAddress=$(jq -r '.usdcAddress' $globals)
 
 contractName="BalanceTrackerFixedPriceToken"

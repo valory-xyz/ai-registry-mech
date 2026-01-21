@@ -18,7 +18,7 @@
   "agentMechSubscriptionAddress": "0xbA4491C86705e8f335Ceaa8aaDb41361b2F82498",
   "agentIdSubscription": "1",
   "minCreditsPerRequest": "1",
-  "subscriptionNFTAddress": "0x0000000000000000000000000000000000000001",
+  "subscriptionNFTAddress": "0x32499ec9078e8d72fa157132a67b0764fcfed6a9",
   "subscriptionTokenId": "1",
   "agentHashSubscription": "0x8EB08F91FD5035D5CDD75659031420CA84314CD85091603A33D76DF12479E42C",
   "agentRegistryAddress": "0x75D529FAe220bC8db714F0202193726b46881B76",
@@ -47,5 +47,7 @@
   "usdcAddress": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
   "tokenCreditRatio": "990000000000000000",
   "mechFactoryNvmSubscriptionTokenUSDCAddress": "0x02C26437B292D86c5F4F21bbCcE0771948274f84",
-  "balanceTrackerNvmSubscriptionTokenUSDCAddress": "0x1a0bFCC27051BCcDDc444578f56A4F5920e0E083"
+  "balanceTrackerNvmSubscriptionTokenUSDCAddress": "0x1a0bFCC27051BCcDDc444578f56A4F5920e0E083",
+  "mechFactoryFixedPriceTokenUSDCAddress": "0x93111f6C267068A5d7356114D61d0f09bFD53a54",
+  "balanceTrackerFixedPriceTokenUSDCAddress": "0xA123748Ce7609F507060F947b70298D0bde621E6"
 }
