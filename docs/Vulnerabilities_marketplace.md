@@ -783,7 +783,7 @@ retaining signature-domain version `1.1.0`.
 
 Applying the fix on-chain requires deploying the new implementation and executing a governance-authorized
 upgrade of each affected `MechMarketplace` proxy via `changeImplementation(newImplementation)`. Merging
-this PR does not update deployed contracts.
+ [PR #208](https://github.com/valory-xyz/autonolas-marketplace/pull/208) does not update deployed contracts.
 
 The analysis below describes the legacy implementation.
 
