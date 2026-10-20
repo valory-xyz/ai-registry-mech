@@ -24,6 +24,7 @@ contract ForkMechMarketplaceDomainSeparatorTest is MarketplaceDomainTestBase {
         require(block.chainid == id, "wrong fork chain");
         // Arbitrum exposes the L1 number to BLOCKNUMBER, while RPC/fork selection uses its L2 height.
         require(block.number == evmNumber, "wrong fork block");
+        require(block.timestamp == vm.parseJsonUint(pins, string.concat(key, ".timestamp")), "wrong fork timestamp");
         require(proxy.code.length > 0, "proxy has no code");
         MechMarketplace marketplace = MechMarketplace(proxy);
         bytes32 expected = _domain(id, proxy);

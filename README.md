@@ -76,7 +76,7 @@ npx hardhat test
 
 Domain separator upgrade regression tests (Solidity 0.8.30):
 ```sh
-forge test --use 0.8.30 --match-contract MechMarketplaceDomainSeparatorTest \
+forge test --use 0.8.30 --match-contract '^MechMarketplaceDomainSeparatorTest$' \
   --skip ImportWETH.sol --skip Proposal01FeeActivation -vv
 ```
 The skips exclude the Solidity 0.5 WETH import and the unrelated historical proposal replay.
@@ -91,8 +91,9 @@ RUN_MARKETPLACE_DOMAIN_FORKS=true forge test --use 0.8.30 \
   --match-contract ForkMechMarketplaceDomainSeparatorTest \
   --skip ImportWETH.sol --skip Proposal01FeeActivation --threads 2 -vv
 ```
-RPC endpoints, block numbers, block hashes and proxy addresses are pinned in
-`test/fixtures/domain-separator-forks.json`. These tests require RPC access to the pinned state and
+RPC endpoints, block numbers, timestamps and proxy addresses are recorded in
+`test/fixtures/domain-separator-forks.json`. The tests assert the chain Id, EVM block number and timestamp;
+`blockHash` is informational metadata and is not asserted. These tests require RPC access to the pinned state and
 simulate owner-authorized upgrades locally; they do not broadcast transactions. They check domain and
 request-hash equality, retained root storage and selected mapping values. A separator mismatch is a
 failed deployment gate and must be investigated before an upgrade. The local integration tests cover

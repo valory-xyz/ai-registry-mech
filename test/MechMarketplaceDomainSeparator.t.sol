@@ -67,8 +67,8 @@ abstract contract MarketplaceDomainTestBase {
     }
 
     function _rootStorage(address proxy) internal view returns (bytes32) {
-        bytes32[19] memory slots;
-        // All current root slots, including the mapping roots. The implementation slot is separate.
+        bytes32[18] memory slots;
+        // Current storage slots 0-17, including mapping roots. The implementation slot is separate.
         for (uint256 i; i < slots.length; ++i) {
             slots[i] = vm.load(proxy, bytes32(i));
         }

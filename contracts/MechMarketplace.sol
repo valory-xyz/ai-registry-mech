@@ -95,14 +95,16 @@ contract MechMarketplace is IErrorsMarketplace {
     // Max marketplace fee factor (100%)
     uint256 public constant MAX_FEE_FACTOR = 10_000;
 
-    // Original chain Id
+    /// @notice Legacy implementation deployment chain Id, retained for public getter compatibility.
+    /// @dev No longer used for domain validation. Use getDomainSeparator() for the active signature domain.
     uint256 public immutable chainId;
     // Mech karma contract address
     address public immutable karma;
     // Service registry contract address
     address public immutable serviceRegistry;
 
-    // Domain separator value
+    /// @notice Legacy cached domain separator, retained for storage layout and public getter compatibility.
+    /// @dev May differ from the active domain after a chain-Id change. Use getDomainSeparator() instead.
     bytes32 public domainSeparator;
     // Universal mech marketplace fee (max of 10_000 == 100%)
     uint256 public fee;

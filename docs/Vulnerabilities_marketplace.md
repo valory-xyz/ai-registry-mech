@@ -777,6 +777,16 @@ No change is recommended.
 **Severity**: Low
 **Source**: internal review
 
+**Remediation**: A source fix is proposed in [PR #208](https://github.com/valory-xyz/autonolas-marketplace/pull/208)
+for `MechMarketplace` version `1.2.0`. The implementation always recomputes the domain separator while
+retaining signature-domain version `1.1.0`.
+
+Applying the fix on-chain requires deploying the new implementation and executing a governance-authorized
+upgrade of each affected `MechMarketplace` proxy via `changeImplementation(newImplementation)`. Merging
+this PR does not update deployed contracts.
+
+The analysis below describes the legacy implementation.
+
 `MechMarketplace` computes its EIP-712 domain separator once, during initialization, and stores it. Reads
 go through a guard that is meant to detect the one condition under which a cached separator becomes wrong —
 the chain Id changing underneath it:
