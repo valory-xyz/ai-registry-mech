@@ -45,6 +45,10 @@ jobs:
         run: ./node_modules/.bin/hardhat compile
       - name: Run tests
         run: ./node_modules/.bin/hardhat test
+      - name: Run domain separator upgrade regression tests
+        run: >-
+          forge test --use 0.8.30 --match-contract MechMarketplaceDomainSeparatorTest
+          --skip ImportWETH.sol --skip Proposal01FeeActivation -vv
 
       # Run hardhat coverage
       - name: Solidity coverage summary

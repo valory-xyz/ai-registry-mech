@@ -3,10 +3,15 @@
 auto_detect_solc = true
 src = "contracts"
 out = "out"
+cache_path = "cache/foundry"
 libs = ["lib"]
 optimizer = true
 optimizer_runs = 1000000
 evm_version = "prague"
+fs_permissions = [
+    { access = "read", path = "./abis" },
+    { access = "read", path = "./test/fixtures" },
+]
 
 remappings = [
     "@gnosis.pm=node_modules/@gnosis.pm",

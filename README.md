@@ -74,6 +74,31 @@ Run the tests:
 npx hardhat test
 ```
 
+Domain separator upgrade regression tests (Solidity 0.8.30):
+```sh
+forge test --use 0.8.30 --match-contract MechMarketplaceDomainSeparatorTest \
+  --skip ImportWETH.sol --skip Proposal01FeeActivation -vv
+```
+The skips exclude the Solidity 0.5 WETH import and the unrelated historical proposal replay.
+The tests use the checked-in deployment artifact as the legacy implementation, exercise a chain-ID
+change followed by an upgrade, and check EOA and EIP-1271 authorization across all three signature paths.
+The Hardhat suite also compiles a fixture with a different contract `VERSION` to check that the signature
+domain remains pinned to `1.1.0`. This fixture is compiled in memory without changing source files.
+
+Opt-in checks for the eight deployments in `docs/configuration.json`:
+```sh
+RUN_MARKETPLACE_DOMAIN_FORKS=true forge test --use 0.8.30 \
+  --match-contract ForkMechMarketplaceDomainSeparatorTest \
+  --skip ImportWETH.sol --skip Proposal01FeeActivation --threads 2 -vv
+```
+RPC endpoints, block numbers, block hashes and proxy addresses are pinned in
+`test/fixtures/domain-separator-forks.json`. These tests require RPC access to the pinned state and
+simulate owner-authorized upgrades locally; they do not broadcast transactions. They check domain and
+request-hash equality, retained root storage and selected mapping values. A separator mismatch is a
+failed deployment gate and must be investigated before an upgrade. The local integration tests cover
+settlement; the deployment forks do not submit deliveries for existing services.
+Arbitrum's fixture distinguishes the L2 RPC height from the L1 block number exposed to EVM code.
+
 ### Linters
 - [`ESLint`](https://eslint.org) is used for JS code.
 - [`solhint`](https://github.com/protofire/solhint) is used for Solidity linting.

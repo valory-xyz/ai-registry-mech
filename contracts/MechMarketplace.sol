@@ -81,7 +81,10 @@ contract MechMarketplace is IErrorsMarketplace {
     }
 
     // Contract version number
-    string public constant VERSION = "1.1.0";
+    string public constant VERSION = "1.2.0";
+    // Keep the legacy domain version to preserve existing request hashes and requester signatures.
+    // The implementation VERSION can change independently without invalidating those signatures.
+    string internal constant DOMAIN_VERSION = "1.1.0";
     // Value for the contract signature validation: bytes4(keccak256("isValidSignature(bytes32,bytes)")
     bytes4 constant internal MAGIC_VALUE = 0x1626ba7e;
     // Code position in storage is keccak256("MECH_MARKETPLACE_PROXY") = "0xe6194b93a7bff0a54130ed8cd277223408a77f3e48bb5104a9db96d334f962ca"
@@ -162,7 +165,7 @@ contract MechMarketplace is IErrorsMarketplace {
             abi.encode(
                 DOMAIN_SEPARATOR_TYPE_HASH,
                 keccak256("MechMarketplace"),
-                keccak256(abi.encode(VERSION)),
+                keccak256(abi.encode(DOMAIN_VERSION)),
                 block.chainid,
                 address(this)
             )
@@ -1182,10 +1185,10 @@ contract MechMarketplace is IErrorsMarketplace {
         _locked = 1;
     }
 
-    /// @dev Gets the already computed domain separator of recomputes one if the chain Id is different.
-    /// @return Original or recomputed domain separator.
+    /// @dev Computes the domain separator for the current chain and this contract.
+    /// @return Computed domain separator.
     function getDomainSeparator() public view returns (bytes32) {
-        return block.chainid == chainId ? domainSeparator : _computeDomainSeparator();
+        return _computeDomainSeparator();
     }
 
     /// @dev Gets the request Id.
