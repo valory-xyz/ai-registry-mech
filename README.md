@@ -74,6 +74,21 @@ Run the tests:
 npx hardhat test
 ```
 
+Delivery payload checks:
+```sh
+npx hardhat test test/MechMarketplaceDeliveryPayload.js
+```
+These tests cover empty responses and atomic batch rejection for native and ERC-20 payment,
+all three signed-delivery overloads with EOA and EIP-1271 requesters, processed-response validation,
+and ordinary delivery compatibility with the checked-in legacy factory artifact. The Marketplace
+settlement interface is unchanged. Existing mechs do not gain the new wrapper check.
+
+On all three signed-delivery paths and the updated ordinary delivery wrapper, one empty response
+reverts the entire batch. Otherwise valid items in that transaction are not settled or paid, and
+earlier state changes are rolled back. The caller must correct or remove the empty-response item
+and resubmit. Signed paths check the supplied `deliveryData`; the ordinary wrapper checks the
+processed response returned by `_preDeliver`.
+
 Domain separator upgrade regression tests (Solidity 0.8.30):
 ```sh
 forge test --use 0.8.30 --match-contract '^MechMarketplaceDomainSeparatorTest$' \

@@ -233,8 +233,8 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Traverse all request Ids
         for (uint256 i = 0; i < numRequests; ++i) {
-            // Check for non-zero data
-            if (deliverWithSignatures[i].requestData.length == 0) {
+            // Require nonempty request and response data.
+            if (deliverWithSignatures[i].requestData.length == 0 || deliverWithSignatures[i].deliveryData.length == 0) {
                 revert ZeroValue();
             }
 
@@ -432,8 +432,8 @@ contract MechMarketplace is IErrorsMarketplace {
         uint256 nonce,
         bool explicitNonce
     ) internal returns (bytes32 requestId) {
-        // Check for non-zero data
-        if (deliverWithSignature.requestData.length == 0) {
+        // Require nonempty request and response data.
+        if (deliverWithSignature.requestData.length == 0 || deliverWithSignature.deliveryData.length == 0) {
             revert ZeroValue();
         }
 

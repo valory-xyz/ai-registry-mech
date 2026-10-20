@@ -29,7 +29,7 @@ abstract contract OlasMech is Mech, IErrorsMech {
     event NumRequestsIncrease(uint256 numRequests);
 
     // Olas mech version number
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.1.0";
     // Mech marketplace address
     address public immutable mechMarketplace;
     // Service Registry address
@@ -167,6 +167,11 @@ abstract contract OlasMech is Mech, IErrorsMech {
             bytes32 requestId = requestIds[i];
             // Perform a pre-delivery of the data if it needs additional parsing and get finalized request delivery rate
             (deliveryDatas[i], deliveryRates[i]) = _preDeliver(requestId, datas[i]);
+
+            // Validate the processed response before updating request records or settling.
+            if (deliveryDatas[i].length == 0) {
+                revert ZeroValue();
+            }
 
             // Clean request info
             // Get request Id from the request Ids map

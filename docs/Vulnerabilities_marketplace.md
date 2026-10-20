@@ -622,31 +622,33 @@ so a remap only affects requests created after it.
 
 **Severity**: Low
 **Source**: internal review
+**Status**: Partial source remediation; not deployed; finding remains open
 
-An authorized service operator can finalize a funded fixed-price request with an empty `deliveryData`. The
-request is marked `Delivered`, the full fixed rate is credited to the mech, and the operator can withdraw
-it.
+**Original issue.** Before the remediation below, an authorized service operator could finalize a
+funded fixed-price request with empty response data through both `deliverToMarketplace()` and
+`deliverMarketplaceWithSignatures()`. The request was marked `Delivered`, the fixed rate was credited
+to the mech, and the operator could withdraw it. Settlement used request IDs and rates without
+requiring nonempty response data.
 
-`deliveryData` is carried through `_prepareDeliveries` and `_preDeliver` and is then only ever emitted:
+**Implemented checks (not deployed).** `MechMarketplace` now rejects empty supplied `deliveryData`
+on all three signed-delivery overloads. New `OlasMech` version `1.1.0` rejects empty processed response
+data immediately after `_preDeliver`, before updating request records or calling Marketplace
+settlement. The wrapper checks processed output because nonempty input can produce empty output.
 
-```solidity
-emit Deliver(address(this), msg.sender, requestIds[i], deliveryRates[i], deliveryDatas[i]);
-```
+On these checked paths, one empty response reverts the entire batch, including earlier valid items.
+No item in the reverted transaction is settled or paid, and earlier state changes are rolled back.
+The caller must correct or remove the empty-response item and resubmit.
 
-Settlement runs on `deliveryRates`. Nothing on the delivery path inspects the payload's length or content,
-so a zero-length delivery settles exactly as a full one does. `deliverToMarketplace()` and
-`deliverMarketplaceWithSignatures()` share this property.
+The signed checks take effect when the Marketplace proxy is upgraded. The ordinary wrapper check
+requires newly deployed mechs using the updated code; existing mechs retain their deployed behavior.
 
-The contract cannot judge whether a delivery is *correct* — the payload is opaque by design and the
-requester chooses the mech and the rate, so quality is a trust relationship rather than something the
-marketplace can enforce. What is recorded here is narrower: the contract does not enforce even the cheapest
-available invariant, that something was delivered at all.
+**Remaining open scope.** These checks do not establish nonempty-response enforcement across every
+settlement route. Remaining routes and existing mech deployments require further design,
+compatibility and deployment review. Closing this scope may require broader contract changes and
+cannot be described as a small validation change. This finding remains open pending that work.
 
-**Mitigation.** Reject a zero-length `deliveryData` on every production delivery path. That is a small
-change and removes the provably-empty case without implying any guarantee about content. A verifiable
-output commitment would be needed for a real authorization guarantee, and is a protocol design decision well
-beyond this entry. Requesters should continue to select mechs on reputation, since on-chain settlement
-attests to delivery having occurred, not to its usefulness.
+**Validation limit.** Nonempty bytes establish only that a response contains data. They do not prove
+that the requested work was performed or that the response is correct or useful.
 
 ### 24. Subscription fulfilment is permissionless and forwards caller-supplied parameters
 
