@@ -81,6 +81,16 @@ describe("MechFixedPriceToken", function () {
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
         await serviceRegistry.setServiceOwner(mechServiceId + 1, deployer.address);
 
+        // Deploy
+        const BalanceTrackerFixedPriceToken = await ethers.getContractFactory("BalanceTrackerFixedPriceToken");
+        balanceTrackerFixedPriceToken = await BalanceTrackerFixedPriceToken.deploy(mechMarketplace.address,
+            deployer.address, token.address);
+        await balanceTrackerFixedPriceToken.deployed();
+
+        // Whitelist balance tracker
+        paymentType = ethers.utils.id("FixedPriceToken");
+        await mechMarketplace.setPaymentTypeBalanceTrackers([paymentType], [balanceTrackerFixedPriceToken.address]);
+
         // Create default priority mech
         let tx = await mechMarketplace.create(mechServiceId, mechFactoryFixedPrice.address, mechCreationData);
         let res = await tx.wait();
@@ -96,16 +106,6 @@ describe("MechFixedPriceToken", function () {
         deliveryMechAddress = "0x" + res.logs[0].topics[1].slice(26);
         // Get mech contract instance
         deliveryMech = await ethers.getContractAt("MechFixedPriceToken", deliveryMechAddress);
-
-        // Deploy
-        const BalanceTrackerFixedPriceToken = await ethers.getContractFactory("BalanceTrackerFixedPriceToken");
-        balanceTrackerFixedPriceToken = await BalanceTrackerFixedPriceToken.deploy(mechMarketplace.address,
-            deployer.address, token.address);
-        await balanceTrackerFixedPriceToken.deployed();
-
-        // Whitelist balance tracker
-        paymentType = await priorityMech.paymentType();
-        await mechMarketplace.setPaymentTypeBalanceTrackers([paymentType], [balanceTrackerFixedPriceToken.address]);
 
         // Mint tokens
         await token.mint(deployer.address, initMint);

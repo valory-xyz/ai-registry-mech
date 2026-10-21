@@ -32,15 +32,15 @@ async function fixture(kind = "Native", factoryName) {
     const factory = await deploy(factoryName || "MechFactoryFixedPrice" + kind, marketplace.address);
     await marketplace.setMechFactoryStatuses([factory.address], [true]);
     await registry.setServiceOwner(1, operator.address);
+    const token = kind === "Token" ? await deploy("ERC20Token") : undefined;
+    const tracker = await deploy("BalanceTrackerFixedPrice" + kind, marketplace.address,
+        operator.address, token ? token.address : operator.address);
+    const paymentType = ethers.utils.id("FixedPrice" + kind);
+    await marketplace.setPaymentTypeBalanceTrackers([paymentType], [tracker.address]);
     const creation = await (await marketplace.create(1, factory.address,
         ethers.utils.defaultAbiCoder.encode(["uint256"], [RATE]))).wait();
     const mechAddress = creation.events.find((event) => event.event === "CreateMech").args.mech;
     const mech = await ethers.getContractAt("MechFixedPrice" + kind, mechAddress);
-    const token = kind === "Token" ? await deploy("ERC20Token") : undefined;
-    const tracker = await deploy("BalanceTrackerFixedPrice" + kind, marketplace.address,
-        operator.address, token ? token.address : operator.address);
-    const paymentType = await mech.paymentType();
-    await marketplace.setPaymentTypeBalanceTrackers([paymentType], [tracker.address]);
     const contractRequester = await deploy("MockOperatorContract");
     if (token) {
         await token.mint(operator.address, FUNDS * 2);

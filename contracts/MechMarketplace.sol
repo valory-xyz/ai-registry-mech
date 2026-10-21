@@ -801,6 +801,12 @@ contract MechMarketplace is IErrorsMarketplace {
             revert ZeroAddress();
         }
 
+        // Require payment support before registering the mech. A revert also rolls back its deployment.
+        bytes32 paymentType = IMech(mech).paymentType();
+        if (mapPaymentTypeBalanceTrackers[paymentType] == address(0)) {
+            revert ZeroAddress();
+        }
+
         // Record factory that created a mech
         mapAgentMechFactories[mech] = mechFactory;
         numMechs++;

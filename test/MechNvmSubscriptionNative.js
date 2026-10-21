@@ -81,14 +81,6 @@ describe("MechNvmSubscriptionNative", function () {
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
         await serviceRegistry.setServiceOwner(mechServiceId + 1, deployer.address);
 
-        // Create default priority mech
-        let tx = await mechMarketplace.create(mechServiceId, mechFactoryNvmSubscriptionNative.address, mechCreationData);
-        let res = await tx.wait();
-        // Get mech contract address from the event
-        priorityMechAddress = "0x" + res.logs[0].topics[1].slice(26);
-        // Get mech contract instance
-        priorityMech = await ethers.getContractAt("MechNvmSubscriptionNative", priorityMechAddress);
-
         const WETH = await ethers.getContractFactory("WETH9");
         weth = await WETH.deploy();
         await weth.deployed();
@@ -111,8 +103,16 @@ describe("MechNvmSubscriptionNative", function () {
             tokenCreditRatio);
 
         // Whitelist balance tracker
-        paymentType = await priorityMech.paymentType();
+        paymentType = ethers.utils.id("NvmSubscriptionNative");
         await mechMarketplace.setPaymentTypeBalanceTrackers([paymentType], [balanceTrackerNvmSubscriptionNative.address]);
+
+        // Create default priority mech
+        let tx = await mechMarketplace.create(mechServiceId, mechFactoryNvmSubscriptionNative.address, mechCreationData);
+        let res = await tx.wait();
+        // Get mech contract address from the event
+        priorityMechAddress = "0x" + res.logs[0].topics[1].slice(26);
+        // Get mech contract instance
+        priorityMech = await ethers.getContractAt("MechNvmSubscriptionNative", priorityMechAddress);
     });
 
     context("Initialization", async function () {
