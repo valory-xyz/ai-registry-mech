@@ -25,7 +25,7 @@
 | 17 | Balance trackers remain fundable after all corresponding mech factories are disabled | BalanceTrackerBase, BalanceTrackerFixedPriceToken, BalanceTrackerFixedPriceNative | Informative |
 | 18 | Celo native tracker fee-drain depends on the wrapped-native token configuration | BalanceTrackerFixedPriceNativeCelo | Low |
 | 19 | Balance-tracker re-map strands residual requester balances | MechMarketplace, BalanceTrackerBase | Low |
-| 20 | EIP-712 domain separator hashes `VERSION` via `abi.encode` | MechMarketplace | Informative |
+| 20 | EIP-712 domain version hashed via `abi.encode` | MechMarketplace | Informative |
 | 21 | Mech payout keying vs. service multisig authorization | BalanceTrackerBase, OlasMech | Informative |
 | 22 | Payment-type balance-tracker remap misroutes in-flight request settlement | MechMarketplace | Low |
 | 23 | Fixed-price delivery is finalized and paid without a delivery payload | MechMarketplace, OlasMech, MechFixedPriceBase | Low |
@@ -53,27 +53,33 @@ function deliverMarketplaceWithSignatures(
     bytes calldata paymentData
 ) external onlyOperator
 ```
-This function calls into `MechMarketplace.deliverMarketplaceWithSignatures()` without the `_locked`
-reentrancy guard that is present on the sibling function `deliverToMarketplace()`.
+Before the guard fix introduced in Marketplace PR 208, the three signed-delivery overloads called
+Marketplace without the `_locked` guard used by `deliverToMarketplace()`. No practical re-entry path
+has been established in the reviewed integrations: operator access restrictions, Marketplace's guard and the balance trackers' guards already protect
+the settlement flow. This is defense-in-depth hardening, not a demonstrated live exploit.
 
-Upon analysis, the function cannot be re-entered in practice. The only caller is restricted by the
-`onlyOperator` modifier to the service multisig. The marketplace sets its own `_locked = 2` before
-making any external calls, and the balance tracker independently guards itself with its own `_locked`.
-The external calls in the chain are:
-- `IKarma.changeRequesterMechKarma()` — pure state write, no callbacks.
-- `IKarma.changeMechKarma()` — pure state write, no callbacks.
-- `IMech.updateNumRequests()` — calls back to OlasMech but is gated by `MarketplaceOnly`, and the
-  marketplace is already locked.
-- `IBalanceTracker.adjustMechRequesterBalances()` — has its own reentrancy guard.
-- Token transfers — only standard ERC-20 tokens (OLAS, USDC, wrapped natives) with no transfer hooks.
+**Fixed in source — deployment pending — [Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208).**
+All three signed wrappers now acquire and release the same mech-level lock as ordinary delivery,
+blocking nested delivery calls both within and between those paths. Legitimate Marketplace-only
+callbacks such as `updateNumRequests()` remain callable during settlement. No storage field or
+external interface is added. Existing deployed mechs retain their bytecode; the guard applies to new
+mechs created from the updated factories. Existing mechs are not redeployed solely for this hardening.
 
-No practical re-entry path exists. We recommend treating this as a documentation point for
-defense-in-depth consistency. In a future major version update, the guard may be added for code symmetry.
+The regression tests use an artificial callback-capable Marketplace and an authorized operator contract
+to isolate the mech guard. They cover every pair of ordinary/signed delivery paths, legitimate counter
+callbacks, failure rollback and lock release between calls. These tests do not establish a callback
+route through the production Marketplace. Run them with:
+
+```sh
+npx hardhat test test/OlasMechReentrancy.js
+```
 
 ### 2. `getRequestId` EIP-712 typeHash
-**Severity**: Low
 
-The following function is implemented in the MechMarketplace contract:
+**Severity:** Low
+
+The following function is implemented in `MechMarketplace`:
+
 ```solidity
 function getRequestId(
     address mech,
@@ -84,18 +90,40 @@ function getRequestId(
     uint256 nonce
 ) public view returns (bytes32 requestId)
 ```
-This function computes an EIP-712 hash without including a `typeHash` as the first field of the inner
-`abi.encode`. Per EIP-712 specification: `hashStruct(s) = keccak256(typeHash || encodeData(s))`.
 
-Upon analysis, no practical collision or replay path exists. The hash includes `address(this)` as the
-first field, and the domain separator includes the contract address and `chainId`. Cross-contract
-collision requires an identical domain separator (impossible with different addresses) AND identical
-struct layout.
+**Issue**
 
-Adding a `typeHash` would change the `requestId` computation, making this a breaking change that
-would invalidate any existing undelivered requests. We recommend documenting this deviation from
-the EIP-712 standard. In a future marketplace version where contracts are redeployed, the `typeHash`
-should be added for full EIP-712 compliance.
+This function omits the structure's `typeHash` from the inner `abi.encode`. EIP-712 requires:
+
+```text
+hashStruct(s) = keccak256(typeHash ‖ encodeData(s))
+```
+
+The existing digest binds the Marketplace address, mech, requester, request data, rate, payment type and nonce,
+with chain binding through the domain separator. The original review did not identify a practical collision
+or replay exploit caused solely by the missing type hash. It remains a deviation from standard typed-data encoding.
+
+**Partially fixed in source — explicit-nonce path only; deployment pending**
+
+[Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208) updates `getRequestIdWithNonce()`
+to use a standard EIP-712 type hash covering the mech, requester, request data, maximum rate, payment type,
+explicit nonce and deadline. It also introduces a correctly encoded domain for this path, addressing the
+domain deviation described in vulnerability list **20**.
+
+**Remaining scope**
+
+The two sequential-nonce paths retain their existing encoding for compatibility. Adding a type hash to
+their `getRequestId()` computation would change request IDs and invalidate outstanding signatures using
+that computation.
+
+Standardizing these paths requires a separate compatibility-breaking migration, including the domain-encoding
+correction described in vulnerability list **20**. This entry therefore remains partially unresolved.
+
+**Deployment requirements**
+
+Merging the PR does not change deployed behavior. Activation requires a new Marketplace implementation and
+an authorized proxy upgrade, plus updated mech wrappers and signing clients. The new explicit-nonce format
+replaces its previous format and selector; callers must update their ABI and signing payload.
 
 ### 3. Unchecked ERC-20 transfer return values
 **Severity**: Low
@@ -153,25 +181,40 @@ model should be aware that partial refunds are denominated in native tokens or E
 not in subscription credits.
 
 ### 5. Mech created without balance tracker validation
-**Severity**: Low
 
-The following function is implemented in the MechMarketplace contract:
-```solidity
-function create(uint256 serviceId, address mechFactory, bytes memory payload)
-    external returns (address mech)
+**Severity:** Low
+**Status:** Fixed in source — deployment pending
+
+**Issue**
+
+Before the creation-time check introduced in Marketplace PR 208, `MechMarketplace.create()` could
+create and register a mech without a configured balance tracker for its payment type. Payment-dependent
+operations would then fail. The original review treated this as an operational configuration issue;
+it did not establish fund loss caused by the missing creation-time check.
+
+**Implemented fix**
+
+[Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208) checks the created mech's
+payment type after the factory returns a nonzero address and before Marketplace registers or counts it.
+If no balance tracker is configured for that payment type, creation reverts with `ZeroAddress()`.
+The revert also rolls back the new mech's deployment, the factory's creation counter change and emitted events.
+
+**Deployment requirements and scope**
+
+The check takes effect after the Marketplace implementation deployment and proxy upgrade, and applies
+to future creation calls. Trackers must be configured before creating mechs. Existing mechs are not
+revalidated by this change. The check establishes that a tracker address is configured; it does not
+independently validate that tracker's implementation.
+
+**Validation**
+
+Native and token regression tests cover missing trackers, a tracker configured only for another payment
+type, deployment and registration rollback, and successful retry after configuring the correct mapping.
+The retry also checks that the failed creation did not consume the factory nonce. Run them with:
+
+```sh
+npx hardhat test test/MechMarketplaceCreation.js
 ```
-This function does not verify that `mapPaymentTypeBalanceTrackers[paymentType] != address(0)` for
-the created mech's payment type. A mech can be created and appear valid, but all requests to it
-will revert because no balance tracker is registered for its payment type.
-
-Since the marketplace owner controls which balance trackers are registered via
-`setPaymentTypeBalanceTrackers()`, and mech creation is restricted to service owners, this is an
-operational concern rather than a security vulnerability. A mech created without a corresponding
-balance tracker is non-functional but causes no fund loss.
-
-We recommend that service owners verify the balance tracker is registered for their intended
-payment type before calling `create()`. Front-end interfaces should perform this validation
-and warn users accordingly.
 
 ### 6. `numUndeliveredRequests` counter inconsistency
 **Severity**: Low
@@ -523,26 +566,59 @@ operational concern rather than an attack vector. We recommend treating a tracke
 migration event: announce it in advance so requesters spend down their balances and mechs claim
 their accrued payments, and drain collected fees before or as part of the re-map.
 
-### 20. EIP-712 domain separator hashes `VERSION` via `abi.encode`
-**Severity**: Informative
+### 20. EIP-712 domain version hashed via `abi.encode`
 
-In the MechMarketplace contract, `_computeDomainSeparator` hashes the version field as
-`keccak256(abi.encode(VERSION))` instead of the standard `keccak256(bytes(VERSION))`:
+**Severity:** Informative
+
+**Issue**
+
+The legacy domain separator hashes its version using:
+
 ```solidity
-DOMAIN_SEPARATOR_TYPE_HASH,
-keccak256("MechMarketplace"),
-keccak256(abi.encode(VERSION)),   // standard is keccak256(bytes(VERSION))
-block.chainid,
-address(this)
+keccak256(abi.encode(DOMAIN_VERSION))
 ```
-This deviates from EIP-712 and is inconsistent with the name field on the same lines. It is not
-exploitable: signing and verification both go through `getRequestId`, so signer and verifier
-compute the same value. The only consequence is that an external party using a standard EIP-712
-library would derive a different domain separator. This is a sibling of the deviation documented
-in vulnerability #2.
 
-We recommend hashing the version as `keccak256(bytes(VERSION))` at the next marketplace redeploy,
-together with the #2 typeHash fix.
+EIP-712 requires hashing the string's raw contents:
+
+```solidity
+keccak256(bytes(DOMAIN_VERSION))
+```
+
+`abi.encode` includes an offset, length and padding. Consequently, the legacy calculation produces a
+different domain separator from a standard EIP-712 encoder supplied with the same domain values.
+
+Clients using the legacy digest can still produce signatures that Marketplace accepts. The original
+review did not identify an exploit caused solely by this encoding deviation, but standard typed-data
+clients cannot use the legacy domain without reproducing its custom encoding.
+
+**Partially fixed in source — explicit-nonce path only; deployment pending**
+
+[Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208) introduces a separate
+domain for `getRequestIdWithNonce()`:
+
+```text
+name:              "MechMarketplace"
+version:           "2"
+chainId:           current chain ID
+verifyingContract: Marketplace proxy address
+```
+
+The new domain hashes string contents as EIP-712 requires. Version `"2"` identifies this signing format
+independently of the contract `VERSION`; that particular version value is not required by the standard.
+The corresponding request structure includes the type hash described in vulnerability list **2**.
+
+**Remaining scope**
+
+The two sequential-nonce paths retain domain version `"1.1.0"` and its existing encoding to preserve
+outstanding signatures. This entry therefore remains partially unresolved.
+
+Standardizing those paths requires a separate compatibility-breaking migration. Deploying the current
+code does not change their encoding.
+
+**Deployment requirements**
+
+Activation requires a new Marketplace implementation and an authorized proxy upgrade, plus updated mech
+wrappers and signing clients for the explicit-nonce path. Merging the PR alone does not change deployed behavior.
 
 ### 21. Mech payout keying vs. service multisig authorization
 **Severity**: Informative
@@ -620,33 +696,49 @@ so a remap only affects requests created after it.
 
 ### 23. Fixed-price delivery is finalized and paid without a delivery payload
 
-**Severity**: Low
-**Source**: internal review
+**Severity:** Low
+**Source:** Internal review
+**Status:** Partially fixed in source — deployment pending; finding remains open
 
-An authorized service operator can finalize a funded fixed-price request with an empty `deliveryData`. The
-request is marked `Delivered`, the full fixed rate is credited to the mech, and the operator can withdraw
-it.
+**Issue**
 
-`deliveryData` is carried through `_prepareDeliveries` and `_preDeliver` and is then only ever emitted:
+Before the response checks introduced in Marketplace PR 208, an authorized service operator could settle
+funded fixed-price deliveries with empty response data through both `deliverToMarketplace()` and
+`deliverMarketplaceWithSignatures()`.
 
-```solidity
-emit Deliver(address(this), msg.sender, requestIds[i], deliveryRates[i], deliveryDatas[i]);
-```
+The request was marked `Delivered` and payment was credited to the mech without requiring a nonempty response.
 
-Settlement runs on `deliveryRates`. Nothing on the delivery path inspects the payload's length or content,
-so a zero-length delivery settles exactly as a full one does. `deliverToMarketplace()` and
-`deliverMarketplaceWithSignatures()` share this property.
+**Implemented fix**
 
-The contract cannot judge whether a delivery is *correct* — the payload is opaque by design and the
-requester chooses the mech and the rate, so quality is a trust relationship rather than something the
-marketplace can enforce. What is recorded here is narrower: the contract does not enforce even the cheapest
-available invariant, that something was delivered at all.
+[Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208) adds two checks:
 
-**Mitigation.** Reject a zero-length `deliveryData` on every production delivery path. That is a small
-change and removes the provably-empty case without implying any guarantee about content. A verifiable
-output commitment would be needed for a real authorization guarantee, and is a protocol design decision well
-beyond this entry. Requesters should continue to select mechs on reputation, since on-chain settlement
-attests to delivery having occurred, not to its usefulness.
+- `MechMarketplace` rejects empty supplied `deliveryData` on all three signed-delivery overloads.
+- Updated `OlasMech` rejects empty processed response data immediately after `_preDeliver`, before updating
+  request records or calling Marketplace settlement. The check uses processed output because nonempty
+  input can produce empty output.
+
+On these checked paths, one empty response reverts the entire batch, including earlier valid responses.
+No request in the reverted transaction is settled or paid; earlier state changes are rolled back.
+The caller must correct or remove the empty-response entry and resubmit.
+
+**Remaining scope**
+
+These checks do not establish nonempty-response enforcement across every settlement route. Remaining
+routes and existing mech deployments require further design, compatibility and deployment review.
+
+Closing this scope may require broader contract changes and cannot be described as a small validation
+change. The finding remains open pending that work.
+
+**Deployment requirements**
+
+The signed-delivery checks take effect after the Marketplace implementation deployment and proxy upgrade.
+The ordinary wrapper check requires newly deployed mechs using the updated code. Existing mechs retain
+their deployed behavior.
+
+**Validation limit**
+
+Nonempty bytes establish only that a response contains data. They do not prove that the requested work
+was performed or that the response is correct or useful.
 
 ### 24. Subscription fulfilment is permissionless and forwards caller-supplied parameters
 
@@ -772,48 +864,55 @@ whoever the multisig's owners are at the time.
 
 No change is recommended.
 
-### 29. Cached domain separator is guarded by an implementation immutable, not by the cache's own chain Id
+### 29. Cached domain separator is guarded by an implementation immutable, not by the cache's own chain ID
 
-**Severity**: Low
-**Source**: internal review
+**Severity:** Low
+**Source:** Internal review
+**Status:** Fixed in source — deployment pending
 
-`MechMarketplace` computes its EIP-712 domain separator once, during initialization, and stores it. Reads
-go through a guard that is meant to detect the one condition under which a cached separator becomes wrong —
-the chain Id changing underneath it:
+**Issue**
+
+The legacy implementation stores a domain separator in proxy storage during initialization. It decides
+whether to reuse that value by comparing the current chain ID against an immutable set when the
+implementation was deployed:
 
 ```solidity
-uint256 public immutable chainId;          // set in the constructor, per implementation
-bytes32 public domainSeparator;            // proxy storage, written once in initialize
-
-return block.chainid == chainId ? domainSeparator : _computeDomainSeparator();
+return block.chainid == chainId
+    ? domainSeparator
+    : _computeDomainSeparator();
 ```
 
-**The guard compares `block.chainid` against an immutable of the implementation, rather than against a
-record of the chain the cache was written on.** Those two values are the same until an upgrade separates
-them:
+The comparison does not identify the chain on which the cached separator was created.
 
-| step | stored separator | implementation `chainId` | `block.chainid` | result |
+| Step | Cached domain | Implementation chain ID | Current chain ID | Result |
 |---|---|---|---|---|
-| initialized on chain A | A | A | A | cached — correct |
-| chain migrates to B | A | A | B | recomputed — correct, the guard works |
-| upgraded to an implementation deployed on B | A | **B** | B | cached — **stale, still bound to A** |
+| Initialize on A | A | A | A | Correct cached value |
+| Chain changes to B, preserving state | A | A | B | Correctly recomputes for B |
+| Upgrade to an implementation deployed on B | A | B | B | Incorrectly returns cached A value |
 
-The third row is the defect. The original implementation handles the migration correctly, and the upgrade
-undoes that: deploying a new implementation re-arms a guard that had been doing its job. Nothing in the
-upgrade path refreshes the stored separator, and `initialize` cannot run a second time. If it were reached,
-signatures produced for chain A would validate on chain B, and correctly B-bound signatures would not.
+If this sequence occurs, unused A-bound signatures could validate on B, while correctly B-bound
+signatures would fail, subject to the other settlement checks.
 
-**It is not reachable in any current deployment.** The precondition is a state-preserving chain-Id
-migration — a chain retaining its contract state while changing its EIP-155 identifier. That is a
-chain-level fork or renumbering: it is not something the protocol can cause, nor something an attacker can
-induce, and none of the chains this contract is deployed to has undergone one or announced an intention to.
-There is also no second route to the same divergence: the separator is written once, during initialization,
-and the proxy initializes atomically, so the cache cannot be left unset or written on a different chain from
-the implementation that guards it. The entry is recorded as a correctness defect in the upgrade path rather
-than as an exposure.
+**Implemented fix**
 
-We recommend storing the chain Id alongside the separator and comparing against that, so that both values
-are written together and the guard survives any upgrade. Recomputing the separator as part of each upgrade
-would also work, but it relies on every future upgrade remembering to do so; dropping the cache entirely
-removes the class at the cost of a `keccak256` per call. This is a separate defect from the `VERSION`
-hashing deviation in vulnerability #20, which affects the same function.
+[Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208) makes `getDomainSeparator()`
+always recompute using the current chain ID and proxy address.
+
+The two sequential-nonce paths retain domain version `"1.1.0"` and their existing encoding to preserve
+signatures during ordinary upgrades. The cached storage slot and legacy `chainId` getter remain for
+compatibility; callers should use `getDomainSeparator()` for the active legacy domain.
+
+The separate explicit-nonce signing migration is described in vulnerability lists **2** and **20**.
+
+**Deployment requirements**
+
+Deploy the new Marketplace implementation and perform an authorized upgrade of each affected proxy.
+Merging the PR does not update deployed contracts.
+
+**Validation and scope**
+
+Regression tests exercise the chain-ID-change-and-upgrade sequence and preservation of pre-upgrade
+authorizations on the two legacy paths.
+
+The triggering scenario requires a chain-level change that preserves contract state. These tests
+demonstrate that scenario locally; they do not establish current live exposure.

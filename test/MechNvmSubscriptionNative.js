@@ -81,14 +81,6 @@ describe("MechNvmSubscriptionNative", function () {
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
         await serviceRegistry.setServiceOwner(mechServiceId + 1, deployer.address);
 
-        // Create default priority mech
-        let tx = await mechMarketplace.create(mechServiceId, mechFactoryNvmSubscriptionNative.address, mechCreationData);
-        let res = await tx.wait();
-        // Get mech contract address from the event
-        priorityMechAddress = "0x" + res.logs[0].topics[1].slice(26);
-        // Get mech contract instance
-        priorityMech = await ethers.getContractAt("MechNvmSubscriptionNative", priorityMechAddress);
-
         const WETH = await ethers.getContractFactory("WETH9");
         weth = await WETH.deploy();
         await weth.deployed();
@@ -111,8 +103,16 @@ describe("MechNvmSubscriptionNative", function () {
             tokenCreditRatio);
 
         // Whitelist balance tracker
-        paymentType = await priorityMech.paymentType();
+        paymentType = ethers.utils.id("NvmSubscriptionNative");
         await mechMarketplace.setPaymentTypeBalanceTrackers([paymentType], [balanceTrackerNvmSubscriptionNative.address]);
+
+        // Create default priority mech
+        let tx = await mechMarketplace.create(mechServiceId, mechFactoryNvmSubscriptionNative.address, mechCreationData);
+        let res = await tx.wait();
+        // Get mech contract address from the event
+        priorityMechAddress = "0x" + res.logs[0].topics[1].slice(26);
+        // Get mech contract instance
+        priorityMech = await ethers.getContractAt("MechNvmSubscriptionNative", priorityMechAddress);
     });
 
     context("Initialization", async function () {
@@ -482,7 +482,7 @@ describe("MechNvmSubscriptionNative", function () {
             for (let i = 0; i < numRequests; i++) {
                 const requestData = data + "00".repeat(i + 1);
                 const requestId = await mechMarketplace.getRequestIdWithNonce(priorityMech.address, deployer.address,
-                    requestData, maxRate, paymentType, nonces[i]);
+                    requestData, maxRate, paymentType, nonces[i], ethers.constants.MaxUint256);
                 const signature = signingKey.signDigest(requestId);
                 const sig = ethers.utils.hexlify(ethers.utils.concat([
                     ethers.utils.arrayify(signature.r), ethers.utils.arrayify(signature.s),
@@ -490,9 +490,9 @@ describe("MechNvmSubscriptionNative", function () {
                 items.push({requestId, dws: {requestData, signature: sig, deliveryData: requestData}});
             }
 
-            const settle = (idxs) => priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],bytes)"](
+            const settle = (idxs) => priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes)"](
                 deployer.address, idxs.map((i) => items[i].dws), idxs.map(() => deliveryRate),
-                idxs.map(() => maxRate), idxs.map((i) => nonces[i]), "0x");
+                idxs.map(() => maxRate), idxs.map((i) => nonces[i]), idxs.map(() => ethers.constants.MaxUint256), "0x");
 
             // Settle in two independent transactions, out of order — neither set invalidates the other
             await settle([2, 0]);
@@ -530,8 +530,8 @@ describe("MechNvmSubscriptionNative", function () {
 
             // Submitting it on the per-request-nonce path recomputes a domain-separated Id, so the signature fails
             await expect(
-                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],bytes)"](
-                    deployer.address, dws, [deliveryRate], [maxRate], [nonce], "0x")
+                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes)"](
+                    deployer.address, dws, [deliveryRate], [maxRate], [nonce], [ethers.constants.MaxUint256], "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "SignatureNotValidated");
         });
 
@@ -539,18 +539,18 @@ describe("MechNvmSubscriptionNative", function () {
             const dws = [{requestData: data, signature: "0x", deliveryData: data}]; // numRequests = 1
             // deliveryRates mismatched (length 2) -> reports deliveryRates.length
             await expect(
-                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],bytes)"](
-                    deployer.address, dws, [1, 1], [1], [1], "0x")
+                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes)"](
+                    deployer.address, dws, [1, 1], [1], [1], [ethers.constants.MaxUint256], "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "WrongArrayLength").withArgs(1, 2);
             // maxRates mismatched (length 3) -> reports maxRates.length
             await expect(
-                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],bytes)"](
-                    deployer.address, dws, [1], [1, 1, 1], [1], "0x")
+                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes)"](
+                    deployer.address, dws, [1], [1, 1, 1], [1], [ethers.constants.MaxUint256], "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "WrongArrayLength").withArgs(1, 3);
             // nonces mismatched (length 4) -> reports nonces.length
             await expect(
-                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],bytes)"](
-                    deployer.address, dws, [1], [1], [1, 1, 1, 1], "0x")
+                priorityMech["deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes)"](
+                    deployer.address, dws, [1], [1], [1, 1, 1, 1], [ethers.constants.MaxUint256], "0x")
             ).to.be.revertedWithCustomError(mechMarketplace, "WrongArrayLength").withArgs(1, 4);
         });
     });

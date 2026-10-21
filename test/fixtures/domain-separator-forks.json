@@ -1,0 +1,74 @@
+{
+  "arbitrum": {
+    "blockHash": "0xc7cd5f6cd8e46c2e9f872e74f541decd2e204483102449c4d8e5eed3c5b234f5",
+    "blockNumber": 516595556,
+    "chainId": 42161,
+    "evmBlockNumber": 26233769,
+    "proxy": "0xf76953444C35F1FcE2F6CA1b167173357d3F5C17",
+    "rpc": "https://arb1.arbitrum.io/rpc",
+    "timestamp": 1792498986
+  },
+  "base": {
+    "blockHash": "0x39c9ffae5cb952901ef096b8a4344a0bf3640f058af7675b6d9d19e7321710ef",
+    "blockNumber": 52854820,
+    "chainId": 8453,
+    "evmBlockNumber": 52854820,
+    "proxy": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020",
+    "rpc": "https://mainnet.base.org",
+    "timestamp": 1792498987
+  },
+  "celo": {
+    "blockHash": "0x120487f2d6b00106436115639587e32a4d09a4e351f159bff778fb5454a07195",
+    "blockNumber": 80598227,
+    "chainId": 42220,
+    "evmBlockNumber": 80598227,
+    "proxy": "0x17d96ba4532fe91809326092fE4D5606A7B7a0d8",
+    "rpc": "https://forno.celo.org",
+    "timestamp": 1792498985
+  },
+  "gnosis": {
+    "blockHash": "0x421f9b09e6b46e68b8eacaa1016594faab7f2e84def8b6aaf2acfd0ed898d50c",
+    "blockNumber": 48852330,
+    "chainId": 100,
+    "evmBlockNumber": 48852330,
+    "proxy": "0x735FAAb1c4Ec41128c367AFb5c3baC73509f70bB",
+    "rpc": "https://rpc.gnosischain.com",
+    "timestamp": 1792498985
+  },
+  "mainnet": {
+    "blockHash": "0x1c361f34ad9ab2296e12789c83be6af0775077036b0ee3cfd9bdaecf0a15512c",
+    "blockNumber": 26233770,
+    "chainId": 1,
+    "evmBlockNumber": 26233770,
+    "proxy": "0x3d6494CE09a9f40c0B5a92BdBD7c7A9b0e3912b1",
+    "rpc": "https://ethereum-rpc.publicnode.com",
+    "timestamp": 1792498979
+  },
+  "optimism": {
+    "blockHash": "0x4fc2cf95b92257d89c75ce02aa75662a3befaddb0a482c2ca8cd7b686966204a",
+    "blockNumber": 158450105,
+    "chainId": 10,
+    "evmBlockNumber": 158450105,
+    "proxy": "0x46C0D07F55d4F9B5Eed2Fc9680B5953e5fd7b461",
+    "rpc": "https://mainnet.optimism.io",
+    "timestamp": 1792498987
+  },
+  "polygon": {
+    "blockHash": "0xae9296c1dbb281933e8390d490e96aaec25b3d4ef2a64e8f44bc82c6610a2599",
+    "blockNumber": 95862413,
+    "chainId": 137,
+    "evmBlockNumber": 95862413,
+    "proxy": "0x343F2B005cF6D70bA610CD9F1F1927049414B582",
+    "rpc": "https://polygon-bor-rpc.publicnode.com",
+    "timestamp": 1792498988
+  },
+  "robinhood": {
+    "blockHash": "0xde8801b09edc1798d77e4fbe12ad625ece5d276f839cb0714e360e0a813daf6b",
+    "blockNumber": 93447850,
+    "chainId": 4663,
+    "evmBlockNumber": 93447850,
+    "proxy": "0xa45E64d13A30a51b91ae0eb182e88a40e9b18eD8",
+    "rpc": "https://rpc.mainnet.chain.robinhood.com",
+    "timestamp": 1792498986
+  }
+}

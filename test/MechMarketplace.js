@@ -81,14 +81,6 @@ describe("MechMarketplace", function () {
         // Pseudo-create two services
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
 
-        // Create default priority mech
-        let tx = await mechMarketplace.create(mechServiceId, mechFactoryFixedPrice.address, mechCreationData);
-        let res = await tx.wait();
-        // Get mech contract address from the event
-        priorityMechAddress = "0x" + res.logs[0].topics[1].slice(26);
-        // Get mech contract instance
-        priorityMech = await ethers.getContractAt("MechFixedPriceNative", priorityMechAddress);
-
         // Deploy
         const BalanceTrackerFixedPriceNative = await ethers.getContractFactory("BalanceTrackerFixedPriceNative");
         balanceTrackerFixedPriceNative = await BalanceTrackerFixedPriceNative.deploy(mechMarketplace.address,
@@ -96,8 +88,16 @@ describe("MechMarketplace", function () {
         await balanceTrackerFixedPriceNative.deployed();
 
         // Whitelist balance tracker
-        paymentTypeHash = await priorityMech.paymentType();
+        paymentTypeHash = ethers.utils.id("FixedPriceNative");
         await mechMarketplace.setPaymentTypeBalanceTrackers([paymentTypeHash], [balanceTrackerFixedPriceNative.address]);
+
+        // Create default priority mech
+        let tx = await mechMarketplace.create(mechServiceId, mechFactoryFixedPrice.address, mechCreationData);
+        let res = await tx.wait();
+        // Get mech contract address from the event
+        priorityMechAddress = "0x" + res.logs[0].topics[1].slice(26);
+        // Get mech contract instance
+        priorityMech = await ethers.getContractAt("MechFixedPriceNative", priorityMechAddress);
 
         // Deploy mock mech
         const MockMech = await ethers.getContractFactory("MockMech");

@@ -82,6 +82,21 @@ describe("MechFixedPriceNative", function () {
         await serviceRegistry.setServiceOwner(mechServiceId, deployer.address);
         await serviceRegistry.setServiceOwner(mechServiceId + 1, deployer.address);
 
+        const WETH = await ethers.getContractFactory("WETH9");
+        weth = await WETH.deploy();
+        await weth.deployed();
+
+        // BalanceTrackerFixedPriceNative
+        // buyBackBurner is not important in the setup
+        const BalanceTrackerFixedPriceNative = await ethers.getContractFactory("BalanceTrackerFixedPriceNative");
+        balanceTrackerFixedPriceNative = await BalanceTrackerFixedPriceNative.deploy(mechMarketplace.address,
+            deployer.address, weth.address);
+        await balanceTrackerFixedPriceNative.deployed();
+
+        // Whitelist balance tracker
+        paymentType = ethers.utils.id("FixedPriceNative");
+        await mechMarketplace.setPaymentTypeBalanceTrackers([paymentType], [balanceTrackerFixedPriceNative.address]);
+
         // Create default priority mech
         let tx = await mechMarketplace.create(mechServiceId, mechFactoryFixedPrice.address, mechCreationData);
         let res = await tx.wait();
@@ -97,21 +112,6 @@ describe("MechFixedPriceNative", function () {
         deliveryMechAddress = "0x" + res.logs[0].topics[1].slice(26);
         // Get mech contract instance
         deliveryMech = await ethers.getContractAt("MechFixedPriceNative", deliveryMechAddress);
-
-        const WETH = await ethers.getContractFactory("WETH9");
-        weth = await WETH.deploy();
-        await weth.deployed();
-
-        // BalanceTrackerFixedPriceNative
-        // buyBackBurner is not important in the setup
-        const BalanceTrackerFixedPriceNative = await ethers.getContractFactory("BalanceTrackerFixedPriceNative");
-        balanceTrackerFixedPriceNative = await BalanceTrackerFixedPriceNative.deploy(mechMarketplace.address,
-            deployer.address, weth.address);
-        await balanceTrackerFixedPriceNative.deployed();
-
-        // Whitelist balance tracker
-        paymentType = await priorityMech.paymentType();
-        await mechMarketplace.setPaymentTypeBalanceTrackers([paymentType], [balanceTrackerFixedPriceNative.address]);
 
         // Get mock operator contract (for contract signature validation)
         const MockOperatorContract = await ethers.getContractFactory("MockOperatorContract");

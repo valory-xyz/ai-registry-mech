@@ -74,6 +74,106 @@ Run the tests:
 npx hardhat test
 ```
 
+Delivery payload checks:
+```sh
+npx hardhat test test/MechMarketplaceDeliveryPayload.js
+```
+These tests cover empty responses and atomic batch rejection for native and ERC-20 payment,
+all three signed-delivery overloads with EOA and EIP-1271 requesters, processed-response validation,
+and ordinary delivery compatibility with the checked-in legacy factory artifact. The Marketplace
+settlement interface is unchanged. Existing mechs do not gain the new wrapper check.
+
+On all three signed-delivery paths and the updated ordinary delivery wrapper, one empty response
+reverts the entire batch. Otherwise valid items in that transaction are not settled or paid, and
+earlier state changes are rolled back. The caller must correct or remove the empty-response item
+and resubmit. Signed paths check the supplied `deliveryData`; the ordinary wrapper checks the
+processed response returned by `_preDeliver`.
+
+### Explicit-nonce typed-data signatures
+
+The explicit-nonce path uses a separate standard EIP-712 domain:
+
+```js
+{ name: "MechMarketplace", version: "2", chainId, verifyingContract: marketplaceProxyAddress }
+```
+
+Its signed type is:
+
+```text
+ExplicitNonceDelivery(address mech,address requester,bytes data,uint256 maxDeliveryRate,bytes32 paymentType,uint256 nonce,uint256 deadline)
+```
+
+`data` is the raw request bytes; the EIP-712 encoder hashes it. The requester signs the maximum rate,
+while settlement can charge an actual rate up to that cap. `deadline` is the last Unix timestamp,
+in seconds, at which settlement is allowed. Settlement after that timestamp reverts. Setting `deadline`
+to `0` makes the authorization expired; it does not disable the expiry check. One expired item reverts
+the entire batch. The contract does not impose a maximum authorization lifetime. Exact-request replay remains blocked;
+independently signed requests with different nonces can settle in any order.
+
+`getDomainSeparatorWithNonce()` exposes this standard domain. `getRequestIdWithNonce` now takes
+`(mech, requester, data, maxDeliveryRate, paymentType, nonce, deadline)`. The explicit-nonce settlement
+overload in Marketplace and OlasMech now takes an additional `uint256[] deadlines` after `nonces`.
+
+**Client migration:** this replaces the old custom explicit-nonce digest and no-deadline selector.
+Old explicit-nonce signatures and calls are not accepted by the new path. Clients must update their
+ABI and typed-data payload; mechs forwarding the old explicit-nonce selector need updated bytecode.
+The Marketplace upgrade must support the new selector before the new wrapper is used. The two older
+sequential-nonce signed paths keep their selectors, hashes and legacy domain version `1.1.0`, and do
+not gain expiry. `getDomainSeparator()` continues to expose their legacy domain; do not use it for
+the new explicit-nonce signatures. No storage layout changes are introduced.
+
+**Deployment requirements:** this source update is included in
+[Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208).
+Activating it requires deploying the new Marketplace implementation, executing an authorized
+proxy upgrade via `changeImplementation(newImplementation)`, and deploying factories/mechs with the
+updated wrapper before using the new path. Clients must migrate their ABI and signing payload.
+Merging the PR alone does not change deployed behavior. The two legacy paths remain nonstandard even
+after this upgrade; standardizing them requires a separate breaking migration or replacement deployment.
+
+EOA clients can sign with the standard typed-data signing API. Contract-wallet clients must use their
+wallet's supported ERC-1271 signing flow; the signature bytes are forwarded unchanged to the wallet.
+The tests include an actual 2-of-2 Safe with its compatibility fallback handler, alongside mock-wallet
+controls for opaque signatures and rejected, reverted or malformed validation responses.
+
+```sh
+npx hardhat test test/MechMarketplaceTypedNonce.js
+```
+
+These tests compare Solidity hashes against an independent typed-data encoder, exercise deadline
+boundaries and atomic rollback, reject altered fields and domains, and check replay and retirement of
+the old explicit-nonce selector. EOA, ERC-1271 and Safe settlement are covered with native and ERC-20
+payments. Indexed organization-code searches found no signing client using `getRequestIdWithNonce`;
+that search does not establish whether external clients use the retired interface. Client inventory
+and migration must be confirmed before deployment.
+
+Domain separator upgrade regression tests (Solidity 0.8.30):
+```sh
+forge test --use 0.8.30 --match-contract '^MechMarketplaceDomainSeparatorTest$' \
+  --skip ImportWETH.sol --skip Proposal01FeeActivation -vv
+```
+The skips exclude the Solidity 0.5 WETH import and the unrelated historical proposal replay.
+The tests use the checked-in deployment artifact as the legacy implementation, exercise a chain-ID
+change followed by an upgrade, and check chain binding across all three signature paths. Pre-upgrade
+EOA signatures and ERC-1271 approvals are preserved on the two legacy paths; explicit-nonce signatures
+use the new format described above.
+The Hardhat suite also compiles a fixture with a different contract `VERSION` to check that the signature
+domain remains pinned to `1.1.0`. This fixture is compiled in memory without changing source files.
+
+Opt-in checks for the eight deployments in `docs/configuration.json`:
+```sh
+RUN_MARKETPLACE_DOMAIN_FORKS=true forge test --use 0.8.30 \
+  --match-contract ForkMechMarketplaceDomainSeparatorTest \
+  --skip ImportWETH.sol --skip Proposal01FeeActivation --threads 2 -vv
+```
+RPC endpoints, block numbers, timestamps and proxy addresses are recorded in
+`test/fixtures/domain-separator-forks.json`. The tests assert the chain Id, EVM block number and timestamp;
+`blockHash` is informational metadata and is not asserted. These tests require RPC access to the pinned state and
+simulate owner-authorized upgrades locally; they do not broadcast transactions. They check domain and
+request-hash equality, retained root storage and selected mapping values. A separator mismatch is a
+failed deployment gate and must be investigated before an upgrade. The local integration tests cover
+settlement; the deployment forks do not submit deliveries for existing services.
+Arbitrum's fixture distinguishes the L2 RPC height from the L1 block number exposed to EVM code.
+
 ### Linters
 - [`ESLint`](https://eslint.org) is used for JS code.
 - [`solhint`](https://github.com/protofire/solhint) is used for Solidity linting.

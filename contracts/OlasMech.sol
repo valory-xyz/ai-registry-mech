@@ -29,7 +29,7 @@ abstract contract OlasMech is Mech, IErrorsMech {
     event NumRequestsIncrease(uint256 numRequests);
 
     // Olas mech version number
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.1.0";
     // Mech marketplace address
     address public immutable mechMarketplace;
     // Service Registry address
@@ -168,6 +168,11 @@ abstract contract OlasMech is Mech, IErrorsMech {
             // Perform a pre-delivery of the data if it needs additional parsing and get finalized request delivery rate
             (deliveryDatas[i], deliveryRates[i]) = _preDeliver(requestId, datas[i]);
 
+            // Validate the processed response before updating request records or settling.
+            if (deliveryDatas[i].length == 0) {
+                revert ZeroValue();
+            }
+
             // Clean request info
             // Get request Id from the request Ids map
             bytes32[2] memory requestIdLinks = mapRequestIds[requestId];
@@ -288,8 +293,16 @@ abstract contract OlasMech is Mech, IErrorsMech {
         uint256[] calldata deliveryRates,
         bytes calldata paymentData
     ) external onlyOperator {
+        // Share the ordinary-delivery lock to prevent re-entry across delivery paths.
+        if (_locked == 2) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
             deliveryRates, paymentData);
+
+        _locked = 1;
     }
 
     /// @dev Delivers signed requests with per-request price caps (overload).
@@ -305,8 +318,16 @@ abstract contract OlasMech is Mech, IErrorsMech {
         uint256[] calldata maxRates,
         bytes calldata paymentData
     ) external onlyOperator {
+        // Share the ordinary-delivery lock to prevent re-entry across delivery paths.
+        if (_locked == 2) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
             deliveryRates, maxRates, paymentData);
+
+        _locked = 1;
     }
 
     /// @dev Delivers signed requests with per-request price caps and requester-chosen per-request nonces (overload).
@@ -315,20 +336,28 @@ abstract contract OlasMech is Mech, IErrorsMech {
     /// @param deliveryRates Actual charged delivery rate for each request (must be <= the signed cap).
     /// @param maxRates Signed cap for each request.
     /// @param nonces Requester-chosen per-request nonce (salt) for each request — the value signed over via
-    ///        getRequestIdWithNonce. Must be unique per (mech, requestData, maxRate, paymentType) tuple. Domain
-    ///        separation (EXPLICIT_NONCE_TAG) already isolates these request Ids from the sequential-nonce paths,
-    ///        so no disjoint-nonce-range convention is needed.
+    ///        getRequestIdWithNonce using the standard EIP-712 domain version "2".
+    /// @param deadlines Last settlement timestamps signed by the requester.
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester,
         DeliverWithSignature[] calldata deliverWithSignatures,
         uint256[] calldata deliveryRates,
-        uint256[] calldata maxRates,
-        uint256[] calldata nonces,
+        uint256[] memory maxRates,
+        uint256[] memory nonces,
+        uint256[] memory deadlines,
         bytes calldata paymentData
     ) external onlyOperator {
+        // Share the ordinary-delivery lock to prevent re-entry across delivery paths.
+        if (_locked == 2) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
-            deliveryRates, maxRates, nonces, paymentData);
+            deliveryRates, maxRates, nonces, deadlines, paymentData);
+
+        _locked = 1;
     }
 
     /// @dev Gets mech token (service registry) address.
