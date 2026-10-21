@@ -293,8 +293,16 @@ abstract contract OlasMech is Mech, IErrorsMech {
         uint256[] calldata deliveryRates,
         bytes calldata paymentData
     ) external onlyOperator {
+        // Share the ordinary-delivery lock to prevent re-entry across delivery paths.
+        if (_locked == 2) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
             deliveryRates, paymentData);
+
+        _locked = 1;
     }
 
     /// @dev Delivers signed requests with per-request price caps (overload).
@@ -310,8 +318,16 @@ abstract contract OlasMech is Mech, IErrorsMech {
         uint256[] calldata maxRates,
         bytes calldata paymentData
     ) external onlyOperator {
+        // Share the ordinary-delivery lock to prevent re-entry across delivery paths.
+        if (_locked == 2) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
             deliveryRates, maxRates, paymentData);
+
+        _locked = 1;
     }
 
     /// @dev Delivers signed requests with per-request price caps and requester-chosen per-request nonces (overload).
@@ -332,8 +348,16 @@ abstract contract OlasMech is Mech, IErrorsMech {
         uint256[] memory deadlines,
         bytes calldata paymentData
     ) external onlyOperator {
+        // Share the ordinary-delivery lock to prevent re-entry across delivery paths.
+        if (_locked == 2) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
             deliveryRates, maxRates, nonces, deadlines, paymentData);
+
+        _locked = 1;
     }
 
     /// @dev Gets mech token (service registry) address.

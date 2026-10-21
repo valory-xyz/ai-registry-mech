@@ -53,22 +53,26 @@ function deliverMarketplaceWithSignatures(
     bytes calldata paymentData
 ) external onlyOperator
 ```
-This function calls into `MechMarketplace.deliverMarketplaceWithSignatures()` without the `_locked`
-reentrancy guard that is present on the sibling function `deliverToMarketplace()`.
+The three signed-delivery overloads previously called Marketplace without the `_locked` guard used by
+`deliverToMarketplace()`. No practical re-entry path has been established in the reviewed integrations:
+operator access restrictions, Marketplace's guard and the balance trackers' guards already protect
+the settlement flow. This is defense-in-depth hardening, not a demonstrated live exploit.
 
-Upon analysis, the function cannot be re-entered in practice. The only caller is restricted by the
-`onlyOperator` modifier to the service multisig. The marketplace sets its own `_locked = 2` before
-making any external calls, and the balance tracker independently guards itself with its own `_locked`.
-The external calls in the chain are:
-- `IKarma.changeRequesterMechKarma()` — pure state write, no callbacks.
-- `IKarma.changeMechKarma()` — pure state write, no callbacks.
-- `IMech.updateNumRequests()` — calls back to OlasMech but is gated by `MarketplaceOnly`, and the
-  marketplace is already locked.
-- `IBalanceTracker.adjustMechRequesterBalances()` — has its own reentrancy guard.
-- Token transfers — only standard ERC-20 tokens (OLAS, USDC, wrapped natives) with no transfer hooks.
+**Source remediation — [Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208).**
+All three signed wrappers now acquire and release the same mech-level lock as ordinary delivery,
+blocking nested delivery calls both within and between those paths. Legitimate Marketplace-only
+callbacks such as `updateNumRequests()` remain callable during settlement. No storage field or
+external interface is added. Existing deployed mechs retain their bytecode; the guard applies to new
+mechs created from the updated factories. Existing mechs are not redeployed solely for this hardening.
 
-No practical re-entry path exists. We recommend treating this as a documentation point for
-defense-in-depth consistency. In a future major version update, the guard may be added for code symmetry.
+The regression tests use an artificial callback-capable Marketplace and an authorized operator contract
+to isolate the mech guard. They cover every pair of ordinary/signed delivery paths, legitimate counter
+callbacks, failure rollback and lock release between calls. These tests do not establish a callback
+route through the production Marketplace. Run them with:
+
+```sh
+npx hardhat test test/OlasMechReentrancy.js
+```
 
 ### 2. `getRequestId` EIP-712 typeHash
 **Severity**: Low
