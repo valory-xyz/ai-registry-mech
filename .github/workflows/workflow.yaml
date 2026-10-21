@@ -50,6 +50,11 @@ jobs:
           forge test --use 0.8.30 --match-contract '^MechMarketplaceDomainSeparatorTest$'
           --skip ImportWETH.sol --skip Proposal01FeeActivation -vv
 
+      - name: Check deployment script failure handling
+        run: python3 -B -m unittest discover -s test/deployment -p 'test_*.py' -v
+      - name: Rehearse the existing-proxy Phase 2 upgrade
+        run: node scripts/deployment/test/Phase2Upgrade.js
+
       # Run hardhat coverage
       - name: Solidity coverage summary
         run: ./node_modules/.bin/hardhat coverage
