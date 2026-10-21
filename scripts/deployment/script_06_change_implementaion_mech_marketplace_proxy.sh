@@ -1,71 +1,24 @@
 #!/bin/bash
-
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-reset=$(tput sgr0)
-
-# Get globals file
-globals="$(dirname "$0")/globals_$1.json"
-if [ ! -f $globals ]; then
-  echo "!!! $globals is not found"
-  exit 0
+set -euo pipefail
+source "$(dirname "$0")/lib/common.sh"
+dp_init "$@"
+[[ $# == 1 || ( $# == 2 && "$2" == --calldata ) ]] || dp_fail "Usage: $0 <network> [--calldata]"
+dp_proxy
+implementation=$(dp_config_address mechMarketplaceAddress)
+dp_code "$implementation"
+dp_check "$implementation" 'VERSION()(string)' 1.2.0 "Unexpected Marketplace version"
+# Preserve constructor dependencies: an implementation upgrade changes immutable values too.
+for getter in 'serviceRegistry()(address)' 'karma()(address)'; do
+    dependency=$(dp_call "$DP_PROXY" "$getter")
+    dp_check "$implementation" "$getter" "$dependency" "Implementation dependencies differ from the current proxy"
+done
+legacy=$(dp_call "$DP_PROXY" 'getDomainSeparator()(bytes32)')
+owner=$(dp_call "$DP_PROXY" 'owner()(address)')
+dp_send 'changeImplementation(address)' "$implementation"
+if [[ "$DP_PLAN" == false ]]; then
+    dp_check "$DP_PROXY" 'getImplementation()(address)' "$implementation" "Implementation readback failed"
+    dp_check "$DP_PROXY" 'VERSION()(string)' 1.2.0 "Version readback failed"
+    dp_check "$DP_PROXY" 'getDomainSeparator()(bytes32)' "$legacy" "Legacy domain changed; inspect the completed upgrade"
+    dp_check "$DP_PROXY" 'owner()(address)' "$owner" "Owner changed; inspect the completed upgrade"
+    echo 'Upgrade confirmed; proxy address retained'
 fi
-
-# Read variables using jq
-useLedger=$(jq -r '.useLedger' $globals)
-derivationPath=$(jq -r '.derivationPath' $globals)
-chainId=$(jq -r '.chainId' $globals)
-networkURL=$(jq -r '.networkURL' $globals)
-
-
-mechMarketplaceAddress=$(jq -r ".mechMarketplaceAddress" $globals)
-mechMarketplaceProxyAddress=$(jq -r ".mechMarketplaceProxyAddress" $globals)
-
-# Check for Alchemy keys on ETH, Polygon mainnets and testnets
-if [ $chainId == 1 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MAINNET
-  if [ "$API_KEY" == "" ]; then
-      echo "${red}!!! Set ALCHEMY_API_KEY_MAINNET env variable${reset}"
-      exit 0
-  fi
-elif [ $chainId == 11155111 ]; then
-    API_KEY=$ALCHEMY_API_KEY_SEPOLIA
-    if [ "$API_KEY" == "" ]; then
-        echo "${red}!!! Set ALCHEMY_API_KEY_SEPOLIA env variable${reset}"
-        exit 0
-    fi
-elif [ $chainId == 137 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MATIC
-  if [ "$API_KEY" == "" ]; then
-      echo "${red}!!! Set ALCHEMY_API_KEY_MATIC env variable${reset}"
-      exit 0
-  fi
-elif [ $chainId == 80002 ]; then
-    API_KEY=$ALCHEMY_API_KEY_AMOY
-    if [ "$API_KEY" == "" ]; then
-        echo "${red}!!! Set ALCHEMY_API_KEY_AMOY env variable${reset}"
-        exit 0
-    fi
-fi
-
-# Get deployer based on the ledger flag
-if [ "$useLedger" == "true" ]; then
-  walletArgs="-l --mnemonic-derivation-path $derivationPath"
-  deployer=$(cast wallet address $walletArgs)
-else
-  echo "Using PRIVATE_KEY: ${PRIVATE_KEY:0:6}..."
-  walletArgs="--private-key $PRIVATE_KEY"
-  deployer=$(cast wallet address $walletArgs)
-fi
-
-# Cast command
-echo "${green}Casting from: $deployer${reset}"
-echo "RPC: $networkURL"
-echo "${green}Change implementation in MechMarketplaceProxy contracts${reset}"
-
-castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
-castArgs="$mechMarketplaceProxyAddress changeImplementation(address) $mechMarketplaceAddress"
-echo $castArgs
-castCmd="$castSendHeader $castArgs"
-result=$($castCmd)
-echo "$result" | grep "status"

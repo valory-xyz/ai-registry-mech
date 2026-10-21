@@ -13,3 +13,6 @@ leak_report
 # Hardhat files
 cache
 artifacts
+
+# Local deployment attempt/confirmation records (no signing keys).
+scripts/deployment/.deployment-records/

@@ -1,119 +1,17 @@
 #!/bin/bash
-
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-reset=$(tput sgr0)
-
-# Check if $1 is provided
-if [ -z "$1" ]; then
-  echo "${red}!!! Usage: $0 <network>${reset}"
-  echo "${red}Example: $0 eth_mainnet${reset}"
-  exit 1
-fi
-
-# check if the ETHERSCAN_API_KEY is set
-if [ -z "$ETHERSCAN_API_KEY" ]; then
-  echo "${red}!!! Set the ETHERSCAN_API_KEY environment variable${reset}"
-  exit 1
-fi
-
-# Get globals file
-globals="$(dirname "$0")/globals_$1.json"
-if [ ! -f $globals ]; then
-  echo "${red}!!! $globals is not found${reset}"
-  exit 0
-fi
-
-# Read variables using jq
-contractVerification=$(jq -r '.contractVerification' $globals)
-useLedger=$(jq -r '.useLedger' $globals)
-derivationPath=$(jq -r '.derivationPath' $globals)
-chainId=$(jq -r '.chainId' $globals)
-networkURL=$(jq -r '.networkURL' $globals)
-
-# Check for Alchemy keys on ETH, Polygon mainnets and testnets
-if [ $chainId == 1 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MAINNET
-  if [ "$API_KEY" == "" ]; then
-      echo "${red}!!! Set ALCHEMY_API_KEY_MAINNET env variable${reset}"
-      exit 0
-  fi
-elif [ $chainId == 11155111 ]; then
-    API_KEY=$ALCHEMY_API_KEY_SEPOLIA
-    if [ "$API_KEY" == "" ]; then
-        echo "${red}!!! Set ALCHEMY_API_KEY_SEPOLIA env variable${reset}"
-        exit 0
-    fi
-elif [ $chainId == 137 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MATIC
-  if [ "$API_KEY" == "" ]; then
-      echo "${red}!!! Set ALCHEMY_API_KEY_MATIC env variable${reset}"
-      exit 0
-  fi
-elif [ $chainId == 80002 ]; then
-    API_KEY=$ALCHEMY_API_KEY_AMOY
-    if [ "$API_KEY" == "" ]; then
-        echo "${red}!!! Set ALCHEMY_API_KEY_AMOY env variable${reset}"
-        exit 0
-    fi
-fi
-
-mechMarketplaceAddress=$(jq -r '.mechMarketplaceAddress' $globals)
-fee=$(jq -r '.fee' $globals)
-minResponseTimeout=$(jq -r '.minResponseTimeout' $globals)
-maxResponseTimeout=$(jq -r '.maxResponseTimeout' $globals)
-proxyData=$(cast calldata "initialize(uint256,uint256,uint256)" $fee $minResponseTimeout $maxResponseTimeout)
-
-contractName="MechMarketplaceProxy"
-contractPath="contracts/proxies/$contractName.sol:$contractName"
-constructorArgs="$mechMarketplaceAddress $proxyData"
-contractArgs="$contractPath --constructor-args $constructorArgs"
-
-# Get deployer based on the ledger flag
-if [ "$useLedger" == "true" ]; then
-  walletArgs="-l --mnemonic-derivation-path $derivationPath"
-  deployer=$(cast wallet address $walletArgs)
-else
-  echo "Using PRIVATE_KEY: ${PRIVATE_KEY:0:6}..."
-  walletArgs="--private-key $PRIVATE_KEY"
-  deployer=$(cast wallet address $walletArgs)
-fi
-
-# Deployment message
-echo "${green}Deploying from: $deployer${reset}"
-echo "RPC: $networkURL"
-echo "${green}Deployment of: $contractArgs${reset}"
-
-# Deploy the contract and capture the address
-execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
-deploymentOutput=$($execCmd)
-mechMarketplaceProxyAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
-
-# Get output length
-outputLength=${#mechMarketplaceProxyAddress}
-
-# Check for the deployed address
-if [ $outputLength != 42 ]; then
-  echo "${red}!!! The contract was not deployed...${reset}"
-  exit 0
-fi
-
-# Write new deployed contract back into JSON
-echo "$(jq '. += {"mechMarketplaceProxyAddress":"'$mechMarketplaceProxyAddress'"}' $globals)" > $globals
-
-# Verify contract
-if [ "$contractVerification" == "true" ]; then
-  contractParams="$mechMarketplaceProxyAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,bytes)" $constructorArgs)"
-  echo "Verification contract params: $contractParams"
-
-  echo "${green}Verifying contract on Etherscan...${reset}"
-  forge verify-contract --chain-id "$chainId" --etherscan-api-key "$ETHERSCAN_API_KEY" $contractParams
-
-  blockscoutURL=$(jq -r '.blockscoutURL' $globals)
-  if [ "$blockscoutURL" != "null" ]; then
-    echo "${green}Verifying contract on Blockscout...${reset}"
-    forge verify-contract --verifier blockscout --verifier-url "$blockscoutURL/api" $contractParams
-  fi
-fi
-
-echo "${green}$contractName deployed at: $mechMarketplaceProxyAddress${reset}"
+set -euo pipefail
+source "$(dirname "$0")/lib/common.sh"
+dp_init "$@"
+dp_deploy_options "$@"
+# An upgrade must keep the existing proxy and its storage.
+existing=$(jq -r '.mechMarketplaceProxyAddress // empty' "$DP_GLOBALS")
+[[ -z "$existing" || "$existing" == 0x0000000000000000000000000000000000000000 ]] || dp_fail "Proxy already configured; use script_06 for an upgrade"
+implementation=$(dp_config_address mechMarketplaceAddress)
+dp_code "$implementation"
+dp_check "$implementation" 'VERSION()(string)' 1.2.0 "Unexpected Marketplace version"
+fee=$(dp_field fee)
+minimum=$(dp_field minResponseTimeout)
+maximum=$(dp_field maxResponseTimeout)
+for value in "$fee" "$minimum" "$maximum"; do [[ "$value" =~ ^[0-9]+$ ]] || dp_fail "Initialization values must be unsigned decimal integers"; done
+data=$(cast calldata 'initialize(uint256,uint256,uint256)' "$fee" "$minimum" "$maximum")
+dp_deploy mechMarketplaceProxyAddress contracts/proxies/MechMarketplaceProxy.sol:MechMarketplaceProxy 'constructor(address,bytes)' "$implementation" "$data"

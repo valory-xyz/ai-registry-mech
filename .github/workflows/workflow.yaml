@@ -50,6 +50,11 @@ jobs:
           forge test --use 0.8.30 --match-contract '^MechMarketplaceDomainSeparatorTest$'
           --skip ImportWETH.sol --skip Proposal01FeeActivation -vv
 
+      - name: Run isolated deployment script tests
+        run: python3 -m unittest discover -s test/deployment -p 'test_*.py' -v
+      - name: Rehearse fixed-price deployment locally
+        run: node scripts/deployment/test/FixedPriceRollout.js
+
       # Run hardhat coverage
       - name: Solidity coverage summary
         run: ./node_modules/.bin/hardhat coverage
