@@ -97,6 +97,15 @@ would invalidate any existing undelivered requests. We recommend documenting thi
 the EIP-712 standard. In a future marketplace version where contracts are redeployed, the `typeHash`
 should be added for full EIP-712 compliance.
 
+**Partial source remediation — [Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208).**
+The explicit-nonce path now includes a standard EIP-712 type hash covering its complete signed structure,
+including the deadline. The two older sequential-nonce paths retain their existing hashes for
+compatibility, so this entry is not fully closed. Merging the PR does not change deployed behavior.
+On-chain activation requires deploying the new Marketplace implementation, upgrading the proxy through
+an authorized governance action, deploying mechs with the updated wrapper, and migrating callers.
+Full standardization of the two legacy paths requires a separate breaking migration or replacement
+contract deployment; deploying this compatibility-preserving code does not change their encoding.
+
 ### 3. Unchecked ERC-20 transfer return values
 **Severity**: Low
 
@@ -541,8 +550,17 @@ compute the same value. The only consequence is that an external party using a s
 library would derive a different domain separator. This is a sibling of the deviation documented
 in vulnerability #2.
 
-We recommend hashing the version as `keccak256(bytes(VERSION))` at the next marketplace redeploy,
-together with the #2 typeHash fix.
+**Partial source remediation — [Marketplace PR 208](https://github.com/valory-xyz/autonolas-marketplace/pull/208).**
+The explicit-nonce path now uses its own standard EIP-712 domain version `"2"`
+and typed request structure, including a signed deadline. Its domain hashes string contents directly.
+The two older sequential-nonce paths retain the legacy encoding and domain version `"1.1.0"` to preserve
+existing signatures. This update does not standardize those legacy paths; their migration would be a
+separate compatibility change. The new explicit-nonce format and selector require client and mech-wrapper
+updates. Merging a PR does not update deployed contracts: the new Marketplace implementation must be
+deployed and the proxy upgraded, with new mech
+bytecode and updated clients for this path. Full remediation of the two legacy paths requires a separate
+breaking migration or replacement contract deployment. Redeploying the current compatibility-preserving
+code alone does not standardize them. See the README's explicit-nonce signing and deployment instructions.
 
 ### 21. Mech payout keying vs. service multisig authorization
 **Severity**: Informative
