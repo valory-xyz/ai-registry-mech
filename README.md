@@ -104,10 +104,10 @@ ExplicitNonceDelivery(address mech,address requester,bytes data,uint256 maxDeliv
 ```
 
 `data` is the raw request bytes; the EIP-712 encoder hashes it. The requester signs the maximum rate,
-while settlement can charge an actual rate up to that cap. `deadline` is a Unix timestamp in seconds.
-Settlement is allowed at the deadline and rejected afterwards. One expired item reverts the entire
-batch. Zero is not a no-expiry sentinel; it is expired when the block timestamp is greater than zero.
-The contract does not impose a maximum authorization lifetime. Exact-request replay remains blocked;
+while settlement can charge an actual rate up to that cap. `deadline` is the last Unix timestamp,
+in seconds, at which settlement is allowed. Settlement after that timestamp reverts. Setting `deadline`
+to `0` makes the authorization expired; it does not disable the expiry check. One expired item reverts
+the entire batch. The contract does not impose a maximum authorization lifetime. Exact-request replay remains blocked;
 independently signed requests with different nonces can settle in any order.
 
 `getDomainSeparatorWithNonce()` exposes this standard domain. `getRequestIdWithNonce` now takes
