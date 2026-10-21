@@ -91,6 +91,7 @@ contract MechMarketplace is IErrorsMarketplace {
     // The implementation VERSION can change independently without invalidating those signatures.
     string internal constant DOMAIN_VERSION = "1.1.0";
     // The explicit-nonce path uses a separate standard EIP-712 domain.
+    // This signing-domain version is independent of the contract VERSION.
     string internal constant EXPLICIT_NONCE_DOMAIN_VERSION = "2";
     bytes32 public constant EXPLICIT_NONCE_TYPE_HASH = keccak256(
         "ExplicitNonceDelivery(address mech,address requester,bytes data,uint256 maxDeliveryRate,bytes32 paymentType,uint256 nonce,uint256 deadline)"
@@ -1250,6 +1251,8 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @dev Computes the standard EIP-712 domain for explicit-nonce signatures.
     /// @notice Independent of the legacy domain returned by getDomainSeparator().
     function getDomainSeparatorWithNonce() public view returns (bytes32) {
+        // Hash the version's raw bytes, as EIP-712 requires. Legacy paths retain version "1.1.0"
+        // and its ABI-encoded hash to preserve outstanding signatures, so this format uses a separate domain.
         return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPE_HASH, keccak256("MechMarketplace"),
             keccak256(bytes(EXPLICIT_NONCE_DOMAIN_VERSION)), block.chainid, address(this)));
     }
