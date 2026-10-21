@@ -9,7 +9,7 @@ const FUNDS = 10000;
 const SIGNED = [
     "deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],bytes)",
     "deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],bytes)",
-    "deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],bytes)"
+    "deliverMarketplaceWithSignatures(address,(bytes,bytes,bytes)[],uint256[],uint256[],uint256[],uint256[],bytes)"
 ];
 
 async function deploy(name, ...args) {
@@ -63,11 +63,15 @@ async function signedBatch(f, overload, account = f.requester.address, count = 2
     const items = [];
     const ids = [];
     const nonces = [];
+    const deadline = (await ethers.provider.getBlock("latest")).timestamp + 3600;
+    const deadlines = Array(count).fill(deadline);
     for (let i = 0; i < count; ++i) {
         const requestData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("request " + overload + " " + i));
         const n = overload === 2 ? 1000 + i : nonce.add(i);
         const getter = overload === 2 ? "getRequestIdWithNonce" : "getRequestId";
-        const id = await f.marketplace[getter](f.mech.address, account, requestData, RATE, f.paymentType, n);
+        const args = [f.mech.address, account, requestData, RATE, f.paymentType, n];
+        if (overload === 2) args.push(deadline);
+        const id = await f.marketplace[getter](...args);
         let signature = "0x";
         if (account === f.contractRequester.address) await f.contractRequester.approveHash(id);
         else signature = ethers.utils.joinSignature(f.wallet._signingKey().signDigest(id));
@@ -75,13 +79,13 @@ async function signedBatch(f, overload, account = f.requester.address, count = 2
         nonces.push(n);
         items.push({ requestData, deliveryData: "0xabcd", signature });
     }
-    return { account, items, ids, nonces, rates: Array(count).fill(RATE), caps: Array(count).fill(RATE) };
+    return { account, items, ids, nonces, deadlines, rates: Array(count).fill(RATE), caps: Array(count).fill(RATE) };
 }
 
 function settleSigned(f, overload, batch) {
     const args = [batch.account, batch.items, batch.rates];
     if (overload > 0) args.push(batch.caps);
-    if (overload === 2) args.push(batch.nonces);
+    if (overload === 2) args.push(batch.nonces, batch.deadlines);
     return f.mech[SIGNED[overload]](...args, "0x");
 }
 

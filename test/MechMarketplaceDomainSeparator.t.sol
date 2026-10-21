@@ -136,9 +136,35 @@ contract MechMarketplaceDomainSeparatorTest is MarketplaceDomainTestBase {
         view
         returns (bytes32)
     {
+        if (explicitNonce) {
+            bytes32 domain = keccak256(
+                abi.encode(
+                    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                    keccak256("MechMarketplace"),
+                    keccak256("2"),
+                    chain,
+                    address(marketplace)
+                )
+            );
+            bytes32 typeHash = keccak256(
+                "ExplicitNonceDelivery(address mech,address requester,bytes data,uint256 maxDeliveryRate,bytes32 paymentType,uint256 nonce,uint256 deadline)"
+            );
+            bytes32 typedFields = keccak256(
+                abi.encode(
+                    typeHash,
+                    address(mech),
+                    account,
+                    keccak256(data),
+                    RATE,
+                    paymentType,
+                    nonce,
+                    block.timestamp + 1 days
+                )
+            );
+            return keccak256(abi.encodePacked(hex"1901", domain, typedFields));
+        }
         bytes memory fields =
             abi.encode(address(marketplace), address(mech), account, keccak256(data), RATE, paymentType, nonce);
-        if (explicitNonce) fields = bytes.concat(abi.encode(keccak256("ExplicitNonceDelivery")), fields);
         return keccak256(abi.encodePacked(hex"1901", _domain(chain, address(marketplace)), keccak256(fields)));
     }
 
@@ -156,9 +182,15 @@ contract MechMarketplaceDomainSeparatorTest is MarketplaceDomainTestBase {
         caps[0] = RATE;
         uint256[] memory nonces = new uint256[](1);
         nonces[0] = nonce;
-        if (path == 0) mech.deliverMarketplaceWithSignatures(account, items, rates, "");
-        else if (path == 1) mech.deliverMarketplaceWithSignatures(account, items, rates, caps, "");
-        else mech.deliverMarketplaceWithSignatures(account, items, rates, caps, nonces, "");
+        if (path == 0) {
+            mech.deliverMarketplaceWithSignatures(account, items, rates, "");
+        } else if (path == 1) {
+            mech.deliverMarketplaceWithSignatures(account, items, rates, caps, "");
+        } else {
+            uint256[] memory deadlines = new uint256[](1);
+            deadlines[0] = block.timestamp + 1 days;
+            mech.deliverMarketplaceWithSignatures(account, items, rates, caps, nonces, deadlines, "");
+        }
     }
 
     function test_legacyRecomputesAfterChainChangeBeforeUpgrade() public {
@@ -207,11 +239,11 @@ contract MechMarketplaceDomainSeparatorTest is MarketplaceDomainTestBase {
 
     function _checkCompatibility(bool useContractRequester) internal {
         address account = useContractRequester ? address(contractRequester) : requester;
-        bytes32[3] memory digests;
-        bytes[3] memory signatures;
-        for (uint256 path; path < 3; ++path) {
-            uint256 nonce = path == 2 ? 123 : path;
-            digests[path] = _digest(CHAIN_A, account, abi.encode(path), nonce, path == 2);
+        bytes32[2] memory digests;
+        bytes[2] memory signatures;
+        for (uint256 path; path < 2; ++path) {
+            uint256 nonce = path;
+            digests[path] = _digest(CHAIN_A, account, abi.encode(path), nonce, false);
             if (useContractRequester) contractRequester.approveHash(digests[path]);
             else signatures[path] = _signature(digests[path]);
         }
@@ -224,29 +256,24 @@ contract MechMarketplaceDomainSeparatorTest is MarketplaceDomainTestBase {
         require(marketplace.getDomainSeparator() == domainBefore, "domain changed on same chain");
         require(marketplace.serviceRegistry() == address(registry), "registry immutable changed");
         require(marketplace.karma() == address(karmaContract), "karma immutable changed");
-        for (uint256 path; path < 3; ++path) {
+        for (uint256 path; path < 2; ++path) {
             bytes memory data = abi.encode(path);
-            uint256 nonce = path == 2 ? 123 : path;
-            bytes32 digest = path == 2
-                ? marketplace.getRequestIdWithNonce(address(mech), account, data, RATE, paymentType, nonce)
-                : marketplace.getRequestId(address(mech), account, data, RATE, paymentType, nonce);
+            uint256 nonce = path;
+            bytes32 digest = marketplace.getRequestId(address(mech), account, data, RATE, paymentType, nonce);
             require(digest == digests[path], "pre-upgrade request digest changed");
             _settle(path, account, data, signatures[path], nonce);
             require(marketplace.getRequestStatus(digest) == MechMarketplace.RequestStatus.Delivered, "not delivered");
         }
-        require(tracker.mapRequesterBalances(account) == DEPOSIT - 240, "wrong requester charge");
-        require(tracker.mapMechBalances(address(mech)) == 240, "wrong mech credit");
+        require(tracker.mapRequesterBalances(account) == DEPOSIT - 170, "wrong requester charge");
+        require(tracker.mapMechBalances(address(mech)) == 170, "wrong mech credit");
         require(marketplace.mapNonces(account) == 2, "wrong sequential nonce");
-        // The explicit-nonce signature must remain single-use after the upgrade.
-        vm.expectPartialRevert(bytes4(keccak256("AlreadyRequested(bytes32)")));
-        _settle(2, account, abi.encode(uint256(2)), signatures[2], 123);
     }
 
-    function test_sameChainUpgradePreservesEOASignatures_allThreePaths() public {
+    function test_sameChainUpgradePreservesEOASignatures_legacyPaths() public {
         _checkCompatibility(false);
     }
 
-    function test_sameChainUpgradePreservesEIP1271Approvals_allThreePaths() public {
+    function test_sameChainUpgradePreservesEIP1271Approvals_legacyPaths() public {
         _checkCompatibility(true);
     }
 

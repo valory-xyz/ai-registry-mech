@@ -320,20 +320,20 @@ abstract contract OlasMech is Mech, IErrorsMech {
     /// @param deliveryRates Actual charged delivery rate for each request (must be <= the signed cap).
     /// @param maxRates Signed cap for each request.
     /// @param nonces Requester-chosen per-request nonce (salt) for each request — the value signed over via
-    ///        getRequestIdWithNonce. Must be unique per (mech, requestData, maxRate, paymentType) tuple. Domain
-    ///        separation (EXPLICIT_NONCE_TAG) already isolates these request Ids from the sequential-nonce paths,
-    ///        so no disjoint-nonce-range convention is needed.
+    ///        getRequestIdWithNonce using the standard EIP-712 domain version "2".
+    /// @param deadlines Last settlement timestamps signed by the requester.
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester,
         DeliverWithSignature[] calldata deliverWithSignatures,
         uint256[] calldata deliveryRates,
-        uint256[] calldata maxRates,
-        uint256[] calldata nonces,
+        uint256[] memory maxRates,
+        uint256[] memory nonces,
+        uint256[] memory deadlines,
         bytes calldata paymentData
     ) external onlyOperator {
         IMechMarketplace(mechMarketplace).deliverMarketplaceWithSignatures(requester, deliverWithSignatures,
-            deliveryRates, maxRates, nonces, paymentData);
+            deliveryRates, maxRates, nonces, deadlines, paymentData);
     }
 
     /// @dev Gets mech token (service registry) address.

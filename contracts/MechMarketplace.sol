@@ -52,6 +52,11 @@ struct RequestInfo {
 /// @param cap Signed maximum delivery rate.
 error RateOverCap(uint256 actual, uint256 cap);
 
+/// @dev The requester-signed delivery deadline has passed.
+/// @param deadline Last timestamp at which settlement is allowed.
+/// @param timestamp Current block timestamp.
+error SignatureExpired(uint256 deadline, uint256 timestamp);
+
 /// @title Mech Marketplace - Marketplace for posting and delivering requests served by mechs
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
@@ -85,6 +90,11 @@ contract MechMarketplace is IErrorsMarketplace {
     // Keep the legacy domain version to preserve existing request hashes and requester signatures.
     // The implementation VERSION can change independently without invalidating those signatures.
     string internal constant DOMAIN_VERSION = "1.1.0";
+    // The explicit-nonce path uses a separate standard EIP-712 domain.
+    string internal constant EXPLICIT_NONCE_DOMAIN_VERSION = "2";
+    bytes32 public constant EXPLICIT_NONCE_TYPE_HASH = keccak256(
+        "ExplicitNonceDelivery(address mech,address requester,bytes data,uint256 maxDeliveryRate,bytes32 paymentType,uint256 nonce,uint256 deadline)"
+    );
     // Value for the contract signature validation: bytes4(keccak256("isValidSignature(bytes32,bytes)")
     bytes4 constant internal MAGIC_VALUE = 0x1626ba7e;
     // Code position in storage is keccak256("MECH_MARKETPLACE_PROXY") = "0xe6194b93a7bff0a54130ed8cd277223408a77f3e48bb5104a9db96d334f962ca"
@@ -321,8 +331,10 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Traverse all request Ids; the per-request body lives in a helper to keep this frame under the stack ceiling
         for (uint256 i = 0; i < numRequests; ++i) {
-            requestIds[i] = _processSignedDelivery(requester, paymentType, mechServiceMultisig,
-                deliverWithSignatures[i], deliveryRates[i], maxRates[i], nonce, false);
+            requestIds[i] = getRequestId(msg.sender, requester, deliverWithSignatures[i].requestData,
+                maxRates[i], paymentType, nonce);
+            _processSignedDelivery(requester, paymentType, mechServiceMultisig,
+                deliverWithSignatures[i], deliveryRates[i], maxRates[i], requestIds[i]);
 
             // Increase nonce
             nonce++;
@@ -363,16 +375,16 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param deliveryRates Actual charged delivery rate for each request (must be <= the signed cap).
     /// @param maxRates Signed cap for each request — the value the requester signed over.
     /// @param nonces Requester-chosen per-request nonce (salt) for each request — the value signed over via
-    ///        getRequestIdWithNonce. Must be unique per (mech, requestData, maxRate, paymentType) tuple. Domain
-    ///        separation (EXPLICIT_NONCE_TAG) already isolates these request Ids from the sequential-nonce paths,
-    ///        so no disjoint-nonce-range convention is needed.
+    ///        getRequestIdWithNonce. Signatures are isolated from the sequential paths by their EIP-712 domain.
+    /// @param deadlines Last settlement timestamps, included in each requester's signature.
     function _deliverMarketplaceWithSignatures(
         address requester,
         bytes32 paymentType,
         DeliverWithSignature[] memory deliverWithSignatures,
         uint256[] calldata deliveryRates,
-        uint256[] calldata maxRates,
-        uint256[] calldata nonces
+        uint256[] memory maxRates,
+        uint256[] memory nonces,
+        uint256[] memory deadlines
     ) internal {
         // Check mech
         address mechServiceMultisig = checkMech(msg.sender);
@@ -385,8 +397,14 @@ contract MechMarketplace is IErrorsMarketplace {
 
         // Traverse all requests; each one is identified by its own requester-chosen nonce rather than a counter
         for (uint256 i = 0; i < numRequests; ++i) {
-            requestIds[i] = _processSignedDelivery(requester, paymentType, mechServiceMultisig,
-                deliverWithSignatures[i], deliveryRates[i], maxRates[i], nonces[i], true);
+            // Equality is valid; an expired item reverts the entire batch before payment.
+            if (block.timestamp > deadlines[i]) {
+                revert SignatureExpired(deadlines[i], block.timestamp);
+            }
+            requestIds[i] = getRequestIdWithNonce(msg.sender, requester, deliverWithSignatures[i].requestData,
+                maxRates[i], paymentType, nonces[i], deadlines[i]);
+            _processSignedDelivery(requester, paymentType, mechServiceMultisig,
+                deliverWithSignatures[i], deliveryRates[i], maxRates[i], requestIds[i]);
         }
 
         // Record the request count
@@ -419,9 +437,7 @@ contract MechMarketplace is IErrorsMarketplace {
     /// @param deliverWithSignature DeliverWithSignature struct for this request.
     /// @param deliveryRate Actual charged delivery rate (must be <= the signed cap).
     /// @param maxRate Signed cap for this request — the value the requester signed over.
-    /// @param nonce Requester nonce for this request.
-    /// @param explicitNonce True for the explicit per-request-nonce path (domain-separated request Id).
-    /// @return requestId Resulting request Id.
+    /// @param requestId Digest computed over the signed cap using this path's signature domain.
     function _processSignedDelivery(
         address requester,
         bytes32 paymentType,
@@ -429,19 +445,12 @@ contract MechMarketplace is IErrorsMarketplace {
         DeliverWithSignature memory deliverWithSignature,
         uint256 deliveryRate,
         uint256 maxRate,
-        uint256 nonce,
-        bool explicitNonce
-    ) internal returns (bytes32 requestId) {
+        bytes32 requestId
+    ) internal {
         // Require nonempty request and response data.
         if (deliverWithSignature.requestData.length == 0 || deliverWithSignature.deliveryData.length == 0) {
             revert ZeroValue();
         }
-
-        // Calculate request Id over the signed cap, not the charged rate; the explicit-nonce path uses a
-        // domain-separated hash so its signatures cannot be replayed on the sequential-nonce paths and vice versa
-        requestId = explicitNonce
-            ? getRequestIdWithNonce(msg.sender, requester, deliverWithSignature.requestData, maxRate, paymentType, nonce)
-            : getRequestId(msg.sender, requester, deliverWithSignature.requestData, maxRate, paymentType, nonce);
 
         // Verify the signed hash against the requester address
         _verifySignedHash(requester, requestId, deliverWithSignature.signature);
@@ -1137,23 +1146,23 @@ contract MechMarketplace is IErrorsMarketplace {
     ///         this path does not consume the mapNonces counter, settlement correctness relies on requester
     ///         discipline: (1) use a unique nonce per request; (2) do NOT sign the same work to multiple mechs
     ///         expecting only one to settle — here each such signature is an independent authorization and each
-    ///         can be charged; and (3) a given signature is valid until its own requestId settles (advancing
-    ///         mapNonces does not revoke it).
+    ///         can be charged; and (3) a signature is valid through its signed deadline or until consumed by settlement.
+    ///         Advancing mapNonces does not revoke it. This typed-data format replaces the old nonce format.
     /// @param requester Requester address.
     /// @param deliverWithSignatures Set of DeliverWithSignature structs.
     /// @param deliveryRates Actual charged delivery rate for each request (must be <= the signed cap).
     /// @param maxRates Signed cap for each request.
     /// @param nonces Requester-chosen per-request nonce (salt) for each request — the value signed over via
-    ///        getRequestIdWithNonce. Must be unique per (mech, requestData, maxRate, paymentType) tuple. Domain
-    ///        separation (EXPLICIT_NONCE_TAG) already isolates these request Ids from the sequential-nonce paths,
-    ///        so no disjoint-nonce-range convention is needed.
+    ///        getRequestIdWithNonce. Signatures use the separate standard EIP-712 domain version "2".
+    /// @param deadlines Last settlement timestamp signed for each request.
     /// @param paymentData Additional payment-related request data, if applicable.
     function deliverMarketplaceWithSignatures(
         address requester,
         DeliverWithSignature[] calldata deliverWithSignatures,
         uint256[] calldata deliveryRates,
-        uint256[] calldata maxRates,
-        uint256[] calldata nonces,
+        uint256[] memory maxRates,
+        uint256[] memory nonces,
+        uint256[] memory deadlines,
         bytes calldata paymentData
     ) external {
         // Reentrancy guard
@@ -1174,12 +1183,16 @@ contract MechMarketplace is IErrorsMarketplace {
             revert WrongArrayLength(numRequests, nonces.length);
         }
 
+        if (numRequests != deadlines.length) {
+            revert WrongArrayLength(numRequests, deadlines.length);
+        }
+
         // Payment type
         bytes32 paymentType = IMech(msg.sender).paymentType();
 
         // Process deliveries under the signed caps, keyed by the requester-chosen per-request nonces
         _deliverMarketplaceWithSignatures(requester, paymentType, deliverWithSignatures, deliveryRates, maxRates,
-            nonces);
+            nonces, deadlines);
 
         // Process mech payment at the actual delivery rates
         _chargeMechDelivery(paymentType, requester, deliveryRates, paymentData);
@@ -1228,46 +1241,38 @@ contract MechMarketplace is IErrorsMarketplace {
         );
     }
 
-    // Domain tag separating explicit-per-request-nonce signatures from the sequential-nonce ones, so a
-    // signature intended for one delivery path can never be replayed on the other.
+    // Legacy public getter retained; the new typed-data digest uses EXPLICIT_NONCE_TYPE_HASH instead.
     bytes32 public constant EXPLICIT_NONCE_TAG = keccak256("ExplicitNonceDelivery");
 
-    /// @dev Computes the request Id for the explicit per-request-nonce delivery path.
-    /// @notice Domain-separated from getRequestId by EXPLICIT_NONCE_TAG: a signature for one path can never be
-    ///         replayed on the other. Off-chain signers for the explicit-nonce overload MUST sign over this.
+    /// @dev Computes the standard EIP-712 domain for explicit-nonce signatures.
+    /// @notice Independent of the legacy domain returned by getDomainSeparator().
+    function getDomainSeparatorWithNonce() public view returns (bytes32) {
+        return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPE_HASH, keccak256("MechMarketplace"),
+            keccak256(bytes(EXPLICIT_NONCE_DOMAIN_VERSION)), block.chainid, address(this)));
+    }
+
+    /// @dev Computes the standard EIP-712 digest for an explicit-nonce delivery authorization.
+    /// @notice Signs the cap, nonce and deadline. This replaces the old custom explicit-nonce encoding.
     /// @param mech Mech address.
     /// @param requester Requester address.
-    /// @param data Self-descriptive opaque request data.
-    /// @param deliveryRate Signed cap (maxRate) for this request.
+    /// @param data Request data, hashed as required for an EIP-712 bytes field.
+    /// @param maxDeliveryRate Signed maximum delivery rate.
     /// @param paymentType Payment type.
     /// @param nonce Requester-chosen per-request nonce.
-    /// @return requestId Resulting request Id.
+    /// @param deadline Last timestamp at which settlement is allowed.
+    /// @return requestId Standard typed-data digest.
     function getRequestIdWithNonce(
         address mech,
         address requester,
         bytes memory data,
-        uint256 deliveryRate,
+        uint256 maxDeliveryRate,
         bytes32 paymentType,
-        uint256 nonce
+        uint256 nonce,
+        uint256 deadline
     ) public view returns (bytes32 requestId) {
-        requestId = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                getDomainSeparator(),
-                keccak256(
-                    abi.encode(
-                        EXPLICIT_NONCE_TAG,
-                        address(this),
-                        mech,
-                        requester,
-                        keccak256(data),
-                        deliveryRate,
-                        paymentType,
-                        nonce
-                    )
-                )
-            )
-        );
+        bytes32 structHash = keccak256(abi.encode(EXPLICIT_NONCE_TYPE_HASH, mech, requester, keccak256(data),
+            maxDeliveryRate, paymentType, nonce, deadline));
+        requestId = keccak256(abi.encodePacked("\x19\x01", getDomainSeparatorWithNonce(), structHash));
     }
 
     /// @dev Checks for mech validity.
