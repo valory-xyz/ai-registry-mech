@@ -401,8 +401,11 @@ contract MechMarketplace is IErrorsMarketplace {
             if (block.timestamp > deadlines[i]) {
                 revert SignatureExpired(deadlines[i], block.timestamp);
             }
+            // Build the explicit-nonce EIP-712 digest, including the signed price cap and deadline.
             requestIds[i] = getRequestIdWithNonce(msg.sender, requester, deliverWithSignatures[i].requestData,
                 maxRates[i], paymentType, nonces[i], deadlines[i]);
+
+            // Verify the requester's signature against this digest and record delivery.
             _processSignedDelivery(requester, paymentType, mechServiceMultisig,
                 deliverWithSignatures[i], deliveryRates[i], maxRates[i], requestIds[i]);
         }
