@@ -40,28 +40,45 @@ cover fresh-proxy or tracker deployment. Record the current implementation, fact
 mappings, owner and legacy domain separator before starting; preserve a copy of the configuration.
 Review the RPC chain ID, registry, Karma and asset addresses against the intended network.
 
+Ethereum and Gnosis Marketplace proxies are governance-owned. The deployment signer deploys the
+implementation and factories; governance executes the proxy upgrade and factory registration.
+The following owners were read on 22 October 2026. Recheck `owner()` on the configured proxy before
+preparing governance operations; the deployer's wallet address is not the expected proxy owner.
+
+| Network | Governance owner | Observed block |
+| --- | --- | --- |
+| Ethereum (`eth_mainnet`) | `0x3c1ff68f5aa342d296d4dee4bb1cacca912d95fe` | 26246556 |
+| Gnosis (`gnosis_mainnet`) | `0x15bd56669f57192a97df41a2aa8f4403e9491776` | 48880555 |
+
 1. Deploy the new implementation with `deploy_03_mech_marketplace.sh <network>`. The script checks
    its receipt, code, version, registry and Karma before saving the address.
-2. The Marketplace owner upgrades the existing proxy using
-   `script_06_change_implementaion_mech_marketplace_proxy.sh <network>`. Confirm implementation,
-   version `1.2.0`, retained owner and retained legacy domain separator before continuing.
+2. Use the network's governance procedure to execute `changeImplementation(newImplementation)`
+   on the existing proxy. Before execution, check implementation version `1.2.0` and matching registry
+   and Karma dependencies. After execution, confirm the implementation, version, retained governance
+   owner and retained legacy domain separator before continuing.
 3. Deploy a new factory for each approved payment type using `deploy_05_mech_factory_fixed_price_native.sh`,
    `deploy_07a_mech_factory_fixed_price_token_olas.sh` and/or `deploy_07b_mech_factory_fixed_price_token_usdc.sh`,
    each with `<network>`. Factories embed mech bytecode, so upgrading Marketplace alone does not
    update the mechs they create. Existing deployed mechs are unchanged.
-4. Enable only those types with `script_02a_marketplace_set_factories_fixed.sh <network> native olas`
-   (example selection; use the approved types). This checks current factory bytecode, proxy/asset
-   bindings and existing tracker mappings. Missing mappings require a separately reviewed owner
-   operation; do not replace trackers or move their balances as part of this upgrade.
+4. Use governance to execute `setMechFactoryStatuses(selectedFactories, statuses)` on the proxy,
+   enabling only the approved new factory types. Before execution, verify current factory bytecode,
+   proxy/asset bindings and existing tracker mappings. Missing mappings require a separately reviewed
+   governance operation; do not replace trackers or move their balances as part of this upgrade.
 5. Confirm factory statuses, unchanged tracker mappings, and that newly created mechs report version
    `1.1.0`. Validate signed delivery with the updated client before cutover. The explicit-nonce path
    uses a signed deadline and domain version `2`; the two older paths retain their legacy format.
 
-The owner scripts submit directly only when the selected signer is the Marketplace owner. A Safe
-or other governance owner must use its established execution procedure for the same operations:
-`changeImplementation(newImplementation)` and `setMechFactoryStatuses(selectedFactories, statuses)`.
-Verify chain, proxy target, zero value, arguments, successful execution and the same state readbacks.
-No governance automation is provided. Retiring old factories is a separate owner decision.
+For every governance operation, verify the chain, existing proxy target, zero value, arguments,
+successful execution and the state readbacks above. Governance calldata preparation, proposal submission
+and execution use the network's established process; no governance automation is provided here.
+Retiring old factories is a separate governance decision.
+
+`script_06_change_implementaion_mech_marketplace_proxy.sh` and
+`script_02a_marketplace_set_factories_fixed.sh <network> native olas` (example selection) are direct-owner
+tools. They send transactions only when the selected signer is the Marketplace owner; they do not
+generate governance calldata or provide a read-only preflight mode. Do not use them as deployment-signer
+commands for Ethereum or Gnosis governance operations. They remain available for directly owned
+environments and the local rehearsal.
 
 Scripts return an error on failure. A timeout may occur after a transaction mined: stop and inspect
 the transaction hash, wallet transactions and actual chain state before retrying. There is no automatic
