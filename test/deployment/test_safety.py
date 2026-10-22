@@ -155,6 +155,7 @@ class Safety(unittest.TestCase):
                 (tools / name).symlink_to(target)
             env = dict(PATH=str(tools) + ':/usr/bin:/bin', MODE=mode, CONFIG=str(original),
                        STATE=str(state), TRACE=str(case / 'trace'), SCRIPT='upgrade' if script == UPGRADE else 'registration')
+            if mode == 'alchemy_url': env['ALCHEMY_API_KEY_MAINNET'] = 'dummy-alchemy-value'
             if mode == 'optimized_old_factory': env['PYTHONOPTIMIZE'] = '1'
             if mode == 'verification_failure': env['ETHERSCAN_API_KEY'] = 'dummy-explorer-value'
             if mode == 'diagnostic_failure': env.update(PRIVATE_KEY='dummy-private-value', ETHERSCAN_API_KEY='dummy-explorer-value')
@@ -165,7 +166,8 @@ class Safety(unittest.TestCase):
             calls = [json.loads(line) for line in trace.read_text().splitlines()] if trace.exists() else []
             if expected_error:
                 self.assertNotEqual(result.returncode, 0, (script, mode, result.stdout, result.stderr))
-                self.assertIn(expected_error, result.stderr)
+                error_output = result.stdout + result.stderr if mode == 'missing_config' else result.stderr
+                self.assertIn(expected_error, error_output)
                 if mode != 'verification_failure': self.assertEqual(globals_file.read_bytes() if globals_file.exists() else None, before)
             else:
                 self.assertEqual(result.returncode, 0, (script, mode, result.stdout, result.stderr, calls))
@@ -192,6 +194,15 @@ class Safety(unittest.TestCase):
             self.assertEqual(send[index + 1], '[' + ','.join(CONFIG['mechFactoryFixedPrice' + suffixes[p] + 'Address'] for p in selected) + ']')
             self.assertFalse(any('setPaymentTypeBalanceTrackers' in ' '.join(call) for call in calls))
 
+    def test_alchemy_credentials_are_used_for_every_rpc_call(self):
+        for script in SCRIPTS:
+            with self.subTest(script=script):
+                url = 'https://eth-mainnet.g.alchemy.com/v2/'
+                calls = self.run_script(script, 'alchemy_url', changes={'chainId':'1', 'networkURL':url})
+                for call in calls:
+                    if '--rpc-url' in call:
+                        self.assertEqual(call[call.index('--rpc-url') + 1], url + 'dummy-alchemy-value')
+
     def test_diagnostic_output_contains_no_credentials(self):
         self.run_script(next(iter(DEPLOYMENTS)), 'diagnostic_failure', 'Deployment command failed')
 
@@ -205,7 +216,7 @@ def add_case(script, mode, error=None):
     setattr(Safety, 'test_' + script[:-3] + '_' + mode, test)
 
 for script in SCRIPTS:
-    for mode, error in [('success',None), ('missing_config','Configuration not found'),
+    for mode, error in [('success',None), ('missing_config',' is not found'),
                         ('wrong_chain','RPC chain ID does not match'), ('rpc_failure','Cannot read RPC chain'),
                         ('wallet_failure','Cannot read wallet address'), ('no_code','No contract code'),
                         ('receipt_failure','Missing or unsuccessful transaction receipt'),

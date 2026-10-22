@@ -9,96 +9,149 @@ fail() { echo "Error: $*" >&2; exit 1; }
 address() {
   [[ "$1" =~ ^0x[0-9a-fA-F]{40}$ && "$1" != 0x0000000000000000000000000000000000000000 ]] || fail "Invalid address: $2"
   local code
-  code=$(cast code --rpc-url "$networkURL" "$1" 2>/dev/null) || fail "Cannot read contract code: $2"
+  code=$(cast code --rpc-url "$networkURL$API_KEY" "$1" 2>/dev/null) || fail "Cannot read contract code: $2"
   [[ "$code" =~ ^0x[0-9a-fA-F]+$ && "$code" != 0x0 ]] || fail "No contract code: $2"
 }
 check() {
   local actual expected=$3 message=$4
-  actual=$(cast call --rpc-url "$networkURL" "$1" "$2" "${@:5}" 2>/dev/null) || fail "$message (read failed)"
+  actual=$(cast call --rpc-url "$networkURL$API_KEY" "$1" "$2" "${@:5}" 2>/dev/null) || fail "$message (read failed)"
   actual=$(echo "$actual" | tr -d '"' | tr '[:upper:]' '[:lower:]')
   expected=$(echo "$expected" | tr '[:upper:]' '[:lower:]')
   [[ "$actual" == "$expected" ]] || fail "$message"
 }
 
-# Read the selected network configuration; do not log credential-bearing URLs.
-[[ -n "${1:-}" ]] || fail "Usage: $0 <network>"
-scriptDirectory=$(cd "$(dirname "$0")" && pwd)
-globals="$scriptDirectory/globals_$1.json"
-[[ -f "$globals" ]] || fail "Configuration not found"
-for tool in jq cast forge; do command -v "$tool" >/dev/null || fail "Missing dependency: $tool"; done
-jq -e 'type == "object"' "$globals" >/dev/null || fail "Invalid configuration JSON"
+# Check if $1 is provided
+if [ "$#" -ne 1 ] || [ -z "${1:-}" ]; then
+  echo "${red}!!! Usage: $0 <network>${reset}"
+  echo "${red}Example: $0 eth_mainnet${reset}"
+  exit 1
+fi
+
+# Get globals file
+globals="$(cd "$(dirname "$0")" && pwd)/globals_$1.json"
+if [ ! -f "$globals" ]; then
+  echo "${red}!!! $globals is not found${reset}"
+  exit 1
+fi
+
+# Read variables using jq
+contractVerification=$(jq -er '.contractVerification | if type == "boolean" then tostring else error("contractVerification must be boolean") end' "$globals")
+useLedger=$(jq -er '.useLedger | if type == "boolean" then tostring else error("useLedger must be boolean") end' "$globals")
+derivationPath=$(jq -r '.derivationPath' "$globals")
 chainId=$(jq -er '.chainId' "$globals")
 networkURL=$(jq -er '.networkURL' "$globals")
-[[ "$networkURL" == http://* || "$networkURL" == https://* ]] || fail "Invalid networkURL"
-API_KEY=""
-# Complete URLs need no Alchemy key, regardless of chain.
-if [[ "$networkURL" == https://*.g.alchemy.com/v2/ ]]; then
-  case "$chainId" in
-    1) API_KEY=${ALCHEMY_API_KEY_MAINNET:-};;
-    11155111) API_KEY=${ALCHEMY_API_KEY_SEPOLIA:-};;
-    137) API_KEY=${ALCHEMY_API_KEY_MATIC:-};;
-    80002) API_KEY=${ALCHEMY_API_KEY_AMOY:-};;
-  esac
-  [[ -n "$API_KEY" ]] || fail "Supply the Alchemy key or a complete networkURL"
-fi
-networkURL+="$API_KEY"
-rpcChainId=$(cast chain-id --rpc-url "$networkURL" 2>/dev/null) || fail "Cannot read RPC chain ID"
-[[ "$rpcChainId" == "$chainId" ]] || fail "RPC chain ID does not match configuration"
-cd "$scriptDirectory/../.."
 
-[[ $# == 1 ]] || fail "Usage: $0 <network>"
-contractVerification=$(jq -er '.contractVerification | if type == "boolean" then tostring else error("contractVerification must be boolean") end' "$globals")
-if [[ "$contractVerification" == true ]]; then
-  [[ -n "${ETHERSCAN_API_KEY:-}" ]] || fail "Set ETHERSCAN_API_KEY for verification"
+# check if the ETHERSCAN_API_KEY is set
+if [ "$contractVerification" == "true" ] && [ -z "${ETHERSCAN_API_KEY:-}" ]; then
+  echo "${red}!!! Set the ETHERSCAN_API_KEY environment variable${reset}"
+  exit 1
 fi
+
+
+API_KEY=""
+# Check for Alchemy keys on ETH, Polygon mainnets and testnets
+if [ "$chainId" == 1 ] && [[ "$networkURL" == https://*.g.alchemy.com/v2/ ]]; then
+  API_KEY=${ALCHEMY_API_KEY_MAINNET:-}
+  if [ "$API_KEY" == "" ]; then
+      echo "${red}!!! Set ALCHEMY_API_KEY_MAINNET env variable${reset}"
+      exit 1
+  fi
+elif [ "$chainId" == 11155111 ] && [[ "$networkURL" == https://*.g.alchemy.com/v2/ ]]; then
+    API_KEY=${ALCHEMY_API_KEY_SEPOLIA:-}
+    if [ "$API_KEY" == "" ]; then
+        echo "${red}!!! Set ALCHEMY_API_KEY_SEPOLIA env variable${reset}"
+        exit 1
+    fi
+elif [ "$chainId" == 137 ] && [[ "$networkURL" == https://*.g.alchemy.com/v2/ ]]; then
+  API_KEY=${ALCHEMY_API_KEY_MATIC:-}
+  if [ "$API_KEY" == "" ]; then
+      echo "${red}!!! Set ALCHEMY_API_KEY_MATIC env variable${reset}"
+      exit 1
+  fi
+elif [ "$chainId" == 80002 ] && [[ "$networkURL" == https://*.g.alchemy.com/v2/ ]]; then
+    API_KEY=${ALCHEMY_API_KEY_AMOY:-}
+    if [ "$API_KEY" == "" ]; then
+        echo "${red}!!! Set ALCHEMY_API_KEY_AMOY env variable${reset}"
+        exit 1
+    fi
+fi
+
+rpcChainId=$(cast chain-id --rpc-url "$networkURL$API_KEY" 2>/dev/null) || fail "Cannot read RPC chain ID"
+[[ "$rpcChainId" == "$chainId" ]] || fail "RPC chain ID does not match configuration"
+
 mechMarketplaceProxyAddress=$(jq -er '.mechMarketplaceProxyAddress' "$globals")
-address "$mechMarketplaceProxyAddress" mechMarketplaceProxyAddress
-constructorArgs=("$mechMarketplaceProxyAddress")
-constructorType='constructor(address)'
-contractName=MechFactoryFixedPriceToken
+
+contractName="MechFactoryFixedPriceToken"
 contractPath="contracts/mechs/token/$contractName.sol:$contractName"
-encodedConstructor=$(cast abi-encode "$constructorType" "${constructorArgs[@]}" 2>/dev/null) || fail "Cannot encode constructor"
+constructorArgs=("$mechMarketplaceProxyAddress")
+contractArgs=("$contractPath" --constructor-args "${constructorArgs[@]}")
+
+address "$mechMarketplaceProxyAddress" mechMarketplaceProxyAddress
+cd "$(dirname "$globals")/../.."
 forge build --use "${FOUNDRY_SOLC:-0.8.30}" --out out --skip ImportWETH.sol --skip Proposal01FeeActivation >/dev/null 2>&1 || fail "Cannot build current contracts"
-# Select the signer without printing keys, command lines or RPC credentials.
-useLedger=$(jq -er '.useLedger | if type == "boolean" then tostring else error("useLedger must be boolean") end' "$globals")
-if [[ "$useLedger" == true ]]; then
-  derivationPath=$(jq -er '.derivationPath' "$globals")
-  walletArgs=(--ledger --mnemonic-derivation-path "$derivationPath")
+
+# Get deployer based on the ledger flag
+if [ "$useLedger" == "true" ]; then
+  walletArgs=(-l --mnemonic-derivation-path "$derivationPath")
+  deployer=$(cast wallet address "${walletArgs[@]}" 2>/dev/null) || fail "Cannot read wallet address"
 else
   [[ -n "${PRIVATE_KEY:-}" ]] || fail "Set PRIVATE_KEY or useLedger=true"
   walletArgs=(--private-key "$PRIVATE_KEY")
+  deployer=$(cast wallet address "${walletArgs[@]}" 2>/dev/null) || fail "Cannot read wallet address"
 fi
-deployer=$(cast wallet address "${walletArgs[@]}" 2>/dev/null) || fail "Cannot read wallet address"
-[[ "$deployer" =~ ^0x[0-9a-fA-F]{40}$ && "$deployer" != 0x0000000000000000000000000000000000000000 ]] || fail "Invalid wallet address"
-echo "${green}Signer: $deployer; chain: $chainId${reset}"
 
-echo "${green}Deploying $contractName${reset}"
-# A timeout may follow a mined deployment. Stop; inspect wallet transactions before retrying.
-if ! deploymentOutput=$(forge create "$contractPath" --use "${FOUNDRY_SOLC:-0.8.30}" --skip ImportWETH.sol --skip Proposal01FeeActivation --broadcast --json --rpc-url "$networkURL" "${walletArgs[@]}" --constructor-args "${constructorArgs[@]}" 2>/dev/null); then
+# Deployment message
+echo "${green}Deploying from: $deployer${reset}"
+echo "${green}Deployment of: ${contractArgs[*]}${reset}"
+
+# Deploy the contract and capture the address
+execCmd=(forge create --broadcast --json --use "${FOUNDRY_SOLC:-0.8.30}" --skip ImportWETH.sol --skip Proposal01FeeActivation --rpc-url "$networkURL$API_KEY" "${walletArgs[@]}" "${contractArgs[@]}")
+if ! deploymentOutput=$("${execCmd[@]}" 2>/dev/null); then
   transactionHash=$(jq -r '.transactionHash // empty' <<< "$deploymentOutput" 2>/dev/null || true)
   if [[ "$transactionHash" =~ ^0x[0-9a-fA-F]{64}$ ]]; then echo "Inspect transaction: $transactionHash" >&2; fi
   fail "Deployment command failed; inspect wallet transactions before retrying"
 fi
-deployedAddress=$(jq -er '.deployedTo' <<< "$deploymentOutput") || fail "Invalid deployment output"
-[[ "$deployedAddress" =~ ^0x[0-9a-fA-F]{40}$ && "$deployedAddress" != 0x0000000000000000000000000000000000000000 ]] || fail "Invalid address: deployedAddress"
+mechFactoryFixedPriceTokenOLASAddress=$(jq -er '.deployedTo' <<< "$deploymentOutput") || fail "Invalid deployment output"
+
+# Get output length
+outputLength=${#mechFactoryFixedPriceTokenOLASAddress}
+
+# Check for the deployed address
+if [ $outputLength != 42 ]; then
+  echo "${red}!!! The contract was not deployed...${reset}"
+  exit 1
+fi
+
+[[ "$mechFactoryFixedPriceTokenOLASAddress" =~ ^0x[0-9a-fA-F]{40}$ && "$mechFactoryFixedPriceTokenOLASAddress" != 0x0000000000000000000000000000000000000000 ]] || fail "Invalid address: deployedAddress"
 transactionHash=$(jq -er '.transactionHash | select(test("^0x[0-9a-fA-F]{64}$"))' <<< "$deploymentOutput") || fail "Missing deployment transaction hash"
 echo "Deployment transaction: $transactionHash"
-receipt=$(cast receipt --json --rpc-url "$networkURL" "$transactionHash" 2>/dev/null) || fail "Cannot read deployment receipt; inspect the transaction before retrying"
+receipt=$(cast receipt --json --rpc-url "$networkURL$API_KEY" "$transactionHash" 2>/dev/null) || fail "Cannot read deployment receipt; inspect the transaction before retrying"
 jq -e '(.status == "0x1" or .status == 1 or .status == "1") and (.transactionHash | test("^0x[0-9a-fA-F]{64}$"))' <<< "$receipt" >/dev/null || fail "Missing or unsuccessful transaction receipt"
-jq -e --arg tx "$transactionHash" --arg contract "$deployedAddress" '(.transactionHash | ascii_downcase) == ($tx | ascii_downcase) and (.contractAddress | ascii_downcase) == ($contract | ascii_downcase)' <<< "$receipt" >/dev/null || fail "Deployment receipt does not match the transaction and address"
-address "$deployedAddress" deployedAddress
-check "$deployedAddress" 'mechMarketplace()(address)' "$mechMarketplaceProxyAddress" "Wrong factory Marketplace"
-# Save only a confirmed deployment; a later explorer failure must not discard its address.
+jq -e --arg tx "$transactionHash" --arg contract "$mechFactoryFixedPriceTokenOLASAddress" '(.transactionHash | ascii_downcase) == ($tx | ascii_downcase) and (.contractAddress | ascii_downcase) == ($contract | ascii_downcase)' <<< "$receipt" >/dev/null || fail "Deployment receipt does not match the transaction and address"
+address "$mechFactoryFixedPriceTokenOLASAddress" deployedAddress
+check "$mechFactoryFixedPriceTokenOLASAddress" 'mechMarketplace()(address)' "$mechMarketplaceProxyAddress" "Wrong factory Marketplace"
+
+# Write new deployed contract back into JSON
 temporary=$(mktemp "$globals.tmp.XXXXXX")
 trap 'rm -f "$temporary"' EXIT
-jq --arg address "$deployedAddress" '.mechFactoryFixedPriceTokenOLASAddress = $address' "$globals" > "$temporary"
+jq --arg address "$mechFactoryFixedPriceTokenOLASAddress" '. += {"mechFactoryFixedPriceTokenOLASAddress":$address}' "$globals" > "$temporary"
 mv "$temporary" "$globals"
 trap - EXIT
-echo "${green}$contractName deployed at: $deployedAddress${reset}"
-if [[ "$contractVerification" == true ]]; then
-  forge verify-contract --watch --chain "$chainId" --etherscan-api-key "$ETHERSCAN_API_KEY" "$deployedAddress" "$contractPath" --constructor-args "$encodedConstructor" >/dev/null 2>&1 || fail "Explorer verification failed; address is saved. Verify it separately; do not redeploy"
-  blockscoutURL=$(jq -r '.blockscoutURL // empty' "$globals")
-  if [[ -n "$blockscoutURL" ]]; then
-    forge verify-contract --watch --chain "$chainId" --verifier blockscout --verifier-url "${blockscoutURL%/}/api" "$deployedAddress" "$contractPath" --constructor-args "$encodedConstructor" >/dev/null 2>&1 || fail "Blockscout verification failed; address is saved. Verify it separately; do not redeploy"
+
+# Verify contract
+if [ "$contractVerification" == "true" ]; then
+  encodedConstructor=$(cast abi-encode "constructor(address)" "${constructorArgs[@]}" 2>/dev/null) || fail "Cannot encode constructor"
+  contractParams=("$mechFactoryFixedPriceTokenOLASAddress" "$contractPath" --constructor-args "$encodedConstructor")
+  echo "Verification contract params: ${contractParams[*]}"
+
+  echo "${green}Verifying contract on Etherscan...${reset}"
+  forge verify-contract --watch --chain-id "$chainId" --etherscan-api-key "$ETHERSCAN_API_KEY" "${contractParams[@]}" >/dev/null 2>&1 || fail "Explorer verification failed; address is saved. Verify it separately; do not redeploy"
+
+  blockscoutURL=$(jq -r '.blockscoutURL' "$globals")
+  if [ "$blockscoutURL" != "null" ] && [ -n "$blockscoutURL" ]; then
+    echo "${green}Verifying contract on Blockscout...${reset}"
+    forge verify-contract --watch --chain "$chainId" --verifier blockscout --verifier-url "$blockscoutURL/api" "${contractParams[@]}" >/dev/null 2>&1 || fail "Blockscout verification failed; address is saved. Verify it separately; do not redeploy"
   fi
 fi
+
+echo "${green}$contractName deployed at: $mechFactoryFixedPriceTokenOLASAddress${reset}"
