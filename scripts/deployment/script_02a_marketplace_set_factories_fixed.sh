@@ -157,9 +157,13 @@ statusArray=$(IFS=,; echo "[${statuses[*]}]")
 castArgs=("$mechMarketplaceProxyAddress" 'setMechFactoryStatuses(address[],bool[])' "$factoryArray" "$statusArray")
 echo "${castArgs[*]}"
 castCmd=("${castSendHeader[@]}" "${castArgs[@]}")
-result=$("${castCmd[@]}" 2>/dev/null) || fail "Factory registration failed; inspect the transaction before retrying"
-jq -e '(.status == "0x1" or .status == 1 or .status == "1") and (.transactionHash | test("^0x[0-9a-fA-F]{64}$"))' <<< "$result" >/dev/null || fail "Missing or unsuccessful transaction receipt"
-echo "Transaction: $(jq -r .transactionHash <<< "$result")"
+submissionStatus=0
+result=$("${castCmd[@]}" 2>/dev/null) || submissionStatus=$?
+# A failed command or reverted receipt can still identify a broadcast transaction.
+transactionHash=$(jq -r '.transactionHash // empty' <<< "$result" 2>/dev/null || true)
+if [[ "$transactionHash" =~ ^0x[0-9a-fA-F]{64}$ ]]; then echo "Transaction: $transactionHash"; fi
+[[ "$submissionStatus" == 0 ]] || fail "Factory registration failed; inspect the transaction before retrying"
+jq -e '(.status == "0x1" or .status == 1 or .status == "1") and (.transactionHash | test("^0x[0-9a-fA-F]{64}$"))' <<< "$result" >/dev/null 2>&1 || fail "Missing or unsuccessful transaction receipt"
 for ((i=0; i<${#factories[@]}; i++)); do
   check "$mechMarketplaceProxyAddress" 'mapMechFactories(address)(bool)' true "Factory registration readback failed" "${factories[i]}"
   check "$mechMarketplaceProxyAddress" 'mapPaymentTypeBalanceTrackers(bytes32)(address)' "${trackers[i]}" "Tracker mapping changed" "${paymentTypes[i]}"

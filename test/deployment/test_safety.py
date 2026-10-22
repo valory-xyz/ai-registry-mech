@@ -19,6 +19,7 @@ DEPLOYMENTS = {
 }
 UPGRADE = 'script_06_change_implementaion_mech_marketplace_proxy.sh'
 REGISTER = 'script_02a_marketplace_set_factories_fixed.sh'
+CHECKER = 'check_marketplace_implementation.py'
 SCRIPTS = [*DEPLOYMENTS, UPGRADE, REGISTER]
 SENDER, DEPLOYED, OTHER = ['0x' + c * 40 for c in ['1', 'a', 'c']]
 HASH = '0x' + 'b' * 64
@@ -46,6 +47,9 @@ names = ['MechFactoryFixedPriceNative', 'MechFactoryFixedPriceToken', 'MechFacto
 types = ['FixedPriceNative', 'FixedPriceToken', 'FixedPriceTokenUSDC']
 def payment(i): return '0x' + f'{i + 1:064x}'
 def code(i, proxy=None): return '0x60' + f'{i + 1:02x}' + '7f' + (proxy or config['mechMarketplaceProxyAddress'])[2:].zfill(64) + '00'
+def implementation_code(blank=False):
+    values = [config['serviceRegistryAddress'], config['karmaProxyAddress'], hex(int(config['chainId']))]
+    return '0x60' + ''.join('7f' + ('0'*64 if blank else value[2:].zfill(64)) + '50' for value in values) + '00'
 def emit(value):
     print(json.dumps(value) if isinstance(value, dict) else value)
     sys.exit(0)
@@ -61,6 +65,14 @@ if name == 'forge':
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({'deployedBytecode': {'object': code(i, '0x' + '0'*40),
                 'immutableReferences': {'1': [{'start': 3, 'length': 32}]}, 'linkReferences': {}}}))
+        path = pathlib.Path('out/MechMarketplace.sol/MechMarketplace.json')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        artifact = {'deployedBytecode': {'object': implementation_code(True), 'linkReferences': {},
+            'immutableReferences': {str(i + 11): [{'start': 2 + 34*i, 'length': 32}] for i in range(3)}}}
+        if mode == 'missing_immutables': del artifact['deployedBytecode']['immutableReferences']
+        if mode == 'invalid_immutable_slot': artifact['deployedBytecode']['immutableReferences']['11'][0]['start'] = 99999
+        if mode == 'linked_implementation': artifact['deployedBytecode']['linkReferences'] = {'Unexpected.sol': {'Library': []}}
+        path.write_text('not JSON' if mode == 'malformed_artifact' else json.dumps(artifact))
         sys.exit(0)
     if args[0] == 'verify-contract': sys.exit(7 if mode == 'verification_failure' else 0)
     if mode == 'bad_json': emit('not JSON')
@@ -87,10 +99,15 @@ if method == 'code':
         if address == config.get('mechFactoryFixedPrice' + suffix + 'Address'):
             actual = code((i + 1) % 3 if mode == 'wrong_factory_type' else i)
             emit(actual[:-2] + '5b' if mode in ['old_factory','optimized_old_factory'] else actual)
+    if address in [deployed, config['mechMarketplaceAddress']]:
+        actual = implementation_code()
+        emit(actual[:-2] + '5b' if mode == 'wrong_implementation_code' else actual)
     emit('0x6000')
 if method == 'send':
     if mode == 'command_failure': sys.exit(7)
     if mode == 'bad_json': emit('not JSON')
+    if mode == 'missing_hash_failure': emit(dict(status='0x0'))
+    if mode == 'invalid_hash_failure': emit(dict(status='0x0', transactionHash='invalid-transaction-hash'))
     signature = 'changeImplementation(address)' if os.environ['SCRIPT'] == 'upgrade' else 'setMechFactoryStatuses(address[],bool[])'
     index = args.index(signature)
     if args[index - 1] == config['mechMarketplaceProxyAddress'] and mode not in ['receipt_failure', 'no_state_change']:
@@ -103,12 +120,18 @@ if method == 'send':
             flags = args[index + 2].strip('[]').split(',')
             state['factories'].update(dict(zip(factories, flags)))
         state_path.write_text(json.dumps(state))
+    if mode in ['command_failure_with_hash', 'diagnostic_failure']:
+        print(json.dumps(receipt()))
+        if mode == 'diagnostic_failure':
+            print(os.environ['PRIVATE_KEY'] + ' ' + config['networkURL'] + ' ' + os.environ['ETHERSCAN_API_KEY'], file=sys.stderr)
+        sys.exit(7)
     emit(receipt())
 if method == 'call':
     if mode == 'read_failure': sys.exit(7)
     address, signature = args[3:5]
     proxy = address == config['mechMarketplaceProxyAddress']
     if signature == 'VERSION()(string)': emit('"' + (state['version'] if proxy else '1.2.0') + '"')
+    if signature == 'chainId()(uint256)': emit('999' if mode == 'wrong_implementation_chain' else config['chainId'])
     if signature == 'owner()(address)': emit(other if mode == 'wrong_owner' else state['owner'])
     if signature == 'getImplementation()(address)': emit(state['implementation'])
     if signature == 'getDomainSeparator()(bytes32)': emit(state['domain'])
@@ -127,12 +150,14 @@ sys.exit(99)
 
 
 class Safety(unittest.TestCase):
-    def run_script(self, script, mode='success', expected_error=None, selected=None, changes=None):
+    def run_script(self, script, mode='success', expected_error=None, selected=None, changes=None, hash_visible=None):
         with tempfile.TemporaryDirectory(prefix='deployment safety ') as temporary:
             case = Path(temporary)
             deployment = case / 'scripts/deployment'
             deployment.mkdir(parents=True)
             shutil.copyfile(ROOT / 'scripts/deployment' / script, deployment / script)
+            if script != CHECKER:
+                shutil.copyfile(ROOT / 'scripts/deployment' / CHECKER, deployment / CHECKER)
             config = dict(CONFIG, **(changes or {}))
             if mode == 'diagnostic_failure': config['networkURL'] = 'http://user:password@127.0.0.1:1/?key=dummy-url-secret'
             globals_file = deployment / 'globals_test.json'
@@ -157,10 +182,16 @@ class Safety(unittest.TestCase):
                        STATE=str(state), TRACE=str(case / 'trace'), SCRIPT='upgrade' if script == UPGRADE else 'registration')
             if mode == 'alchemy_url': env['ALCHEMY_API_KEY_MAINNET'] = 'dummy-alchemy-value'
             if mode == 'optimized_old_factory': env['PYTHONOPTIMIZE'] = '1'
+            if mode == 'optimized_wrong_implementation': env['PYTHONOPTIMIZE'] = '1'; env['MODE'] = 'wrong_implementation_code'
             if mode == 'verification_failure': env['ETHERSCAN_API_KEY'] = 'dummy-explorer-value'
             if mode == 'diagnostic_failure': env.update(PRIVATE_KEY='dummy-private-value', ETHERSCAN_API_KEY='dummy-explorer-value')
             args = selected if selected is not None else (['native','olas','usdc'] if script == REGISTER else [])
-            result = subprocess.run(['bash', str(deployment / script), 'test', *args], env=env, cwd='/',
+            command = ['bash', str(deployment / script), 'test', *args]
+            if script == CHECKER:
+                env['MARKETPLACE_RPC_URL'] = config['networkURL']
+                command = [sys.executable, str(deployment / script), '--implementation', config['mechMarketplaceAddress'],
+                           '--proxy', config['mechMarketplaceProxyAddress'], '--chain-id', config['chainId']]
+            result = subprocess.run(command, env=env, cwd='/',
                                     capture_output=True, text=True, timeout=15)
             trace = case / 'trace'
             calls = [json.loads(line) for line in trace.read_text().splitlines()] if trace.exists() else []
@@ -180,7 +211,13 @@ class Safety(unittest.TestCase):
             if mode == 'diagnostic_failure':
                 for secret in ['dummy-private-value','dummy-explorer-value','dummy-url-secret','user:password']:
                     self.assertNotIn(secret, result.stdout + result.stderr)
-                self.assertIn(HASH, result.stderr)
+                self.assertIn(HASH, result.stdout + result.stderr)
+            if hash_visible is not None:
+                self.assertEqual('Transaction: ' + HASH in result.stdout, hash_visible)
+                if not hash_visible: self.assertNotIn('Transaction:', result.stdout)
+            if script == CHECKER or (expected_error and mode in ['wrong_implementation_code', 'optimized_wrong_implementation',
+                    'wrong_implementation_chain', 'missing_immutables', 'invalid_immutable_slot', 'linked_implementation', 'malformed_artifact']):
+                self.assertFalse(any(call[:2] == ['cast', 'send'] for call in calls))
             return calls
 
     def test_payment_selection_does_not_require_unselected_addresses(self):
@@ -210,6 +247,29 @@ class Safety(unittest.TestCase):
         for script in DEPLOYMENTS:
             self.run_script(script, 'verification_failure', 'Explorer verification failed', changes={'contractVerification':True})
 
+    def test_governance_check_needs_no_signing_wallet(self):
+        calls = self.run_script(CHECKER)
+        self.assertFalse(any(call[:2] in [['cast', 'wallet'], ['forge', 'create'], ['cast', 'send']] for call in calls))
+
+    def test_governance_check_matches_proxy_dependencies(self):
+        self.run_script(CHECKER, 'wrong_serviceRegistryAddress', 'Wrong implementation service registry')
+        self.run_script(CHECKER, 'wrong_karmaProxyAddress', 'Wrong implementation Karma contract')
+
+    def test_send_hash_is_visible_on_failure_without_retrying(self):
+        for script in [UPGRADE, REGISTER]:
+            command_error = 'Upgrade submission failed' if script == UPGRADE else 'Factory registration failed'
+            for mode, error, visible in [
+                    ('command_failure_with_hash', command_error, True),
+                    ('diagnostic_failure', command_error, True),
+                    ('receipt_failure', 'Missing or unsuccessful transaction receipt', True),
+                    ('command_failure', command_error, False),
+                    ('bad_json', 'Missing or unsuccessful transaction receipt', False),
+                    ('missing_hash_failure', 'Missing or unsuccessful transaction receipt', False),
+                    ('invalid_hash_failure', 'Missing or unsuccessful transaction receipt', False)]:
+                with self.subTest(script=script, mode=mode):
+                    calls = self.run_script(script, mode, error, hash_visible=visible)
+                    self.assertEqual(sum(call[:2] == ['cast', 'send'] for call in calls), 1)
+
 
 def add_case(script, mode, error=None):
     def test(self): self.run_script(script, mode, error)
@@ -238,5 +298,14 @@ for mode, error in [('old_proxy','Upgrade the Marketplace proxy'), ('wrong_bindi
                     ('no_state_change','Factory registration readback failed'), ('read_failure','before registration (read failed)'),
                     ('wrong_owner','Signer is not Marketplace owner')]:
     add_case(REGISTER, mode, error)
+for script in ['deploy_03_mech_marketplace.sh', UPGRADE, CHECKER]:
+    for mode, error in [('wrong_implementation_code', 'Implementation does not match the current build'),
+                        ('optimized_wrong_implementation', 'Implementation does not match the current build'),
+                        ('wrong_implementation_chain', 'Wrong implementation chain ID'),
+                        ('missing_immutables', 'Cannot validate implementation artifact or tools'),
+                        ('invalid_immutable_slot', 'Invalid implementation immutable slot'),
+                        ('linked_implementation', 'Unexpected implementation library links'),
+                        ('malformed_artifact', 'Error:')]:
+        add_case(script, mode, error)
 
 if __name__ == '__main__': unittest.main()

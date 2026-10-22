@@ -134,6 +134,9 @@ address "$mechMarketplaceAddress" deployedAddress
 check "$mechMarketplaceAddress" 'VERSION()(string)' 1.2.0 "Wrong Marketplace version"
 check "$mechMarketplaceAddress" 'serviceRegistry()(address)' "$serviceRegistryAddress" "Wrong service registry"
 check "$mechMarketplaceAddress" 'karma()(address)' "$karmaProxyAddress" "Wrong Karma contract"
+MARKETPLACE_RPC_URL="$networkURL$API_KEY" python3 scripts/deployment/check_marketplace_implementation.py \
+  --implementation "$mechMarketplaceAddress" --chain-id "$chainId" \
+  --registry "$serviceRegistryAddress" --karma "$karmaProxyAddress"
 
 # Write new deployed contract back into JSON
 temporary=$(mktemp "$globals.tmp.XXXXXX")

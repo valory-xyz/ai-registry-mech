@@ -44,15 +44,16 @@ The deployment signer deploys the
 implementation and factories; governance executes the proxy upgrade and factory registration.
 
 1. Deploy the new implementation with `deploy_03_mech_marketplace.sh <network>`. The script checks
-   its receipt, code, version, registry and Karma before saving the address.
+   its receipt, runtime bytecode against the current build, version, registry, Karma and constructor
+   chain ID before saving the address.
 2. Deploy a new factory for each approved payment type using `deploy_05_mech_factory_fixed_price_native.sh`,
    `deploy_07a_mech_factory_fixed_price_token_olas.sh` and/or `deploy_07b_mech_factory_fixed_price_token_usdc.sh`,
    each with `<network>`. Factories embed mech bytecode, so upgrading Marketplace alone does not
    update the mechs they create. Existing deployed mechs are unchanged.
 3. Use the network's governance procedure to execute `changeImplementation(newImplementation)`
-   on the existing proxy. Before execution, check implementation version `1.2.0` and matching registry
-   and Karma dependencies. After execution, confirm the implementation, version, retained governance
-   owner and retained legacy domain separator before continuing.
+   on the existing proxy. Before execution, run the read-only implementation check below against
+   the exact address in the proposal. After execution, confirm the implementation, version, retained governance
+   owner and retained legacy domain separator. Run the explicit-nonce domain check below before continuing.
 4. Use governance to execute `setMechFactoryStatuses(selectedFactories, statuses)` on the proxy,
    enabling only the approved new factory types. Before execution, verify current factory bytecode,
    proxy/asset bindings and existing tracker mappings. Missing mappings require a separately reviewed
@@ -65,6 +66,31 @@ For every governance operation, verify the chain, existing proxy target, zero va
 successful execution and the state readbacks above. Governance calldata preparation, proposal submission
 and execution use the network's established process; no governance automation is provided here.
 Retiring old factories is a separate governance decision.
+
+From the reviewed checkout, run this check before submitting the proposal and again before execution:
+
+```sh
+MARKETPLACE_RPC_URL='<target network RPC URL>' python3 scripts/deployment/check_marketplace_implementation.py \
+  --implementation '<implementation address in the proposal>' \
+  --proxy '<existing Marketplace proxy address>' --chain-id '<target chain ID>'
+```
+
+This command builds the current source, compares implementation runtime bytecode outside compiler-listed
+immutable slots, and checks version `1.2.0`, registry and Karma against the proxy, and constructor chain ID
+against the target network. It requires no wallet and sends no transactions. A mismatch stops the check.
+The deployment and direct-owner upgrade scripts use the same checker.
+
+After the governance upgrade, check the new explicit-nonce domain on the existing proxy:
+
+```sh
+MARKETPLACE_RPC_URL='<target network RPC URL>' node scripts/deployment/check_marketplace_domain.js \
+  '<existing Marketplace proxy address>' '<target chain ID>'
+```
+
+This read-only command compares `getDomainSeparatorWithNonce()` with ethers' standard EIP-712 domain
+hash for name `MechMarketplace`, signing version `2`, the target chain ID and the existing proxy address.
+It checks the RPC chain ID and requires no signing wallet. Stop the rollout if the command fails.
+This is a separate check from preserving the legacy domain separator.
 
 `script_06_change_implementaion_mech_marketplace_proxy.sh` and
 `script_02a_marketplace_set_factories_fixed.sh <network> native olas` (example selection) are direct-owner

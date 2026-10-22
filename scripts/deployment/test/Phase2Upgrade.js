@@ -42,7 +42,8 @@ async function main() {
         fs.mkdirSync(deployment, {recursive: true});
         for (const name of ["deploy_03_mech_marketplace.sh", "deploy_05_mech_factory_fixed_price_native.sh",
             "deploy_07a_mech_factory_fixed_price_token_olas.sh", "deploy_07b_mech_factory_fixed_price_token_usdc.sh",
-            "script_06_change_implementaion_mech_marketplace_proxy.sh", "script_02a_marketplace_set_factories_fixed.sh"])
+            "script_06_change_implementaion_mech_marketplace_proxy.sh", "script_02a_marketplace_set_factories_fixed.sh",
+            "check_marketplace_implementation.py", "check_marketplace_domain.js"])
             fs.copyFileSync(path.join(root, "scripts/deployment", name), path.join(deployment, name));
         for (const name of ["contracts", "lib", "node_modules", "test", "foundry.toml"])
             fs.symlinkSync(path.join(root, name), path.join(temporary, name));
@@ -116,6 +117,29 @@ async function main() {
         await run("deploy_03_mech_marketplace.sh");
         const implementation = await contract("MechMarketplace", config.mechMarketplaceAddress);
         check("implementation deployment saves verified version 1.2.0", await implementation.VERSION() === "1.2.0");
+        const checkImplementation = () => execute("python3", [path.join(deployment, "check_marketplace_implementation.py"),
+            "--implementation", implementation.address, "--proxy", proxy.address, "--chain-id", "31337"],
+        {env: {...cleanEnv, MARKETPLACE_RPC_URL: config.networkURL}, cwd: temporary, timeout: 180000});
+        const beforeCheck = await owner.getTransactionCount("latest");
+        await checkImplementation();
+        check("governance implementation check works without a signing key or transaction",
+            await owner.getTransactionCount("latest") === beforeCheck);
+        // Extra unreachable code keeps all getters unchanged but is a different build.
+        const reviewedCode = await provider.getCode(implementation.address);
+        await provider.send("anvil_setCode", [implementation.address, reviewedCode + "00"]);
+        try {
+            check("different runtime can retain the same version and constructor getters",
+                await implementation.VERSION() === "1.2.0" && await implementation.serviceRegistry() === registry.address &&
+                await implementation.karma() === karma.address && (await implementation.chainId()).eq(31337));
+            let error;
+            try { await checkImplementation(); } catch (caught) { error = caught; }
+            check("governance check rejects different code with identical getters",
+                error && error.stderr.includes("Implementation does not match the current build"));
+            await reject("upgrade rejects different code before sending", "script_06_change_implementaion_mech_marketplace_proxy.sh",
+                [], "Implementation does not match the current build");
+        } finally {
+            await provider.send("anvil_setCode", [implementation.address, reviewedCode]);
+        }
         for (const dependency of ["registry", "karma"]) {
             const wrong = await deploy("MechMarketplace", dependency === "registry" ? assets[0].address : registry.address,
                 dependency === "karma" ? assets[0].address : karma.address);
@@ -131,6 +155,30 @@ async function main() {
             (await marketplace.minResponseTimeout()).eq(10) && (await marketplace.maxResponseTimeout()).eq(20));
         const domain = {name: "MechMarketplace", version: "2", chainId: 31337, verifyingContract: proxy.address};
         check("new explicit-nonce domain matches the standard encoder", await marketplace.getDomainSeparatorWithNonce() === ethers.utils._TypedDataEncoder.hashDomain(domain));
+        const checkDomain = (chainId = "31337", address = proxy.address) => execute(process.execPath,
+            [path.join(deployment, "check_marketplace_domain.js"), address, chainId],
+            {env: {...cleanEnv, MARKETPLACE_RPC_URL: config.networkURL}, cwd: temporary, timeout: 15000});
+        const beforeDomainCheck = await owner.getTransactionCount("latest");
+        await checkDomain();
+        check("post-upgrade domain command works without a signing key or transaction",
+            await owner.getTransactionCount("latest") === beforeDomainCheck);
+        let domainError;
+        try { await checkDomain("1"); } catch (error) { domainError = error; }
+        check("domain command rejects the wrong RPC chain", domainError && domainError.stderr.includes("RPC chain ID does not match"));
+        domainError = undefined;
+        try { await checkDomain("31337", requester.address); } catch (error) { domainError = error; }
+        check("domain command rejects an unreadable target", domainError && domainError.stderr.includes("Cannot read the explicit-nonce domain"));
+        const proxyCode = await provider.getCode(proxy.address);
+        const wrongDomain = ethers.utils._TypedDataEncoder.hashDomain({...domain, version: "1.1.0"});
+        try {
+            // Local-only replacement returns a valid bytes32 with the wrong signing version.
+            await provider.send("anvil_setCode", [proxy.address, "0x7f" + wrongDomain.slice(2) + "60005260206000f3"]);
+            domainError = undefined;
+            try { await checkDomain(); } catch (error) { domainError = error; }
+            check("domain command rejects an incorrect signing domain", domainError && domainError.stderr.includes("does not match the expected EIP-712 domain"));
+        } finally {
+            await provider.send("anvil_setCode", [proxy.address, proxyCode]);
+        }
         await run("deploy_05_mech_factory_fixed_price_native.sh");
         await run("deploy_07a_mech_factory_fixed_price_token_olas.sh");
         await run("deploy_07b_mech_factory_fixed_price_token_usdc.sh");

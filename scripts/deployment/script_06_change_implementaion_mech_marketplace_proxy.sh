@@ -78,6 +78,8 @@ for getter in 'serviceRegistry()(address)' 'karma()(address)'; do
   expected=$(cast call --rpc-url "$networkURL$API_KEY" "$mechMarketplaceProxyAddress" "$getter" 2>/dev/null) || fail "Cannot read existing dependency"
   check "$mechMarketplaceAddress" "$getter" "$expected" "Implementation dependencies differ from the proxy"
 done
+MARKETPLACE_RPC_URL="$networkURL$API_KEY" python3 "$(dirname "$globals")/check_marketplace_implementation.py" \
+  --implementation "$mechMarketplaceAddress" --chain-id "$chainId" --proxy "$mechMarketplaceProxyAddress"
 owner=$(cast call --rpc-url "$networkURL$API_KEY" "$mechMarketplaceProxyAddress" 'owner()(address)' 2>/dev/null) || fail "Cannot read proxy owner"
 domainSeparator=$(cast call --rpc-url "$networkURL$API_KEY" "$mechMarketplaceProxyAddress" 'getDomainSeparator()(bytes32)' 2>/dev/null) || fail "Cannot read legacy domain"
 
@@ -101,9 +103,13 @@ castSendHeader=(cast send --json --rpc-url "$networkURL$API_KEY" "${walletArgs[@
 castArgs=("$mechMarketplaceProxyAddress" 'changeImplementation(address)' "$mechMarketplaceAddress")
 echo "${castArgs[*]}"
 castCmd=("${castSendHeader[@]}" "${castArgs[@]}")
-result=$("${castCmd[@]}" 2>/dev/null) || fail "Upgrade submission failed; inspect the transaction before retrying"
-jq -e '(.status == "0x1" or .status == 1 or .status == "1") and (.transactionHash | test("^0x[0-9a-fA-F]{64}$"))' <<< "$result" >/dev/null || fail "Missing or unsuccessful transaction receipt"
-echo "Transaction: $(jq -r .transactionHash <<< "$result")"
+submissionStatus=0
+result=$("${castCmd[@]}" 2>/dev/null) || submissionStatus=$?
+# A failed command or reverted receipt can still identify a broadcast transaction.
+transactionHash=$(jq -r '.transactionHash // empty' <<< "$result" 2>/dev/null || true)
+if [[ "$transactionHash" =~ ^0x[0-9a-fA-F]{64}$ ]]; then echo "Transaction: $transactionHash"; fi
+[[ "$submissionStatus" == 0 ]] || fail "Upgrade submission failed; inspect the transaction before retrying"
+jq -e '(.status == "0x1" or .status == 1 or .status == "1") and (.transactionHash | test("^0x[0-9a-fA-F]{64}$"))' <<< "$result" >/dev/null 2>&1 || fail "Missing or unsuccessful transaction receipt"
 check "$mechMarketplaceProxyAddress" 'getImplementation()(address)' "$mechMarketplaceAddress" "Implementation readback failed"
 check "$mechMarketplaceProxyAddress" 'VERSION()(string)' 1.2.0 "Version readback failed"
 check "$mechMarketplaceProxyAddress" 'owner()(address)' "$owner" "Owner changed during upgrade"
