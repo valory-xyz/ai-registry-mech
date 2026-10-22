@@ -21,14 +21,13 @@ check() {
 }
 
 # Read the selected network configuration; do not log credential-bearing URLs.
-[[ "${1:-}" =~ ^[a-zA-Z0-9_-]+$ ]] || fail "Usage: $0 <network>"
+[[ -n "${1:-}" ]] || fail "Usage: $0 <network>"
 scriptDirectory=$(cd "$(dirname "$0")" && pwd)
 globals="$scriptDirectory/globals_$1.json"
 [[ -f "$globals" ]] || fail "Configuration not found"
 for tool in jq cast forge; do command -v "$tool" >/dev/null || fail "Missing dependency: $tool"; done
 jq -e 'type == "object"' "$globals" >/dev/null || fail "Invalid configuration JSON"
 chainId=$(jq -er '.chainId' "$globals")
-[[ "$chainId" =~ ^[1-9][0-9]*$ ]] || fail "Invalid chainId"
 networkURL=$(jq -er '.networkURL' "$globals")
 [[ "$networkURL" == http://* || "$networkURL" == https://* ]] || fail "Invalid networkURL"
 API_KEY=""
